@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    paths:
+      - 'ports/**'
+  pull_request:
+    paths:
+      - 'ports/**'
+
+jobs:
+  # 检测哪些目录的文件有变化，截取出 ports/<name>/<version> 这一级
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find changed port versions
+        id: set-matrix
+        run: |
+          BASE=${{ github.event.before }}
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE=${{ github.event.pull_request.base.sha }}
+          fi
+
+          dirs=$(git diff --name-only "$BASE" HEAD \
+                 | grep '^ports/' \
+                 | sed -E 's|^(ports/[^/]+/[^/]+)/.*|\1|' \
+                 | sort -u \
+                 | jq -R -s -c 'split("\n")[:-1]')
+
+          echo "matrix=$dirs" >> $GITHUB_OUTPUT
+
+  # 对于发生变化的目录，进去执行里面的 build.sh 和 publish.sh
+  build-and-publish:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.matrix != '[]'
+    strategy:
+      matrix:
+        dir: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+      fail-fast: false
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: ghcr.io/hqzing/docker-mini-openharmony:latest
+      volumes:
+        - /tmp/node20:/__e/node20:rw,rshared
+    steps:
+      # 预置 Node.js。这版 Node.js 仅供 actions/checkout 使用，不会对构建业务产生干扰。
+      - name: Setup node for actions
+        run: |
+          curl -L -O https://github.com/hqzing/ohos-node/releases/download/v24.2.0/node-v24.2.0-openharmony-arm64.tar.gz
+          mkdir /__e/node20/bin
+          tar -zxf node-v24.2.0-openharmony-arm64.tar.gz
+          cp node-v24.2.0-openharmony-arm64/bin/node /__e/node20/bin/node
+          rm -rf node-v24.2.0-openharmony-arm64*
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          cd "${{ matrix.dir }}"
+          ./build.sh
+
+      # 只有直接 push 或 PR 被合入时才会进行发布
+      - name: Publish
+        if: github.event_name == 'push'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+          cd "${{ matrix.dir }}"
+          ./publish.sh
