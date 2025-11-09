@@ -1,0 +1,92 @@
+diff --git a/binding.gyp b/binding.gyp
+index a8fccd0..2962c01 100644
+--- a/binding.gyp
++++ b/binding.gyp
+@@ -52,7 +52,7 @@
+         "src/node_sqlite3.cc",
+         "src/statement.cc"
+       ],
+-      "defines": [ "NAPI_VERSION=<(napi_build_version)", "NAPI_DISABLE_CPP_EXCEPTIONS=1" ]
++      "defines": [ "NAPI_VERSION=6", "NAPI_DISABLE_CPP_EXCEPTIONS=1" ]
+     }
+   ]
+ }
+diff --git a/lib/sqlite3-binding.js b/lib/sqlite3-binding.js
+index 98d1b91..0fa4ad2 100644
+--- a/lib/sqlite3-binding.js
++++ b/lib/sqlite3-binding.js
+@@ -1 +1 @@
+-module.exports = require('bindings')('node_sqlite3.node');
++module.exports = require('node-gyp-build')(__dirname + "/../")
+diff --git a/package.json b/package.json
+index ab413ff..c7fb88d 100644
+--- a/package.json
++++ b/package.json
+@@ -1,18 +1,12 @@
+ {
+-  "name": "sqlite3",
++  "name": "@ohos-npm-ports/sqlite3",
+   "description": "Asynchronous, non-blocking SQLite3 bindings",
+-  "version": "5.1.7",
++  "version": "5.1.7-5",
+   "homepage": "https://github.com/TryGhost/node-sqlite3",
+   "author": {
+     "name": "Mapbox",
+     "url": "https://mapbox.com/"
+   },
+-  "binary": {
+-    "napi_versions": [
+-      3,
+-      6
+-    ]
+-  },
+   "contributors": [
+     "Daniel Lockyer <hi@daniellockyer.com>",
+     "Konstantin Käfer <mail@kkaefer.com>",
+@@ -37,25 +31,25 @@
+     "deps/",
+     "lib/*.js",
+     "lib/*.d.ts",
+-    "src/"
++    "src/",
++    "prebuilds/"
+   ],
+   "repository": {
+     "type": "git",
+-    "url": "https://github.com/TryGhost/node-sqlite3.git"
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git"
+   },
+   "dependencies": {
+-    "bindings": "^1.5.0",
+     "node-addon-api": "^7.0.0",
+-    "prebuild-install": "^7.1.1",
++    "node-gyp-build": "^4.8.4",
+     "tar": "^6.1.11"
+   },
+   "devDependencies": {
+     "eslint": "8.56.0",
+     "mocha": "10.2.0",
+-    "prebuild": "12.1.0"
++    "prebuildify": "6.0.1"
+   },
+   "peerDependencies": {
+-    "node-gyp": "8.x"
++    "node-gyp": "11.4.2"
+   },
+   "peerDependenciesMeta": {
+     "node-gyp": {
+@@ -63,11 +57,11 @@
+     }
+   },
+   "optionalDependencies": {
+-    "node-gyp": "8.x"
++    "node-gyp": "11.4.2"
+   },
+   "scripts": {
+-    "install": "prebuild-install -r napi || node-gyp rebuild",
+-    "prebuild": "prebuild --runtime napi --all --verbose",
++    "install": "node-gyp-build",
++    "prebuild": "prebuildify --napi",
+     "rebuild": "node-gyp rebuild",
+     "upload": "prebuild --verbose --prerelease",
+     "test": "node test/support/createdb.js && mocha -R spec --timeout 480000"
