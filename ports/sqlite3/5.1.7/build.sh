@@ -6,7 +6,7 @@ source ../../../setup-tools.sh
 source ../../../setup-env.sh
 
 # 准备源码
-curl -L https://github.com/TryGhost/node-sqlite3/archive/refs/tags/v5.1.7.tar.gz -o node-sqlite3-5.1.7.tar.gz
+curl -fsSL https://github.com/TryGhost/node-sqlite3/archive/refs/tags/v5.1.7.tar.gz -o node-sqlite3-5.1.7.tar.gz
 tar -zxf node-sqlite3-5.1.7.tar.gz
 cd node-sqlite3-5.1.7
 patch -p1 < ../patchs/0001-change-prebuild-framework.patch
@@ -23,7 +23,7 @@ base_url="https://github.com/TryGhost/node-sqlite3/releases/download/v5.1.7"
 platforms="darwin-arm64 darwin-x64 linux-arm64 linux-x64 linuxmusl-arm64 linuxmusl-x64 win32-ia32 win32-x64"
 for platform in ${platforms}; do
     asset_name=sqlite3-v5.1.7-napi-v6-${platform}
-    curl -L ${base_url}/${asset_name}.tar.gz -o ${asset_name}.tar.gz
+    curl -fsSL ${base_url}/${asset_name}.tar.gz -o ${asset_name}.tar.gz
     mkdir ${asset_name}
     tar -zxf ${asset_name}.tar.gz -C ${asset_name}
     mkdir ./prebuilds/${platform}

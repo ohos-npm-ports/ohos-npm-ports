@@ -1,8 +1,6 @@
 #!/bin/sh
-export PATH=$PATH:/opt/node-v24.2.0-openharmony-arm64/bin # node、npm 在这里面
-export PATH=$PATH:/opt/python/bin                         # python 在这里面
-export PATH=$PATH:/opt/ohos-sdk/ohos/native/llvm/bin      # clang、clang++ 等在这里面
-export PATH=$PATH:/opt/ohos-sdk/ohos/toolchains/lib       # binary-sign-tool 在这里面
+
+# 虽然多数变量并非强依赖，但全量声明可规避不同工程下的工具链隐患，故采取冗余配置以换取更广泛的场景适用性
 export AS=llvm-as
 export CC=clang
 export CXX=clang++

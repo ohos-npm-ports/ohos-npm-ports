@@ -6,7 +6,7 @@ source ../../../setup-tools.sh
 source ../../../setup-env.sh
 
 # 准备源码
-curl -L https://github.com/websockets/bufferutil/archive/refs/tags/v4.0.9.tar.gz -o bufferutil-4.0.9.tar.gz
+curl -fsSL https://github.com/websockets/bufferutil/archive/refs/tags/v4.0.9.tar.gz -o bufferutil-4.0.9.tar.gz
 tar -zxf bufferutil-4.0.9.tar.gz
 cd bufferutil-4.0.9
 patch -p1 < ../patchs/0001-update-package-json.patch
@@ -20,7 +20,7 @@ binary-sign-tool sign -inFile prebuilds/openharmony-arm64/@ohos-npm-ports+buffer
 
 # 把其他平台的预构建产物复制到包里面一起发布
 cd ..
-curl -L https://registry.npmjs.org/bufferutil/-/bufferutil-4.0.9.tgz -o bufferutil-4.0.9.tgz
+curl -fsSL https://registry.npmjs.org/bufferutil/-/bufferutil-4.0.9.tgz -o bufferutil-4.0.9.tgz
 tar -zxf bufferutil-4.0.9.tgz
 rm bufferutil-4.0.9.tgz
 cp -r package/prebuilds/* bufferutil-4.0.9/prebuilds/

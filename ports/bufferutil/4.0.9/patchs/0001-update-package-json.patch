@@ -7,7 +7,7 @@ index 0d77b90..232fc6e 100644
 -  "name": "bufferutil",
 -  "version": "4.0.9",
 +  "name": "@ohos-npm-ports/bufferutil",
-+  "version": "4.0.9-4",
++  "version": "4.0.9-5",
    "description": "WebSocket buffer utils",
    "main": "index.js",
    "engines": {

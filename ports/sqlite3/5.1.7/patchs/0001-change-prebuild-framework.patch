@@ -28,7 +28,7 @@ index ab413ff..c7fb88d 100644
 +  "name": "@ohos-npm-ports/sqlite3",
    "description": "Asynchronous, non-blocking SQLite3 bindings",
 -  "version": "5.1.7",
-+  "version": "5.1.7-5",
++  "version": "5.1.7-6",
    "homepage": "https://github.com/TryGhost/node-sqlite3",
    "author": {
      "name": "Mapbox",
