@@ -39,7 +39,7 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 
 如果你的项目间接依赖了它，请使用 overrides 字段去进行依赖覆盖，将其替换成 `@ohos-npm-ports/sqlite3`
 
-```json
+```json5
 {
   "dependencies": {
     "sqlite-tool": "^0.1.0" // sqlite-tool 依赖 sqlite3，因此这个项目会间接依赖 sqlite3
