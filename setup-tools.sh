@@ -9,4 +9,4 @@ zsh -c "$(curl -fsSL https://harmonybrew.atomgit.com/install.sh)"
 export PATH=/storage/Users/currentUser/.harmonybrew/bin:$PATH
 
 # 安装 node 和开发工具
-brew install node python devel-base
+brew install -y node python devel-base
