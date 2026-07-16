@@ -24,7 +24,11 @@ tar -zxf bufferutil-4.0.8.tgz
 rm bufferutil-4.0.8.tgz
 cp -r package/prebuilds/* bufferutil-4.0.8/prebuilds/
 cd bufferutil-4.0.8/prebuilds
-mv linux-x64/bufferutil.node linux-x64/@ohos-npm-ports+bufferutil.node
-mv win32-ia32/bufferutil.node win32-ia32/@ohos-npm-ports+bufferutil.node
-mv win32-x64/bufferutil.node win32-x64/@ohos-npm-ports+bufferutil.node
-mv darwin-x64+arm64/bufferutil.node darwin-x64+arm64/@ohos-npm-ports+bufferutil.node
+echo "=== Listing all files in prebuilds directory ==="
+find "$(pwd)" -type f
+echo "=== End of listing ==="
+for dir in */; do
+  if [ -f "${dir}bufferutil.node" ]; then
+    mv "${dir}bufferutil.node" "${dir}@ohos-npm-ports+bufferutil.node"
+  fi
+done
