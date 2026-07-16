@@ -9,4 +9,7 @@ zsh -c "$(curl -fsSL https://harmonybrew.atomgit.com/install.sh)"
 export PATH=/storage/Users/currentUser/.harmonybrew/bin:$PATH
 
 # 安装 node 和开发工具
-brew install -y node python setuptools devel-base
+brew install -y node python devel-base
+
+# Python 3.12+ 移除了 distutils，node-gyp 依赖它，需要通过 pip 安装 setuptools 提供
+pip3 install setuptools
