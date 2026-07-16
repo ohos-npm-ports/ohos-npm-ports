@@ -3,5 +3,5 @@ set -e
 
 source ../../../setup-env.sh
 
-cd bufferutil-4.0.9
+cd bufferutil-4.0.8
 npm publish --tag latest --access public
