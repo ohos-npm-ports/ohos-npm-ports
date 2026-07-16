@@ -11,7 +11,7 @@ cd bufferutil-4.0.8
 patch -p1 < ../patchs/0001-update-package-json.patch
 
 # Python 3.12+ 移除了 distutils，node-gyp 依赖它，需要通过 pip 安装 setuptools 提供
-python3 -m pip install setuptools
+python3 -m pip install --break-system-packages setuptools
 
 # 构建 addon
 npm install

@@ -12,4 +12,4 @@ export PATH=/storage/Users/currentUser/.harmonybrew/bin:$PATH
 brew install -y node python devel-base
 
 # Python 3.12+ 移除了 distutils，node-gyp 依赖它，需要通过 pip 安装 setuptools 提供
-python3 -m pip install setuptools
+python3 -m pip install --break-system-packages setuptools
