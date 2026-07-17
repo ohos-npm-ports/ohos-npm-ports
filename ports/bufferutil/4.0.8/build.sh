@@ -31,4 +31,7 @@ for dir in */; do
   if [ -f "${dir}bufferutil.node" ]; then
     mv "${dir}bufferutil.node" "${dir}@ohos-npm-ports+bufferutil.node"
   fi
+  if [ -f "${dir}node.napi.node" ]; then
+    mv "${dir}node.napi.node" "${dir}@ohos-npm-ports+bufferutil.node"
+  fi
 done
