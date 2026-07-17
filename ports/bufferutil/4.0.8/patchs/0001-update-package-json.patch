@@ -23,7 +23,7 @@ index 8518951..bd28f92 100644
    "repository": {
      "type": "git",
 -    "url": "https://github.com/websockets/bufferutil"
-+    "url": "https://github.com/Louzen/ohos-npm-ports"
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports"
    },
    "keywords": [
      "bufferutil"
@@ -32,7 +32,7 @@ index 8518951..bd28f92 100644
    "license": "MIT",
    "bugs": {
 -    "url": "https://github.com/websockets/bufferutil/issues"
-+    "url": "https://github.com/Louzen/ohos-npm-ports/issues"
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports/issues"
    },
    "homepage": "https://github.com/websockets/bufferutil",
    "dependencies": {
