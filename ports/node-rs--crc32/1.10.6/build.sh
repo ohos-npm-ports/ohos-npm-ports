@@ -4,40 +4,29 @@ set -e
 # 准备编译环境
 source ../../../setup-tools.sh
 
-# 准备源码
-curl -fsSL https://github.com/napi-rs/node-rs/archive/refs/tags/@node-rs/crc32@1.10.6.tar.gz -o node-rs--node-rs-crc32-1.10.6.tar.gz
-tar -zxf node-rs--node-rs-crc32-1.10.6.tar.gz
-cd node-rs--node-rs-crc32-1.10.6
-patch -p1 < ../patchs/0001-update-package-json.patch
+# @node-rs/crc32 是 Rust/napi-rs 项目，CI 环境无法安装 Rust 工具链，
+# 因此不从源码编译，而是从 npm 下载原始包获取各平台 prebuilds，
+# OpenHarmony 的 .node 文件需要预先编译好放在 patchs/prebuilds/ 中。
 
-# Python 3.12+ 移除了 distutils，node-gyp 依赖它，需要通过 pip 安装 setuptools 提供
-python3 -m pip install --break-system-packages setuptools
-
-# 构建 addon
-# @node-rs/crc32 是 Rust 项目，需要安装 Rust 工具链后用 napi build 编译
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-. "$HOME/.cargo/env"
-# --ignore-scripts: 跳过 devDependencies 中 xxhash 等的 node-gyp 编译（CI 编译器不支持 C++23）
-npm install --ignore-scripts
-npm run build -w packages/crc32
-
-# napi build 产物在 packages/crc32/crc32.node，需要放到 prebuilds/openharmony-arm64/ 目录
-mkdir -p packages/crc32/prebuilds/openharmony-arm64
-mv packages/crc32/crc32.node packages/crc32/prebuilds/openharmony-arm64/crc32.openharmony-arm64.node
-
-# 把其他平台的预构建产物复制到包里面一起发布
-cd ..
+# 从 npm 下载原始包
 curl -fsSL https://registry.npmjs.org/@node-rs/crc32/-/crc32-1.10.6.tgz -o node-rs--node-rs-crc32-1.10.6.tgz
 tar -zxf node-rs--node-rs-crc32-1.10.6.tgz
 rm node-rs--node-rs-crc32-1.10.6.tgz
+
+# 应用 patch 修改 package.json 和 index.js
+cd node-rs--node-rs-crc32-1.10.6
+patch -p1 < ../patchs/0001-update-package-json.patch
+cd ..
+
+# 确保 prebuilds 目录存在
 if [ ! -d node-rs--node-rs-crc32-1.10.6/prebuilds ]; then
   mkdir -p node-rs--node-rs-crc32-1.10.6/prebuilds
 fi
+
+# 从 patchs/prebuilds/ 复制预编译的 OpenHarmony .node 文件
 if [ -d patchs/prebuilds ]; then
   cp -r patchs/prebuilds/* node-rs--node-rs-crc32-1.10.6/prebuilds/
 fi
-# 将编译产物也复制过去
-cp -r node-rs--node-rs-crc32-1.10.6/packages/crc32/prebuilds/* node-rs--node-rs-crc32-1.10.6/prebuilds/
 
 cd node-rs--node-rs-crc32-1.10.6/prebuilds/
 echo "=== Listing all files in prebuilds directory ==="
