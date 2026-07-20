@@ -34,4 +34,13 @@ for dir in */; do
   if [ -f "${dir}node.napi.node" ]; then
     mv "${dir}node.napi.node" "${dir}@ohos-npm-ports+bufferutil.node"
   fi
+  if [ -f "${dir}@ohos-npm-ports+bufferutil.node" ]; then
+    if llvm-readelf -S "${dir}@ohos-npm-ports+bufferutil.node" 2>/dev/null | grep -q '\.codesign'; then
+      echo "[SIGNED]   ${dir}@ohos-npm-ports+bufferutil.node"
+    elif readelf -S "${dir}@ohos-npm-ports+bufferutil.node" 2>/dev/null | grep -q '\.codesign'; then
+      echo "[SIGNED]   ${dir}@ohos-npm-ports+bufferutil.node"
+    else
+      echo "[UNSIGNED] ${dir}@ohos-npm-ports+bufferutil.node"
+    fi
+  fi
 done
