@@ -14,7 +14,8 @@ patch -p1 < ../patchs/0001-update-package-json.patch
 python3 -m pip install --break-system-packages setuptools
 
 # 构建 addon
-npm install
+# --ignore-scripts: 跳过 devDependencies 中 xxhash 等的 node-gyp 编译（CI 编译器不支持 C++23）
+npm install --ignore-scripts
 npm run prebuild
 
 # 把其他平台的预构建产物复制到包里面一起发布
