@@ -16,6 +16,8 @@ python3 -m pip install --break-system-packages setuptools
 # 构建 addon
 # --ignore-scripts: 跳过 devDependencies 中 xxhash 等的 node-gyp 编译（CI 编译器不支持 C++23）
 npm install --ignore-scripts
+# 安装 prebuildify（prebuild 脚本依赖它，原始 devDependencies 中没有）
+npm install prebuildify -w packages/crc32 --ignore-scripts
 npm run prebuild -w packages/crc32
 
 # 把其他平台的预构建产物复制到包里面一起发布
