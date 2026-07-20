@@ -27,7 +27,7 @@ index 4ec7372..72c5f2a 100644
  {
 -  "name": "@node-rs/crc32",
 -  "version": "1.10.6",
-+  "name": "@ohos-npm-ports@node-rs/crc32",
++  "name": "@ohos-npm-ports/node-rs__crc32",
 +  "version": "1.10.6-1",
    "description": "SIMD crc32",
    "keywords": [
