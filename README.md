@@ -22,8 +22,8 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 
 | 原始包名   | 鸿蒙适配后的包名           | 最新版本 |
 | ---------- | -------------------------- | -------- |
-| bufferutil | @ohos-npm-ports/bufferutil | 4.0.9-6  |
-| sqlite3    | @ohos-npm-ports/sqlite3    | 5.1.7-7  |
+| bufferutil | @ohos-npm-ports/bufferutil | 4.0.9-7  |
+| sqlite3    | @ohos-npm-ports/sqlite3    | 5.1.7-8  |
 
 ## 使用方法
 
@@ -116,6 +116,8 @@ cd /root/ohos-npm-ports/ports/sqlite3/5.1.7
 **6\. 提交 PR**
 
 将 PR 提到本仓库，待合入后流水线会自动构建发包。
+
+本项目的 npm 包使用分阶段发布模式。流水线发包后，维护者需要在 npmjs.com 上面进行人工审核。审核通过后 npm 包才会正式发布。
 
 ## 项目治理
 

@@ -4,4 +4,4 @@ set -e
 source ../../../setup-env.sh
 
 cd bufferutil-4.0.9
-npm publish --tag latest --access public
+npm stage publish --tag latest --access public
