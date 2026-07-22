@@ -1,9 +1,6 @@
 #!/bin/sh
 set -e
 
-# 准备编译环境
-source ../../../setup-tools.sh
-
 # 准备源码
 curl -fsSL https://github.com/websockets/bufferutil/archive/refs/tags/v4.0.9.tar.gz -o bufferutil-4.0.9.tar.gz
 tar -zxf bufferutil-4.0.9.tar.gz

@@ -1,9 +1,6 @@
 #!/bin/sh
 set -e
 
-# 准备编译环境
-source ../../../setup-tools.sh
-
 # 准备源码
 curl -fsSL https://github.com/TryGhost/node-sqlite3/archive/refs/tags/v5.1.7.tar.gz -o node-sqlite3-5.1.7.tar.gz
 tar -zxf node-sqlite3-5.1.7.tar.gz
