@@ -24,6 +24,7 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 | ---------- | -------------------------- | -------- |
 | bufferutil | @ohos-npm-ports/bufferutil | 4.0.9-7  |
 | sqlite3    | @ohos-npm-ports/sqlite3    | 5.1.7-8  |
+| typescript | @ohos-npm-ports/typescript | 7.0.2-1  |
 
 ## 使用方法
 

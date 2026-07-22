@@ -1,0 +1,23 @@
+diff --git a/package.json b/package.json
+index 5f1e3a2..c6e3b8f 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+-    "name": "typescript",
+-    "version": "7.0.2",
++    "name": "@ohos-npm-ports/typescript",
++    "version": "7.0.2-1",
+     "license": "Apache-2.0",
+     "author": "Microsoft Corp.",
+     "homepage": "https://www.typescriptlang.org/",
+@@ -17,7 +17,7 @@
+     },
+     "repository": {
+         "type": "git",
+-        "url": "https://github.com/microsoft/TypeScript.git"
++        "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git"
+     },
+     "type": "module",
+     "preferUnplugged": true,
+

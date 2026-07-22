@@ -1,0 +1,17 @@
+--- a/lib/getExePath.js
++++ b/lib/getExePath.js
+@@ -8,6 +8,14 @@
+     const __dirname = path.dirname(fileURLToPath(import.meta.url));
+     const normalizedDirname = __dirname.replace(/\\/g, "/");
+ 
++
++    // [ohos-npm-ports] OpenHarmony: use bundled Go binary
++    if (process.platform === "openharmony") {
++        const exe = path.join(__dirname, "tsc");
++        if (fs.existsSync(exe)) {
++            return exe;
++        }
++    }
+     const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
+     const pkgName = pkg.name;
+     const baseName = pkgName.startsWith("@") ? pkgName.split("/")[1] : pkgName;
