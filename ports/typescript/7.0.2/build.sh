@@ -19,6 +19,8 @@ TSGO_TAG="typescript/v7.0.2"
 WORK_DIR="$(pwd)"
 BUILD_DIR="${WORK_DIR}/build"
 
+mkdir -p /data/storage/el2/base/cache
+mkdir -p /data/storage/el2/base/file
 brew install -y go git
 
 echo "=== 1/6: 清理旧构建目录 ==="
