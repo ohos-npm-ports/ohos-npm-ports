@@ -7,7 +7,7 @@ index 5f1e3a2..c6e3b8f 100644
 -    "name": "typescript",
 -    "version": "7.0.2",
 +    "name": "@ohos-npm-ports/typescript",
-+    "version": "7.0.2-1",
++    "version": "7.0.2-2",
      "license": "Apache-2.0",
      "author": "Microsoft Corp.",
      "homepage": "https://www.typescriptlang.org/",
