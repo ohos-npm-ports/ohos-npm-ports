@@ -20,11 +20,13 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 
 ## 已收录的包
 
-| 原始包名   | 鸿蒙适配后的包名           | 最新版本 |
-| ---------- | -------------------------- | -------- |
-| bufferutil | @ohos-npm-ports/bufferutil | 4.0.9-7  |
-| sqlite3    | @ohos-npm-ports/sqlite3    | 5.1.7-8  |
-| typescript | @ohos-npm-ports/typescript | 7.0.2-2  |
+| 原始包名   | 鸿蒙适配后的包名           | 最新版本  |
+| ---------- | -------------------------- | --------- |
+| bufferutil | @ohos-npm-ports/bufferutil | 4.0.9-7   |
+| sqlite3    | @ohos-npm-ports/sqlite3    | 5.1.7-8   |
+| typescript | @ohos-npm-ports/typescript | 7.0.2-2   |
+| nx         | @ohos-npm-ports/nx         | 23.1.1-1  |
+| turbo      | @ohos-npm-ports/turbo      | 2.10.10-1 |
 
 ## 使用方法
 
@@ -80,7 +82,7 @@ Fork 本仓库，生成自己的个人仓，并在个人仓的 Actions 菜单启
 注意事项：
 
 1. 根目录的 setup-tools.sh 和 setup-env.sh 可以支撑你完成常规的构建环境的配置。一般情况下，你只需在执行构建之前手动 source 这两个脚本即可完成环境的配置。然而，在一些深度的使用场景下它可能无法满足你的需求。此时你也可以在自己的 `build.sh` 和 `publish.sh` 中自己编写环境配置命令。
-2. 适配的过程要注意兼容性，请勿破坏这个包在其他 OS 上的行为。不能适配后变得只能在鸿蒙上使用、无法在其他 OS 上使用，这样的包无法支撑实际生产活动。
+2. 适配的过程要注意兼容性，请勿破坏这个包在其他 OS 上的行为。不能适配后变得只能在鸿蒙上使用、无法在其他 OS 上使用。那样的包无法支撑实际生产活动。例如：用户的工程可能因此而无法在 Linux 流水线上构建通过。
 3. OpenHarmony 的商用发行版 HarmonyOS 会对 ELF 文件做代码签名校验。为了让产物也支持 HarmonyOS，请确保自己发布的 .node 文件带有代码签名。如果构建时使用的是 Harmonybrew 下载的 ohos-sdk，它构建出的产物会自动带有代码签名（详情请参见 [这篇文档](https://atomgit.com/Harmonybrew/docs/blob/main/zh-CN/user/featured-packages.md)）。如果使用的是来自其他地方的构建工具，则需要自行处理代码签名。
 4. 发布软件包的时候，建议使用 `x.y.z-1`、`x.y.z_1` 等修订版本号，以便在不改变 semver 版本的情况下进行补丁版本迭代。
 5. 尊重他人知识产权，改包的时候请勿改动原有的作者和开源许可证信息。
