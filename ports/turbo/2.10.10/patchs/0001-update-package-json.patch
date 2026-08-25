@@ -1,0 +1,17 @@
+--- a/packages/turbo/package.json
++++ b/packages/turbo/package.json
+@@ -1,11 +1,11 @@
+ {
+-  "name": "turbo",
+-  "version": "2.10.10",
++  "name": "@ohos-npm-ports/turbo",
++  "version": "2.10.10-1",
+   "description": "Turborepo is a high-performance build system for JavaScript and TypeScript codebases.",
+   "homepage": "https://turborepo.dev",
+   "bugs": "https://github.com/vercel/turborepo/issues",
+   "license": "MIT",
+-  "repository": "https://github.com/vercel/turborepo",
++  "repository": "https://github.com/ohos-npm-ports/ohos-npm-ports.git",
+   "bin": {
+     "turbo": "./bin/turbo"
+   },
