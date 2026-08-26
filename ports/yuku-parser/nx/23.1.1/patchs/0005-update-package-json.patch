@@ -1,0 +1,20 @@
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+-  "name": "nx",
+-  "version": "23.1.1",
+   "private": false,
+   "type": "commonjs",
+   "description": "The core Nx plugin contains the core functionality of Nx like the project graph, nx commands and task orchestration.",
++  "name": "@ohos-npm-ports/nx",
++  "version": "23.1.1-1",
+   "repository": {
+     "type": "git",
+-    "url": "https://github.com/nrwl/nx.git",
+-    "directory": "packages/nx"
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git",
++    "directory": "ports/nx/23.1.1"
+   },
+   "files": [
+     "dist/bin",

@@ -1,0 +1,51 @@
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,14 @@
+ {
+-  "name": "@napi-rs/wasm-tools",
+-  "version": "1.0.1",
++  "name": "@ohos-npm-ports/napi-rs-wasm-tools",
++  "version": "1.0.1-1",
+   "description": "https://github.com/rustwasm/walrus bindings",
+   "main": "index.js",
+   "types": "index.d.ts",
+   "browser": "browser.js",
+   "repository": {
+-    "url": "git+ssh://git@github.com/napi-rs/wasm-tools.git",
+-    "type": "git"
++    "type": "git",
++    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
++    "directory": "ports/napi-rs-wasm-tools/1.0.1"
+   },
+   "license": "MIT",
+   "keywords": [
+@@ -21,7 +22,8 @@
+   "files": [
+     "index.d.ts",
+     "index.js",
+-    "browser.js"
++    "browser.js",
++    "walrus.openharmony-arm64.node"
+   ],
+   "napi": {
+     "binaryName": "walrus",
+@@ -47,19 +49,6 @@
+   "publishConfig": {
+     "registry": "https://registry.npmjs.org/",
+     "access": "public"
+-  },
+-  "scripts": {
+-    "artifacts": "napi artifacts",
+-    "build": "napi build --platform --release",
+-    "build:debug": "napi build --platform",
+-    "format": "run-p format:prettier format:rs format:toml",
+-    "format:prettier": "prettier . -w",
+-    "format:toml": "taplo format",
+-    "format:rs": "cargo fmt",
+-    "lint": "oxlint",
+-    "prepublishOnly": "napi prepublish -t npm",
+-    "test": "ava",
+-    "version": "napi version"
+   },
+   "devDependencies": {
+     "@emnapi/core": "^1.4.5",

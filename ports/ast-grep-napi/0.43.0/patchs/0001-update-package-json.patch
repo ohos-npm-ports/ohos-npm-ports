@@ -1,0 +1,50 @@
+--- a/package.json
++++ b/package.json
+@@ -1,10 +1,14 @@
+ {
+-  "name": "@ast-grep/napi",
+-  "version": "0.43.0",
++  "name": "@ohos-npm-ports/ast-grep-napi",
++  "version": "0.43.0-1",
+   "description": "Search and Rewrite code at large scale using precise AST pattern",
+   "homepage": "https://ast-grep.github.io",
+   "main": "index.js",
+-  "repository": "https://github.com/ast-grep/ast-grep",
++  "repository": {
++    "type": "git",
++    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
++    "directory": "ports/ast-grep-napi/0.43.0"
++  },
+   "license": "MIT",
+   "keywords": [
+     "ast",
+@@ -17,7 +21,8 @@
+     "index.d.ts",
+     "index.js",
+     "types/*.ts",
+-    "lang/*.ts"
++    "lang/*.ts",
++    "ast-grep-napi.openharmony-arm64.node"
+   ],
+   "napi": {
+     "binaryName": "ast-grep-napi",
+@@ -39,19 +44,6 @@
+   "publishConfig": {
+     "registry": "https://registry.npmjs.org/",
+     "access": "public"
+-  },
+-  "scripts": {
+-    "artifacts": "napi artifacts",
+-    "build": "napi build --no-const-enum --dts ignore.d.ts --platform --release",
+-    "build:debug": "napi build --no-const-enum --dts ignore.d.ts --platform",
+-    "prepublishOnly": "napi prepublish -t npm --no-gh-release",
+-    "pretest": "tsimp scripts/generateTypes.ts --test-only",
+-    "test": "tsc --noEmit && ava",
+-    "version": "napi version",
+-    "lint": "oxlint && dprint check",
+-    "format": "dprint fmt",
+-    "format:check": "dprint check",
+-    "typegen": "tsimp scripts/generateTypes.ts"
+   },
+   "devDependencies": {
+     "@ast-grep/napi": "0.42.3",
