@@ -1,0 +1,38 @@
+--- a/package.json
++++ b/package.json
+@@ -1,11 +1,12 @@
+ {
+-  "name": "yuku-parser",
+-  "version": "0.8.3",
++  "name": "@ohos-npm-ports/yuku-parser",
++  "version": "0.8.3-1",
+   "description": "High-performance JavaScript/TypeScript parser",
+   "license": "MIT",
+   "repository": {
+     "type": "git",
+-    "url": "https://github.com/yuku-toolchain/yuku"
++    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
++    "directory": "ports/yuku-parser/0.8.3"
+   },
+   "type": "module",
+   "main": "index.js",
+@@ -14,7 +15,8 @@
+     "index.js",
+     "index.d.ts",
+     "binding.js",
+-    "decode.js"
++    "decode.js",
++    "@yuku-parser/binding-openharmony-arm64"
+   ],
+   "optionalDependencies": {
+     "@yuku-parser/binding-linux-x64-gnu": "0.8.3",
+@@ -55,5 +57,8 @@
+     "ts",
+     "tsx",
+     "typescript"
+-  ]
++  ],
++  "publishConfig": {
++    "access": "public"
++  }
+ }
