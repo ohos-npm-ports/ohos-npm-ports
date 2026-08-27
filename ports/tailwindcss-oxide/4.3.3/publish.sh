@@ -8,15 +8,7 @@ SUB=@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64
 MAIN=@ohos-npm-ports/tailwindcss-oxide
 
 cd src/crates/node/npm/openharmony-arm64
-if npm view "$SUB" version >/dev/null 2>&1; then
-  npm stage publish --tag latest --access public
-else
-  npm publish --tag latest --access public
-fi
+npm publish --tag latest --access public
 cd ../..
 
-if npm view "$MAIN" version >/dev/null 2>&1; then
-  npm stage publish --tag latest --access public
-else
-  npm publish --tag latest --access public
-fi
+npm publish --tag latest --access public
