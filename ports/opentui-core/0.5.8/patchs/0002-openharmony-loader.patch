@@ -1,0 +1,118 @@
+--- a/chunk-bun-2956gvaq.js
++++ b/chunk-bun-2956gvaq.js
+@@ -1,4 +1,5 @@
+ // @bun
++import __ohosLibopentuiPath from "./libopentui.so" with { type: "file" };
+ var __defProp = Object.defineProperty;
+ var __returnValue = (v) => v;
+ function __exportSetter(name, newValue) {
+@@ -8059,7 +8060,10 @@
+ var NATIVE_FILE_NAMES = {
+   darwin: "libopentui.dylib",
+   linux: "libopentui.so",
+-  win32: "opentui.dll"
++  win32: "opentui.dll",
++  // Only satisfies getNativeAssetDescriptor(); actual resolution is the
++  // openharmony branch added below, not an @opentui/core-openharmony-* package.
++  openharmony: "libopentui.so"
+ };
+ function getNativeAssetDescriptor(target) {
+   if (!Object.hasOwn(NATIVE_FILE_NAMES, target.platform) || target.arch !== "arm64" && target.arch !== "x64") {
+@@ -8096,7 +8100,7 @@
+ var CORE_ASSET_PREFIX = "@opentui/core/";
+ var PARSER_WORKER_ASSET_KEY = `${CORE_ASSET_PREFIX}parser.worker.js`;
+ var TREE_SITTER_WASM_ASSET_KEY = "web-tree-sitter/tree-sitter.wasm";
+-var bundledTreeSitterWorkerPath = await resolveBundledFilePath(PARSER_WORKER_ASSET_KEY, () => import("@opentui/core/parser.worker", { with: { type: "file" } }), new URL("../lib/tree-sitter/parser.worker.js", import.meta.url), import.meta.url, { useAssetRoot: false });
++var bundledTreeSitterWorkerPath = await resolveBundledFilePath(PARSER_WORKER_ASSET_KEY, () => import("./parser.worker.js", { with: { type: "file" } }), new URL("../lib/tree-sitter/parser.worker.js", import.meta.url), import.meta.url, { useAssetRoot: false });
+ function resolveDefaultParserAsset(relativePath, fallbackPath) {
+   return resolveBundledDefaultParserAsset(relativePath, fallbackPath);
+ }
+@@ -8112,6 +8116,9 @@
+   if (configuredPath !== undefined) {
+     return configuredPath;
+   }
++  if (process.platform === "openharmony" && process.arch === "arm64") {
++    return __ohosLibopentuiPath;
++  }
+   if (process.platform === "darwin") {
+     if (process.arch === "x64") {
+       return (await import("@opentui/core-darwin-x64")).default;
+--- a/chunk-node-mfda59vq.js
++++ b/chunk-node-mfda59vq.js
+@@ -374,8 +374,17 @@
+           if (definition.threadsafe) {
+             throw new Error(NODE_CALLBACK_THREADSAFE);
+           }
+-          const callbackPointer = lib.registerCallback(normalizeNodeDefinition(definition), callback);
+-          const raw = {
++          var callbackPointer;
++          try {
++            callbackPointer = lib.registerCallback(normalizeNodeDefinition(definition), callback);
++          } catch (e) {
++            if (String(e && e.message || e).indexOf("ffi_closure_alloc") !== -1) {
++              var rawFallback = { ptr: null, threadsafe: false, close() {} };
++              return createManagedCallback(rawFallback, callbacks);
++            }
++            throw e;
++          }
++          var raw = {
+             ptr: callbackPointer,
+             threadsafe: false,
+             close() {
+@@ -8068,7 +8077,10 @@
+ var NATIVE_FILE_NAMES = {
+   darwin: "libopentui.dylib",
+   linux: "libopentui.so",
+-  win32: "opentui.dll"
++  win32: "opentui.dll",
++  // Only satisfies getNativeAssetDescriptor(); actual resolution is the
++  // openharmony branch added below, not an @opentui/core-openharmony-* package.
++  openharmony: "libopentui.so"
+ };
+ function getNativeAssetDescriptor(target) {
+   if (!Object.hasOwn(NATIVE_FILE_NAMES, target.platform) || target.arch !== "arm64" && target.arch !== "x64") {
+@@ -8120,6 +8132,9 @@
+   if (configuredPath !== undefined) {
+     return configuredPath;
+   }
++  if (process.platform === "openharmony" && process.arch === "arm64") {
++    return fileURLToPath(new URL("./libopentui.so", import.meta.url));
++  }
+   const specifier = asset.packageName;
+   return (await import(specifier)).default;
+ }
+--- a/node-assets.js
++++ b/node-assets.js
+@@ -7,7 +7,11 @@
+ var NATIVE_FILE_NAMES = {
+   darwin: "libopentui.dylib",
+   linux: "libopentui.so",
+-  win32: "opentui.dll"
++  win32: "opentui.dll",
++  // getNodeAssets() still resolves native.packageName via node resolution
++  // (no @opentui/core-openharmony-* package exists), so this stays unsupported
++  // here — the bun runtime path (chunk-bun-2956gvaq.js) resolves it directly.
++  openharmony: "libopentui.so"
+ };
+ function getNativeAssetDescriptor(target) {
+   if (!Object.hasOwn(NATIVE_FILE_NAMES, target.platform) || target.arch !== "arm64" && target.arch !== "x64") {
+--- a/runtime-plugin.js
++++ b/runtime-plugin.js
+@@ -37,7 +37,7 @@
+ import { existsSync, readFileSync, realpathSync } from "node:fs";
+ import { basename, dirname, isAbsolute, join } from "node:path";
+ import { fileURLToPath } from "node:url";
+-import * as coreRuntime from "@opentui/core";
++import * as coreRuntime from "./index.bun.js";
+ const CORE_RUNTIME_SPECIFIER = "@opentui/core";
+ const CORE_TESTING_RUNTIME_SPECIFIER = "@opentui/core/testing";
+ const RUNTIME_MODULE_PREFIX = "opentui:runtime-module:";
+@@ -52,7 +52,7 @@
+     return DEFAULT_CORE_RUNTIME_MODULE_SPECIFIER_SET.has(specifier);
+ };
+ const loadCoreTestingRuntimeModule = async () => {
+-    return (await import("@opentui/core/testing"));
++    return (await import("./testing.bun.js"));
+ };
+ const escapeRegExp = (value) => {
+     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
