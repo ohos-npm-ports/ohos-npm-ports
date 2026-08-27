@@ -6,6 +6,13 @@ set -e
 # ./vite-plus.openharmony-arm64.node first, so the repacked package works with
 # no loader patch and no postinstall wiring.
 #
+# Packages without an upstream openharmony binding (yuku-*, @ast-grep/napi,
+# lightningcss) are redirected to the @ohos-npm-ports ports via the
+# version-qualified pnpm overrides injected by 0005; the ports embed signed
+# bindings, so no shim fabrication or signing happens here. Everything else
+# (@oxc-parser, @oxc-resolver, @oxfmt, @oxlint, rollup, @oxc-node) ships
+# official openharmony platform packages and resolves on its own.
+#
 # Two trees:
 #   vite-plus-src/   — source tarball, only for compiling the binding
 #   vite-plus-<ver>/ — official npm tgz, becomes the published package
@@ -69,117 +76,13 @@ cd -
 # references but the source tarball does not contain.
 node packages/tools/src/index.ts sync-remote
 
-pnpm install
+# Redirect musl-only napi packages to the @ohos-npm-ports ports
+# (version-qualified overrides; bindings inside are pre-signed).
+# --no-frozen-lockfile: the injected overrides differ from the lockfile the
+# source tarball ships, and CI installs run frozen by default.
+patch -p1 < ../patchs/0005-add-ohos-port-overrides.patch
 
-# Upstream publishes no openharmony napi bindings; reuse linux-arm64-musl
-# builds (same libc/ABI family, cf. opentui-core) for every store package
-# declaring a *-linux-arm64-musl optional dependency (yuku-*, @ast-grep/napi,
-# ...). Fabricated modules land next to each package (module-resolution path)
-# and inside it (__dirname-relative fallbacks), then get signed — OHOS
-# refuses to dlopen unsigned ELF shared objects and the musl builds ship
-# unsigned.
-SIGN_TOOL="$(brew --prefix)/bin/binary-sign-tool"
-node -e '
-const { readFileSync, readdirSync, mkdirSync, copyFileSync, writeFileSync, existsSync } = require("fs");
-const { join } = require("path");
-const signTool = process.argv[1], signArgs = ["sign", "-selfSign", "1"];
-const { execFileSync } = require("child_process");
-for (const scopeDir of readdirSync("node_modules/.pnpm")) {
-  const nm = join("node_modules/.pnpm", scopeDir, "node_modules");
-  let entries;
-  try { entries = readdirSync(nm); } catch { continue; }
-  // @scope packages nest one level under the scope directory.
-  const pkgs = [];
-  for (const entry of entries) {
-    if (entry.startsWith("@")) {
-      for (const inner of readdirSync(join(nm, entry))) {
-        pkgs.push(join(entry, inner));
-      }
-    } else {
-      pkgs.push(entry);
-    }
-  }
-  for (const pkgPath of pkgs) {
-    const pkgDir = join(nm, pkgPath);
-    let manifest;
-    try { manifest = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8")); }
-    catch { continue; }
-    if (!manifest || typeof manifest.name !== "string") continue;
-    const deps = manifest.optionalDependencies ?? {};
-    const muslDep = Object.keys(deps).find((d) => d.endsWith("-linux-arm64-musl"));
-    if (!muslDep) continue;
-
-    const [scope, muslBase] = muslDep.startsWith("@")
-      ? [muslDep.split("/")[0], muslDep.split("/")[1]]
-      : [null, muslDep];
-    const ohosBase = muslBase.replace("-linux-arm64-musl", "-openharmony-arm64");
-    const ohosModule = scope ? `${scope}/${ohosBase}` : ohosBase;
-    const version = manifest.version;
-
-    // Fetch the musl tarball (cached in the parent dir across retries).
-    const tgz = `../musl-napi-${muslDep.replace("/", "-")}-${version}.tgz`;
-    if (!existsSync(tgz)) {
-      execFileSync("curl", ["-fSL", "--retry", "5", "-o", tgz,
-        `https://registry.npmmirror.com/${muslDep}/-/${muslBase}-${version}.tgz`],
-        { stdio: "inherit" });
-    }
-    execFileSync("tar", ["xzf", tgz]);
-    const stage = "package";
-    let nodeSrc;
-    const walk = (dir) => {
-      for (const e of readdirSync(dir, { withFileTypes: true })) {
-        const p = join(dir, e.name);
-        if (e.isDirectory()) { nodeSrc = walk(p) || nodeSrc; }
-        else if (e.name.endsWith(".node") && !nodeSrc) nodeSrc = p;
-      }
-      return nodeSrc;
-    };
-    nodeSrc = walk(stage);
-    if (!nodeSrc) throw new Error(`no .node found in ${tgz}`);
-    const nodeBase = nodeSrc.split("/").pop();
-    // Loader conventions differ: yuku wants a bare "<pkg>.node",
-    // ast-grep wants "<bin>.openharmony-arm64.node".
-    const nodeOhosName = nodeBase.replace("-linux-arm64-musl", "-openharmony-arm64");
-    const pkgLeaf = manifest.name.split("/").pop();
-
-    // 1) Fabricated module next to the package (module resolution).
-    const dest = join(nm, ohosModule);
-    const files = [];
-    if (!existsSync(dest)) {
-      mkdirSync(dest, { recursive: true });
-      copyFileSync(nodeSrc, join(dest, nodeBase));
-      files.push(join(dest, nodeBase));
-      writeFileSync(join(dest, "package.json"), JSON.stringify({
-        name: ohosModule, version, main: nodeBase,
-      }));
-      if (scope) {
-        copyFileSync(nodeSrc, join(dest, `${pkgLeaf}.node`));
-        files.push(join(dest, `${pkgLeaf}.node`));
-      }
-    }
-
-    // 2) Files inside the package itself (__dirname-relative fallbacks).
-    copyFileSync(nodeSrc, join(pkgDir, nodeOhosName));
-    files.push(join(pkgDir, nodeOhosName));
-    copyFileSync(nodeSrc, join(pkgDir, `${pkgLeaf}.node`));
-    files.push(join(pkgDir, `${pkgLeaf}.node`));
-    if (scope) {
-      const inner = join(pkgDir, scope, ohosBase);
-      if (!existsSync(inner)) {
-        mkdirSync(inner, { recursive: true });
-        copyFileSync(nodeSrc, join(inner, `${pkgLeaf}.node`));
-        files.push(join(inner, `${pkgLeaf}.node`));
-      }
-    }
-
-    for (const f of files) {
-      execFileSync(signTool, [...signArgs, "-inFile", f, "-outFile", f], { stdio: "inherit" });
-    }
-    execFileSync("rm", ["-rf", stage]);
-    console.log(`injected ${muslDep} -> ${ohosModule} (${manifest.name})`);
-  }
-}
-' "$SIGN_TOOL"
+pnpm install --no-frozen-lockfile
 
 pnpm build
 
