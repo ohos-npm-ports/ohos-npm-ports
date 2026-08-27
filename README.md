@@ -107,7 +107,7 @@ docker exec -it ohos sh
 
 # 准备好工具链和环境变量
 cd /root/ohos-npm-ports
-source setup-tools.sh
+./setup-tools.sh
 source setup-env.sh
 
 # 构建 npm 包
