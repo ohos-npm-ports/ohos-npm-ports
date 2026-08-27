@@ -3,11 +3,4 @@ set -e
 
 cd vite-plus-0.2.8
 
-# npm stage publish requires the package to already exist on npm (404
-# otherwise) — route on existence so the first release goes through plain
-# npm publish (same lesson as ports/turbo/2.10.10/publish.sh).
-if npm view @ohos-npm-ports/vite-plus version >/dev/null 2>&1; then
-  npm stage publish --tag latest --access public
-else
-  npm publish --tag latest --access public
-fi
+npm publish --tag latest --access public
