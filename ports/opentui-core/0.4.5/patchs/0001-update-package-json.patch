@@ -1,0 +1,24 @@
+--- a/package.json
++++ b/package.json
+@@ -1,16 +1,16 @@
+ {
+-  "name": "@opentui/core",
++  "name": "@ohos-npm-ports/opentui-core",
+   "module": "index.node.js",
+   "main": "index.node.js",
+   "types": "index.d.ts",
+   "type": "module",
+-  "version": "0.4.5",
+-  "description": "OpenTUI is a TypeScript library on a native Zig core for building terminal user interfaces (TUIs)",
++  "version": "0.4.5-1",
++  "description": "OpenTUI is a TypeScript library on a native Zig core for building terminal user interfaces (TUIs) — OpenHarmony (OHOS) port: the native core (libopentui.so) is cross-compiled from upstream v0.4.5 source with zig aarch64-linux-musl (OHOS shares the musl libc ABI); since process.platform === \"openharmony\" is gated out by every official @opentui/core-* platform package, the .so ships bundled inside this package via a patched loader.",
+   "license": "MIT",
+   "repository": {
+     "type": "git",
+-    "url": "https://github.com/anomalyco/opentui",
+-    "directory": "packages/core"
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports",
++    "directory": "ports/opentui-core/0.4.5"
+   },
+   "exports": {
+     ".": {
