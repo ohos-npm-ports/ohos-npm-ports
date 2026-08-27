@@ -1,0 +1,37 @@
+--- a/package.json
++++ b/package.json
+@@ -1,11 +1,12 @@
+ {
+-  "name": "yuku-codegen",
+-  "version": "0.7.0",
++  "name": "@ohos-npm-ports/yuku-codegen",
++  "version": "0.7.0-1",
+   "description": "High-performance JavaScript/TypeScript code generator written in Zig",
+   "license": "MIT",
+   "repository": {
+     "type": "git",
+-    "url": "https://github.com/yuku-toolchain/yuku"
++    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
++    "directory": "ports/yuku-codegen/0.7.0"
+   },
+   "type": "module",
+   "main": "index.js",
+@@ -14,7 +15,8 @@
+     "index.js",
+     "index.d.ts",
+     "binding.js",
+-    "encode.js"
++    "encode.js",
++    "@yuku-codegen/binding-openharmony-arm64"
+   ],
+   "optionalDependencies": {
+     "@yuku-codegen/binding-linux-x64-gnu": "0.7.0",
+@@ -41,5 +43,8 @@
+   ],
+   "dependencies": {
+     "@yuku-toolchain/types": "0.7.0"
++  },
++  "publishConfig": {
++    "access": "public"
+   }
+ }
