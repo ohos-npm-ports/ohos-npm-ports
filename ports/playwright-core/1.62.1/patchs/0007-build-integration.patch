@@ -1,0 +1,97 @@
+diff --git a/packages/playwright-core/src/DEPS.list b/packages/playwright-core/src/DEPS.list
+index 264d291..bd34bf3 100644
+--- a/packages/playwright-core/src/DEPS.list
++++ b/packages/playwright-core/src/DEPS.list
+@@ -23,6 +23,9 @@ client/
+ @isomorphic/**
+ @utils/**
+ 
++[ohos/utils.ts]
++"strict"
++
+ [utilsBundle.ts]
+ node_modules/chokidar
+ node_modules/colors/safe
+@@ -54,5 +57,6 @@ node_modules/yaml
+ 
+ [serverRegistry.ts]
+ "strict"
++ohos/utils.ts
+ package.ts
+ node_modules/chokidar
+diff --git a/packages/playwright-core/src/server/DEPS.list b/packages/playwright-core/src/server/DEPS.list
+index b212c0c..a0c2e3f 100644
+--- a/packages/playwright-core/src/server/DEPS.list
++++ b/packages/playwright-core/src/server/DEPS.list
+@@ -3,6 +3,7 @@
+ @protocol/**
+ @utils/**
+ ../generated/
++../ohos/
+ ../package.ts
+ ./
+ ./har/
+diff --git a/packages/playwright-core/src/server/registry/DEPS.list b/packages/playwright-core/src/server/registry/DEPS.list
+index a6aa9a2..e927cf7 100644
+--- a/packages/playwright-core/src/server/registry/DEPS.list
++++ b/packages/playwright-core/src/server/registry/DEPS.list
+@@ -1,6 +1,7 @@
+ [*]
+ @utils/**
+ @isomorphic/**
++../../ohos/
+ ../../package.ts
+ ../utils.ts
+ ../userAgent.ts
+diff --git a/packages/playwright-core/src/tools/cli-client/DEPS.list b/packages/playwright-core/src/tools/cli-client/DEPS.list
+index 07864bb..b90ad93 100644
+--- a/packages/playwright-core/src/tools/cli-client/DEPS.list
++++ b/packages/playwright-core/src/tools/cli-client/DEPS.list
+@@ -28,6 +28,7 @@
+ 
+ [registry.ts]
+ "strict"
++../../ohos/utils.ts
+ ../../package.ts
+ 
+ [minimist.ts]
+diff --git a/utils/build/build.js b/utils/build/build.js
+index 2bef516..dd2215e 100644
+--- a/utils/build/build.js
++++ b/utils/build/build.js
+@@ -610,6 +610,9 @@ steps.push(new EsbuildStep({
+ 
+     // CLI client tools, should be a separate bundle.
+     filePath('packages/playwright-core/src/tools/cli-client/*.ts'),
++    // HarmonyOS entry point (also bundled into coreBundle via the server
++    // imports below).
++    filePath('packages/playwright-core/src/ohos/*.ts'),
+     filePath('packages/playwright-core/src/package.ts'),
+     filePath('packages/playwright-core/src/tools/utils/socketConnection.ts'),
+     filePath('packages/playwright-core/src/tools/utils/extension.ts'),
+@@ -1069,6 +1072,25 @@ copyFiles.push({
+   to: 'packages/playwright-core/lib',
+ });
+ 
++// Ship the playwright-ohos license next to the HarmonyOS entry point.
++copyFiles.push({
++  files: 'packages/playwright-core/src/ohos/*.LICENSE',
++  from: 'packages/playwright-core/src',
++  to: 'packages/playwright-core/lib',
++});
++
++// The npm pack of playwright-core ships the root license files.
++copyFiles.push({
++  files: 'LICENSE',
++  from: '.',
++  to: 'packages/playwright-core',
++});
++copyFiles.push({
++  files: 'NOTICE',
++  from: '.',
++  to: 'packages/playwright-core',
++});
++
+ if (watchMode) {
+   // Run TypeScript for type checking.
+   steps.push(new ProgramStep({
