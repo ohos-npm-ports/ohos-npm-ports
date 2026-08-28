@@ -27,6 +27,7 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 | typescript | @ohos-npm-ports/typescript | 7.0.2-2   |
 | nx         | @ohos-npm-ports/nx         | 23.1.1-1  |
 | turbo      | @ohos-npm-ports/turbo      | 2.10.10-1 |
+| opentui-core | @ohos-npm-ports/opentui-core | 0.5.8-1 |
 
 ## 使用方法
 
