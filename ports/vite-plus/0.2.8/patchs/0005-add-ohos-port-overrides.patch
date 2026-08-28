@@ -1,0 +1,25 @@
+--- a/pnpm-workspace.yaml
++++ b/pnpm-workspace.yaml
+@@ -148,6 +148,7 @@
+   - '@babel/*'
+   - '@devframes/*'
+   - '@napi-rs/*'
++  - '@ohos-npm-ports/*'
+   - '@nkzw/*'
+   - '@oxc-node/*'
+   - '@oxc-minify/*'
+@@ -203,6 +204,14 @@
+   - '@napi-rs/cli'
+   - '@napi-rs/wasm-runtime'
+ overrides:
++  'yuku-codegen@0.5.44': npm:@ohos-npm-ports/yuku-codegen@0.5.44-1
++  'yuku-codegen@0.7.0': npm:@ohos-npm-ports/yuku-codegen@0.7.0-1
++  'yuku-codegen@0.8.3': npm:@ohos-npm-ports/yuku-codegen@0.8.3-1
++  'yuku-parser@0.5.44': npm:@ohos-npm-ports/yuku-parser@0.5.44-1
++  'yuku-parser@0.7.0': npm:@ohos-npm-ports/yuku-parser@0.7.0-1
++  'yuku-parser@0.8.3': npm:@ohos-npm-ports/yuku-parser@0.8.3-1
++  '@ast-grep/napi@0.43.0': npm:@ohos-npm-ports/ast-grep-napi@0.43.0-1
++  'lightningcss@1.33.0': npm:@ohos-npm-ports/lightningcss@1.33.0-1
+   rolldown: workspace:rolldown@*
+   vite: workspace:@voidzero-dev/vite-plus-core@*
+   vite-plus: workspace:vite-plus@*
