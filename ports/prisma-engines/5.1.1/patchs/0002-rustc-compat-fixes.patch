@@ -1,0 +1,63 @@
+diff --git a/libs/user-facing-errors/src/lib.rs b/libs/user-facing-errors/src/lib.rs
+index 7d78568..33f2634 100644
+--- a/libs/user-facing-errors/src/lib.rs
++++ b/libs/user-facing-errors/src/lib.rs
+@@ -121,7 +121,7 @@ impl Error {
+ 
+     /// Construct a new UnknownError from a `PanicInfo` in a panic hook. `UnknownError`s created
+     /// with this constructor will have a proper, useful backtrace.
+-    pub fn new_in_panic_hook(panic_info: &std::panic::PanicInfo<'_>) -> Self {
++    pub fn new_in_panic_hook(panic_info: &std::panic::PanicHookInfo<'_>) -> Self {
+         let message = panic_info
+             .payload()
+             .downcast_ref::<&str>()
+diff --git a/libs/user-facing-errors/src/schema_engine.rs b/libs/user-facing-errors/src/schema_engine.rs
+index 7329461..18f7c50 100644
+--- a/libs/user-facing-errors/src/schema_engine.rs
++++ b/libs/user-facing-errors/src/schema_engine.rs
+@@ -24,6 +24,8 @@ pub struct DestructiveMigrationDetected {
+     code = "P3002",
+     message = "The attempted migration was rolled back: {database_error}"
+ )]
++// Unused here, but part of the P3xxx catalog; deny(warnings) promotes dead_code.
++#[allow(dead_code)]
+ struct MigrationRollback {
+     pub database_error: String,
+ }
+diff --git a/query-engine/schema/src/build/input_types/fields/arguments.rs b/query-engine/schema/src/build/input_types/fields/arguments.rs
+index 33400b7..ca1b9b5 100644
+--- a/query-engine/schema/src/build/input_types/fields/arguments.rs
++++ b/query-engine/schema/src/build/input_types/fields/arguments.rs
+@@ -1,6 +1,6 @@
+ use super::*;
+ use constants::args;
+-use input_types::objects::order_by_objects::OrderByOptions;
++use crate::build::input_types::objects::order_by_objects::OrderByOptions;
+ use mutations::create_one;
+ use objects::*;
+ use prisma_models::{prelude::ParentContainer, CompositeFieldRef};
+diff --git a/query-engine/schema/src/build/input_types/objects/order_by_objects.rs b/query-engine/schema/src/build/input_types/objects/order_by_objects.rs
+index e5112c5..02b82bb 100644
+--- a/query-engine/schema/src/build/input_types/objects/order_by_objects.rs
++++ b/query-engine/schema/src/build/input_types/objects/order_by_objects.rs
+@@ -2,7 +2,7 @@ use std::borrow::Cow;
+ 
+ use super::*;
+ use constants::{aggregations, ordering};
+-use output_types::aggregation;
++use crate::build::output_types::aggregation;
+ use prisma_models::prelude::ParentContainer;
+ 
+ #[derive(Debug, Default, Clone, Copy)]
+diff --git a/query-engine/schema/src/build/input_types/objects/upsert_objects.rs b/query-engine/schema/src/build/input_types/objects/upsert_objects.rs
+index d14942f..1ea9a7e 100644
+--- a/query-engine/schema/src/build/input_types/objects/upsert_objects.rs
++++ b/query-engine/schema/src/build/input_types/objects/upsert_objects.rs
+@@ -1,6 +1,6 @@
+ use super::*;
+ use constants::args;
+-use input_types::fields::arguments::where_argument;
++use crate::build::input_types::fields::arguments::where_argument;
+ use mutations::create_one;
+ 
+ pub(crate) fn nested_upsert_input_object(
