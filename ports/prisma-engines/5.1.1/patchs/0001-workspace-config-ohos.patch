@@ -1,0 +1,28 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 85fc54d..b3a8cc1 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -54,6 +54,7 @@ napi-derive = "2.12.4"
+ 
+ [workspace.dependencies.quaint]
+ path = "quaint"
++# Keep upstream's full feature set: trimming cascades into compile errors.
+ features = [
+   "bigdecimal",
+   "chrono",
+@@ -78,10 +79,13 @@ strip = "symbols"
+ strip = "symbols"
+ 
+ [profile.release]
+-lto = "fat"
+-codegen-units = 1
++lto = "thin"
+ opt-level = 's' # Optimize for size.
+ 
+ [profile.profiling]
+ inherits = "release"
+ debug = true
++
++[patch.crates-io]
++socket2 = { path = "vendor/socket2-0.4.7" }
++openssl-src = { path = "vendor/openssl-src-111.25.0+1.1.1t" }
