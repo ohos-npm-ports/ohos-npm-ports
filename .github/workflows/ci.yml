@@ -45,7 +45,7 @@ jobs:
       fail-fast: false
     runs-on: ubuntu-24.04-arm
     container:
-      image: ghcr.io/hqzing/dockerharmony:latest
+      image: ghcr.io/hqzing/dockerharmony:6.0
       volumes:
         - /tmp/node24:/__e/node24:rw,rshared
     steps:
