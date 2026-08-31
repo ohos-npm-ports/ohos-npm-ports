@@ -1,0 +1,39 @@
+--- a/meson.build	2026-08-31 07:55:03.108000000 +0000
++++ b/meson.build	2026-08-31 07:55:03.796000000 +0000
+@@ -647,19 +647,13 @@
+ cfg_var.set_quoted('GETTEXT_PACKAGE', gettext_domain)
+ cfg_var.set_quoted('VIPS_PREFIX', prefix_dir)
+ cfg_var.set_quoted('VIPS_LIBDIR', lib_dir)
+-if cc.has_function('ngettext')
+-    cfg_var.set('ENABLE_NLS', true)
+-    have_bind_textdomain_codeset = cc.has_function('bind_textdomain_codeset')
+-else
+-    libintl_dep = cc.find_library('intl', required: false)
+-    if libintl_dep.found()
+-        other_deps += libintl_dep
+-        cfg_var.set('ENABLE_NLS', true)
+-        have_bind_textdomain_codeset = cc.has_function('bind_textdomain_codeset', prefix: '#include <libintl.h>', dependencies: libintl_dep)
+-    else
+-        have_bind_textdomain_codeset = false
+-    endif
+-endif
++# NLS (translated log/error strings) disabled for this build: OHOS musl
++# doesn't provide gettext in libc, and glib's <glib/gi18n-lib.h> assumes
++# ENABLE_NLS implies libintl.h was already pulled in by glib itself, which
++# isn't true for this target -- bindtextdomain() ends up called without a
++# visible declaration. Not needed: sharp only uses libvips as a library, not
++# its translated CLI tool messages.
++have_bind_textdomain_codeset = false
+ cfg_var.set('HAVE_BIND_TEXTDOMAIN_CODESET', have_bind_textdomain_codeset)
+
+ if host_os == 'darwin'
+@@ -778,6 +772,8 @@
+ # these lines removed by a regexp for oss-fuzz builds, don't touch!
+ subdir('man')
+ subdir('po')
+-subdir('tools')
++if get_option('examples')
++  subdir('tools')
++endif
+ subdir('test')
+ subdir('fuzz')

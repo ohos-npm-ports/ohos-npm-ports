@@ -1,0 +1,54 @@
+--- a/package.json
++++ b/package.json
+@@ -1,7 +1,7 @@
+ {
+-  "name": "sharp",
+-  "description": "High performance Node.js image processing, the fastest module to resize JPEG, PNG, WebP, GIF, AVIF and TIFF images",
+-  "version": "0.34.5",
++  "name": "@ohos-npm-ports/sharp",
++  "description": "High performance Node.js image processing, the fastest module to resize JPEG, PNG, WebP, GIF, AVIF and TIFF images — OpenHarmony (OHOS) port, built from source against a native libvips 8.18.6 with full JPEG2000 (jp2k) codec support.",
++  "version": "0.34.5-1",
+   "author": "Lovell Fuller <npm@lovell.info>",
+   "homepage": "https://sharp.pixelplumbing.com",
+   "contributors": [
+@@ -91,23 +91,6 @@
+     "Ingvar Stepanyan <me@rreverser.com>",
+     "Don Denton <don@happycollision.com>"
+   ],
+-  "scripts": {
+-    "build": "node install/build.js",
+-    "install": "node install/check.js || npm run build",
+-    "clean": "rm -rf src/build/ .nyc_output/ coverage/ test/fixtures/output.*",
+-    "test": "npm run lint && npm run test-unit",
+-    "lint": "npm run lint-cpp && npm run lint-js && npm run lint-types",
+-    "lint-cpp": "cpplint --quiet src/*.h src/*.cc",
+-    "lint-js": "biome lint",
+-    "lint-types": "tsd --files ./test/types/sharp.test-d.ts",
+-    "test-leak": "./test/leak/leak.sh",
+-    "test-unit": "node --experimental-test-coverage test/unit.mjs",
+-    "package-from-local-build": "node npm/from-local-build.js",
+-    "package-release-notes": "node npm/release-notes.js",
+-    "docs-build": "node docs/build.mjs",
+-    "docs-serve": "cd docs && npm start",
+-    "docs-publish": "cd docs && npm run build && npx firebase-tools deploy --project pixelplumbing --only hosting:pixelplumbing-sharp"
+-  },
+   "type": "commonjs",
+   "main": "lib/index.js",
+   "types": "lib/index.d.ts",
+@@ -114,7 +97,8 @@
+   "files": [
+     "install",
+     "lib",
+-    "src/*.{cc,h,gyp}"
++    "vendor",
++    "src/build/Release/sharp-openharmony-arm64.node"
+   ],
+   "repository": {
+     "type": "git",
+@@ -121,4 +105,5 @@
+-    "url": "git://github.com/lovell/sharp.git"
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git",
++    "directory": "ports/sharp/0.34.5"
+   },
+   "keywords": [
+     "jpeg",
