@@ -1,0 +1,28 @@
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+-  "name": "@playwright/mcp",
+-  "version": "0.0.78",
++  "name": "@ohos-npm-ports/playwright-mcp",
++  "version": "0.0.78-1",
+   "description": "Playwright Tools for MCP",
+   "repository": {
+     "type": "git",
+@@ -7,4 +7,5 @@
+-    "url": "git+https://github.com/microsoft/playwright-mcp.git"
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports",
++    "directory": "ports/playwright-mcp/0.0.78"
+   },
+   "homepage": "https://playwright.dev",
+   "engines": {
+@@ -37,8 +38,7 @@
+     }
+   },
+   "dependencies": {
+-    "playwright": "1.62.0-alpha-1783623505000",
+-    "playwright-core": "1.62.0-alpha-1783623505000"
++    "playwright-core": "npm:@ohos-npm-ports/playwright-core@1.62.1-1"
+   },
+   "devDependencies": {
+     "@modelcontextprotocol/sdk": "^1.25.2",
