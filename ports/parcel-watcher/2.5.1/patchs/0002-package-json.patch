@@ -1,0 +1,39 @@
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+-  "name": "@parcel/watcher",
+-  "version": "2.5.1",
++  "name": "@ohos-npm-ports/parcel-watcher",
++  "version": "2.5.1-1",
+   "main": "index.js",
+   "types": "index.d.ts",
+   "repository": {
+@@ -7,7 +7,8 @@
+     "type": "git",
+-    "url": "https://github.com/parcel-bundler/watcher.git"
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git",
++    "directory": "ports/parcel-watcher/2.5.1"
+   },
+-  "description": "A native C++ Node module for querying and subscribing to filesystem events. Used by Parcel 2.",
++  "description": "A native C++ Node module for querying and subscribing to filesystem events. Used by Parcel 2. \u2014 OpenHarmony (OHOS) port: source-built openharmony-arm64 binding embedded at the upstream fallback path, index.js unchanged.",
+   "license": "MIT",
+   "publishConfig": {
+     "access": "public"
+@@ -26,7 +27,8 @@
+     "LICENSE",
+     "src",
+     "scripts/build-from-source.js",
+-    "binding.gyp"
++    "binding.gyp",
++    "build/Release/watcher.node"
+   ],
+   "scripts": {
+     "prebuild": "prebuildify --napi --strip --tag-libc",
+@@ -33,6 +35,5 @@
+     "format": "prettier --write \"./**/*.{js,json,md}\"",
+     "build": "node-gyp rebuild",
+-    "install": "node scripts/build-from-source.js",
+     "test": "mocha"
+   },
+   "engines": {
