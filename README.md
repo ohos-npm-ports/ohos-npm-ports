@@ -67,11 +67,15 @@ PS：如果需要指定版本号，可以写成这种形式：npm:@ohos-npm-port
 
 **1\. 准备 Docker 环境**
 
-本项目的 addon 全部采用原生编译的方式来进行构建，基于 [DockerHarmony](https://github.com/hqzing/dockerharmony) 来做原生编译的流水线（详情请看 `.github/workflows/ci.yml` 文件）。为了确保流水线能顺利出包，你需要使用相同的环境进行本地构建和测试。
+为了解决 addon 构建过程中极其复杂的工具链依赖问题，并确保你的代码在提交后能够顺利通过流水线构建，ohos-npm-ports 的所有开发、调试与构建工作**必须在统一的 Docker 容器中完成。**
 
-因此你需要准备一个能够运行 [DockerHarmony](https://github.com/hqzing/dockerharmony) 的环境。环境以 arm 服务器为佳，如果没有 arm 服务器，也可使用 Mac 电脑，或在 x86_64 设备上通过 QEMU 来运行这个容器（但要注意此种用法性能较差）。
+由于我们使用的容器是一个 arm64 架构的鸿蒙容器，因此你首先需要准备一个能够运行 arm64 容器的环境。
 
-> 注意：构建过程中通常会需要去 GitHub 下载源码，需要留意网络连通性的问题。有条件的话建议直接开通香港或国外的 arm 服务器来进行使用。
+相关要求如下：
+
+- **硬件要求**：请在 arm64 原生硬件上运行容器，例如 arm 服务器、Mac 电脑、鸿蒙 PC 等。不提倡在 x86\_64 设备上通过指令集翻译的方式使用 arm64 容器，这种做法性能极差，难以满足编译构建需求。
+- **网络要求**：构建过程中有可能会需要从 GitHub 下载源码，请确保开发环境能够流畅访问 GitHub。建议选用香港或海外地域的 arm 服务器。
+- **软件要求**：已安装 Docker 引擎或 Podman 等替代品。
 
 **2\. Fork 仓库**
 
@@ -91,26 +95,25 @@ Fork 本仓库，生成自己的个人仓，并在个人仓的 Actions 菜单启
 
 **4\. 本地构建和验证**
 
-启动一个 [鸿蒙容器](https://github.com/hqzing/dockerharmony)，然后将你改的代码放到容器中进行构建，把你的脚本调通。
+启动一个 [ci-runner 容器](./docker/Dockerfile)，然后将你改的代码放到容器中进行构建，把你的脚本调通。
 
 以 sqlite3 这个库为例，构建流程如下
 
 ```sh
-# 启动鸿蒙容器
-docker pull ghcr.io/hqzing/dockerharmony:latest
-docker run -itd --name=ohos ghcr.io/hqzing/dockerharmony:latest
+# 从 GHCR 拉取 ci-runner 容器镜像
+docker pull ghcr.io/ohos-npm-ports/ci-runner:latest
+# 若 GHCR 访问不通，可使用南京大学镜像站（将 ghcr.io 替换成 ghcr.nju.edu.cn）
+# 镜像可能随时更新，建议每次工作前执行一次 docker pull 操作
+# 若镜像未更新，docker pull 不会重复拉取旧镜像，可放心执行
 
-# 在宿主机上下载本仓库，复制到容器中
-git clone https://github.com/ohos-npm-ports/ohos-npm-ports.git
-docker cp ohos-npm-ports ohos:/root
+# 启动容器
+docker run -itd --name=ohos ghcr.io/hqzing/dockerharmony:latest
 
 # 进入容器
 docker exec -it ohos sh
 
-# 准备好工具链和环境变量
-cd /root/ohos-npm-ports
-./setup-tools.sh
-source setup-env.sh
+# 下载本仓库
+git clone https://github.com/ohos-npm-ports/ohos-npm-ports.git
 
 # 构建 npm 包
 cd /root/ohos-npm-ports/ports/sqlite3/5.1.7
