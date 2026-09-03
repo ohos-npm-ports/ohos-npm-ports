@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000..0365818
 --- /dev/null
 +++ b/packages/playwright-core/src/ohos/hdc.ts
-@@ -0,0 +1,130 @@
+@@ -0,0 +1,134 @@
 +/**
 + * Copyright (c) The playwright-ohos and ohos-ports authors.
 + *
@@ -118,8 +118,12 @@ index 0000000..0365818
 +   * invokes this for the HDC path.
 +   */
 +  async ensureDeviceConnected(): Promise<void> {
++    const isDeviceLine = (line: string): boolean => {
++      const t = line.trim();
++      return t !== '' && t !== '[Empty]';
++    };
 +    const targets = await this._run(['list', 'targets']).catch(() => ({ stdout: '', stderr: '', code: 1 }));
-+    if (targets.stdout.trim())
++    if (targets.stdout.split('\n').some(isDeviceLine))
 +      return;
 +    const portResult = await execFileAsync('param', ['get', 'persist.hdc.port'], 5000).catch(() => ({ stdout: '', stderr: '', code: 1 }));
 +    const port = portResult.stdout.trim();
@@ -127,7 +131,7 @@ index 0000000..0365818
 +      throw new Error(`cannot determine the wireless debugging port (param get persist.hdc.port returned: ${JSON.stringify(port)})`);
 +    await this._run(['tconn', `127.0.0.1:${port}`]);
 +    const after = await this._run(['list', 'targets']);
-+    if (!after.stdout.trim())
++    if (!after.stdout.split('\n').some(isDeviceLine))
 +      throw new Error(`hdc tconn 127.0.0.1:${port} did not connect; enable wireless debugging on the device first`);
 +  }
 +}
@@ -195,7 +199,7 @@ new file mode 100644
 index 0000000..8f87aee
 --- /dev/null
 +++ b/packages/playwright-core/src/ohos/launcher.ts
-@@ -0,0 +1,373 @@
+@@ -0,0 +1,380 @@
 +/**
 + * Copyright (c) The playwright-ohos and ohos-ports authors.
 + *
@@ -291,10 +295,17 @@ index 0000000..8f87aee
 +    config.abilityName = ability;
 +  if (launchUrl)
 +    config.launchUrl = launchUrl;
-+  if (options.harmonyArgs?.length)
-+    config.extraArgs = options.harmonyArgs;
++  const userArgs = [...(options.harmonyArgs ?? []), ...(options.args ?? [])];
++  const userPort = userArgs.flatMap(arg => {
++    const m = arg.match(/^--remote-debugging-port=(\d+)$/);
++    return m ? [Number(m[1])] : [];
++  })[0];
++  if (userPort)
++    config.port = userPort;
++  if (userArgs.length)
++    config.extraArgs = userArgs.filter(arg => !arg.startsWith('--remote-debugging-port='));
 +  const port = options.harmonyDebugPort ?? (process.env.HARMONY_DEBUG_PORT ? Number(process.env.HARMONY_DEBUG_PORT) : undefined);
-+  if (port)
++  if (port && !config.port)
 +    config.port = port;
 +  return config;
 +};
@@ -657,7 +668,7 @@ new file mode 100644
 index 0000000..e528570
 --- /dev/null
 +++ b/packages/playwright-core/src/ohos/utils.ts
-@@ -0,0 +1,153 @@
+@@ -0,0 +1,154 @@
 +/**
 + * Copyright (c) The playwright-ohos and ohos-ports authors.
 + *
@@ -709,6 +720,7 @@ index 0000000..e528570
 +    timeout: timeoutMs,
 +    maxBuffer: 16 * 1024 * 1024,
 +    windowsHide: true,
++    stdio: ['inherit', 'pipe', 'pipe'],
 +  }, (error, stdout, stderr) => {
 +    if (error && error.code !== 0) {
 +      reject(error);
