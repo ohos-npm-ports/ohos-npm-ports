@@ -42,6 +42,18 @@ npm install --ignore-scripts
 export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_OHOS_LINKER="$(command -v cc)"
 npm run build:platform
 
+# napi-rs generates the loader's require() paths from napi.packageName
+# (@tailwindcss/oxide), but our openharmony subpackages are published under
+# @ohos-npm-ports/. Patch the generated index.js so the loader finds our
+# binaries instead of the non-existent upstream @tailwindcss/oxide-openharmony-*.
+patch -p1 < ../../../patchs/0003-fix-openharmony-loader-require.patch
+
+# Verify the loader now points at our @ohos-npm-ports/ subpackages.
+grep -q "require('@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64')" index.js || {
+  echo "ERROR: loader still references upstream @tailwindcss/oxide-openharmony-arm64" >&2
+  exit 1
+}
+
 NODE_FILE=npm/openharmony-arm64/tailwindcss-oxide.openharmony-arm64.node
 test -f "$NODE_FILE"
 

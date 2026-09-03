@@ -1,0 +1,35 @@
+--- a/index.js
++++ b/index.js
+@@ -474,8 +474,8 @@
+         loadErrors.push(e)
+       }
+       try {
+-        const binding = require('@tailwindcss/oxide-openharmony-arm64')
+-        const bindingPackageVersion = require('@tailwindcss/oxide-openharmony-arm64/package.json').version
++        const binding = require('@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64')
++        const bindingPackageVersion = require('@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64/package.json').version
+         if (bindingPackageVersion !== '4.3.3-2' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+           throw new Error(`Native binding package version mismatch, expected 4.3.3-2 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+         }
+@@ -490,8 +490,8 @@
+         loadErrors.push(e)
+       }
+       try {
+-        const binding = require('@tailwindcss/oxide-openharmony-x64')
+-        const bindingPackageVersion = require('@tailwindcss/oxide-openharmony-x64/package.json').version
++        const binding = require('@ohos-npm-ports/tailwindcss-oxide-openharmony-x64')
++        const bindingPackageVersion = require('@ohos-npm-ports/tailwindcss-oxide-openharmony-x64/package.json').version
+         if (bindingPackageVersion !== '4.3.3-2' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+           throw new Error(`Native binding package version mismatch, expected 4.3.3-2 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+         }
+@@ -506,8 +506,8 @@
+         loadErrors.push(e)
+       }
+       try {
+-        const binding = require('@tailwindcss/oxide-openharmony-arm')
+-        const bindingPackageVersion = require('@tailwindcss/oxide-openharmony-arm/package.json').version
++        const binding = require('@ohos-npm-ports/tailwindcss-oxide-openharmony-arm')
++        const bindingPackageVersion = require('@ohos-npm-ports/tailwindcss-oxide-openharmony-arm/package.json').version
+         if (bindingPackageVersion !== '4.3.3-2' && process.env.NAPI_RS_ENFORCE_VERSION_CHECK && process.env.NAPI_RS_ENFORCE_VERSION_CHECK !== '0') {
+           throw new Error(`Native binding package version mismatch, expected 4.3.3-2 but got ${bindingPackageVersion}. You can reinstall dependencies to fix this issue.`)
+         }

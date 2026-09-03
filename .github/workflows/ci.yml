@@ -45,7 +45,7 @@ jobs:
       fail-fast: false
     runs-on: ubuntu-24.04-arm
     container:
-      image: ghcr.io/hqzing/dockerharmony:6.0
+      image: ghcr.io/ohos-npm-ports/ci-runner:latest
       volumes:
         - /tmp/node24:/__e/node24:rw,rshared
     steps:
@@ -61,12 +61,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup tools
-        run: ./setup-tools.sh
-
       - name: Build
         run: |
-          source setup-env.sh
           cd "${{ matrix.dir }}"
           ./build.sh
 
@@ -77,6 +73,5 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-          source setup-env.sh
           cd "${{ matrix.dir }}"
           ./publish.sh
