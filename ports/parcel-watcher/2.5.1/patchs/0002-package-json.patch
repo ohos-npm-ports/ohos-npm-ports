@@ -5,7 +5,7 @@
 -  "name": "@parcel/watcher",
 -  "version": "2.5.1",
 +  "name": "@ohos-npm-ports/parcel-watcher",
-+  "version": "2.5.1-1",
++  "version": "2.5.1-2",
    "main": "index.js",
    "types": "index.d.ts",
    "repository": {
@@ -37,3 +37,12 @@
      "test": "mocha"
    },
    "engines": {
+@@ -83,6 +84,7 @@
+     "@parcel/watcher-linux-arm-glibc": "2.5.1",
+     "@parcel/watcher-linux-arm-musl": "2.5.1",
+     "@parcel/watcher-android-arm64": "2.5.1",
+-    "@parcel/watcher-freebsd-x64": "2.5.1"
++    "@parcel/watcher-freebsd-x64": "2.5.1",
++    "@parcel/watcher-openharmony-arm64": "npm:@ohos-npm-ports/parcel-watcher-openharmony-arm64@2.5.1-2"
+   }
+ }

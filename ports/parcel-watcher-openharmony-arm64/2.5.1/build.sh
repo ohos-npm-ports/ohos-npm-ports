@@ -54,7 +54,7 @@ SHIM
 cat > "${PKG}-${VERSION}/package.json" <<JSON
 {
   "name": "@ohos-npm-ports/${PKG}",
-  "version": "${VERSION}-1",
+  "version": "${VERSION}-2",
   "description": "OpenHarmony (OHOS) arm64 platform binding for @parcel/watcher \\u2014 source-built inotify backend, main is a shim re-exporting watcher.node (bundler module-table embedding requires a JS entry)",
   "main": "index.js",
   "repository": {
@@ -86,7 +86,7 @@ NAME=$(node -e "console.log(require('./package.json').name)")
 [ "$NAME" = "@ohos-npm-ports/${PKG}" ]
 node -e '
   const pkg = require("./package.json");
-  if (pkg.version !== "2.5.1-1") throw new Error(`bad version: ${pkg.version}`);
+  if (pkg.version !== "2.5.1-2") throw new Error(`bad version: ${pkg.version}`);
   if (pkg.main !== "index.js") throw new Error("main must be the shim");
   console.log("package.json OK");
 '
@@ -117,7 +117,7 @@ cd "$ROOT"
 rm -rf smoke && mkdir smoke && cd smoke
 echo '{"name":"pws-smoke","private":true}' > package.json
 npm pack --silent "../${PKG}-${VERSION}" > /dev/null
-npm install --no-audit --no-fund "./ohos-npm-ports-${PKG}-${VERSION}-1.tgz" > /dev/null
+npm install --no-audit --no-fund "./ohos-npm-ports-${PKG}-${VERSION}-2.tgz" > /dev/null
 node -e "const b = require('@ohos-npm-ports/${PKG}'); console.log('consumer smoke:', typeof b.writeSnapshot)"
 
 # 槽位冒烟：按 @parcel/watcher 的动态拼名（alias 安装形态）require 命中
@@ -133,4 +133,4 @@ console.log("slot-name require (dynamic name construction) OK:", name);
 cd "$ROOT"
 rm -rf smoke
 
-echo "OK: @ohos-npm-ports/${PKG}@${VERSION}-1"
+echo "OK: @ohos-npm-ports/${PKG}@${VERSION}-2"
