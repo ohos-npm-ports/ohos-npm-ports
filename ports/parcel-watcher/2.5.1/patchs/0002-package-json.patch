@@ -5,7 +5,7 @@
 -  "name": "@parcel/watcher",
 -  "version": "2.5.1",
 +  "name": "@ohos-npm-ports/parcel-watcher",
-+  "version": "2.5.1-1",
++  "version": "2.5.1-2",
    "main": "index.js",
    "types": "index.d.ts",
    "repository": {
@@ -16,7 +16,7 @@
 +    "directory": "ports/parcel-watcher/2.5.1"
    },
 -  "description": "A native C++ Node module for querying and subscribing to filesystem events. Used by Parcel 2.",
-+  "description": "A native C++ Node module for querying and subscribing to filesystem events. Used by Parcel 2. \u2014 OpenHarmony (OHOS) port: source-built openharmony-arm64 binding embedded at the upstream fallback path, index.js unchanged.",
++  "description": "A native C++ Node module for querying and subscribing to filesystem events. Used by Parcel 2. \u2014 OpenHarmony (OHOS) port: source-built openharmony-arm64 binding embedded at the upstream fallback path; optionalDependencies alias pulls the openharmony platform package on OHOS installs.",
    "license": "MIT",
    "publishConfig": {
      "access": "public"
@@ -37,3 +37,12 @@
      "test": "mocha"
    },
    "engines": {
+@@ -83,6 +84,7 @@
+     "@parcel/watcher-linux-arm-glibc": "2.5.1",
+     "@parcel/watcher-linux-arm-musl": "2.5.1",
+     "@parcel/watcher-android-arm64": "2.5.1",
+-    "@parcel/watcher-freebsd-x64": "2.5.1"
++    "@parcel/watcher-freebsd-x64": "2.5.1",
++    "@parcel/watcher-openharmony-arm64": "npm:@ohos-npm-ports/parcel-watcher-openharmony-arm64@2.5.1-2"
+   }
+ }

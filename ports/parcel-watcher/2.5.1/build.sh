@@ -8,6 +8,17 @@ set -e
 # 兜底路径内嵌，index.js 零改动。非 OHOS 平台走上游 optionalDependencies
 # 平台包，行为不变（0002 删掉 install script：其 build-from-source 回落会
 # 在消费者机器上触发 node-gyp 编译）。
+#
+# 2.5.1-2：让"动态拼名"在两类环境都能命中——
+#   a) 普通安装：optionalDependencies 增加 alias
+#      "@parcel/watcher-openharmony-arm64" ->
+#      npm:@ohos-npm-ports/parcel-watcher-openharmony-arm64@2.5.1-2
+#      （os:["openharmony"] 平台过滤，OHOS 安装时自动拉取，其他平台跳过；
+#      该 port 未发布前拉取失败也只是 optional 降级，不阻塞安装）
+#   b) bun --compile 单二进制：wrapper.js 顶部静态引用该平台包（0003），
+#      让 bundler 把它进内嵌模块表——运行时动态拼名 require 按 specifier
+#      命中（.node 直接作 main 不进模块表，故配套 port 的 main 是
+#      index.js shim 转出口）
 
 VERSION=2.5.1
 PKG=parcel-watcher
@@ -47,8 +58,12 @@ tar -zxf watcher.tgz
 rm watcher.tgz
 mv package "${PKG}-${VERSION}"
 cp "${PKG}-${VERSION}/index.js" "$ROOT"/index.js.upstream
+cp "${PKG}-${VERSION}/wrapper.js" "$ROOT"/wrapper.js.upstream
 cd "${PKG}-${VERSION}"
 patch -p1 < ../patchs/0002-package-json.patch
+patch -p1 < ../patchs/0003-wrapper-static-slot-ref.patch
+# 0003 marker：静态引用行必须真的打上（toybox patch 静默 no-op 防线）
+grep -q "require('@parcel/watcher-openharmony-arm64')" wrapper.js
 mkdir -p build/Release
 cp "${ROOT}/watcher-${VERSION}/build/Release/watcher.node" build/Release/watcher.node
 
@@ -57,17 +72,24 @@ cp "${ROOT}/watcher-${VERSION}/build/Release/watcher.node" build/Release/watcher
 # 跨平台：index.js 与上游逐字节一致（loader 行为不变的构造性证明）
 cmp "$ROOT"/index.js.upstream index.js && rm -f "$ROOT"/index.js.upstream \
   && echo "index.js byte-identical to upstream"
+# wrapper.js 仅 0003 的头部静态引用差异（头 6 行外与上游一致）
+tail -n +7 wrapper.js | cmp - "$ROOT"/wrapper.js.upstream \
+  && rm -f "$ROOT"/wrapper.js.upstream \
+  && echo "wrapper.js identical to upstream below the 0003 header"
 
 NAME=$(node -e "console.log(require('./package.json').name)")
 [ "$NAME" = "@ohos-npm-ports/${PKG}" ]
 
 node -e '
   const pkg = require("./package.json");
-  if (pkg.version !== "2.5.1-1") throw new Error(`bad version: ${pkg.version}`);
+  if (pkg.version !== "2.5.1-2") throw new Error(`bad version: ${pkg.version}`);
   const n = Object.keys(pkg.optionalDependencies ?? {}).length;
-  if (n !== 13) throw new Error(`optionalDependencies count: ${n}, expected 13`);
+  if (n !== 14) throw new Error(`optionalDependencies count: ${n}, expected 14`);
   if (pkg.optionalDependencies["@parcel/watcher-linux-arm64-musl"] !== "2.5.1")
     throw new Error("platform subpackage version drifted");
+  const alias = pkg.optionalDependencies["@parcel/watcher-openharmony-arm64"];
+  if (alias !== "npm:@ohos-npm-ports/parcel-watcher-openharmony-arm64@2.5.1-2")
+    throw new Error(`openharmony alias drifted: ${alias}`);
   if ("install" in (pkg.scripts ?? {})) throw new Error("install script must be dropped");
   console.log("package.json rewrite OK");
 '
@@ -79,7 +101,8 @@ readelf -h build/Release/watcher.node | grep -q 'AArch64'
 readelf -S build/Release/watcher.node | grep -q '\.codesign'
 readelf -d build/Release/watcher.node | grep -q 'libc\.so'
 
-# 真函数冒烟：openharmony 上 require 本包根——index.js 拼出的平台包不存在，
+# 真函数冒烟：openharmony 上 require 本包根——index.js 拼出的平台包当前
+# 未安装（optional alias 在本构建目录里拉不到未发布的配套 port），
 # 走官方兜底路径命中内嵌 binding；真实扫一次目录并落快照文件。
 # 跨平台模拟：伪造 process.platform=linux 验证拼名缺失时兜底链不崩（真实
 # linux 用户的平台包由 optionalDependencies 在 require(name) 一步命中）
@@ -110,10 +133,10 @@ cd "$ROOT"
 rm -rf smoke && mkdir smoke && cd smoke
 echo '{"name":"pw-smoke","private":true}' > package.json
 npm pack --silent "../${PKG}-${VERSION}" > /dev/null
-npm install --no-audit --no-fund "./ohos-npm-ports-${PKG}-${VERSION}-1.tgz" > /dev/null
+npm install --no-audit --no-fund "./ohos-npm-ports-${PKG}-${VERSION}-2.tgz" > /dev/null
 node -e "const b = require('@ohos-npm-ports/${PKG}'); console.log('consumer smoke:', typeof b.writeSnapshot)"
 
 cd "$ROOT"
 rm -rf smoke
 
-echo "OK: @ohos-npm-ports/${PKG}@${VERSION}-1"
+echo "OK: @ohos-npm-ports/${PKG}@${VERSION}-2"

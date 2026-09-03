@@ -1,0 +1,12 @@
+--- a/wrapper.js
++++ b/wrapper.js
+@@ -1,3 +1,9 @@
++// Statically reference the openharmony platform package so bundlers embed it
++// in the module table: index.js loads platform bindings via a runtime-
++// constructed require, which cannot resolve inside compiled binaries (no
++// node_modules at runtime). Guarded — no-op wherever the package is absent.
++try { require('@parcel/watcher-openharmony-arm64') } catch {}
++
+ const path = require('path');
+ const micromatch = require('micromatch');
+ const isGlob = require('is-glob');
