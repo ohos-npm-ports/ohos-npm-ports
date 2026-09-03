@@ -103,8 +103,8 @@ index 0000000..0365818
 +  async cleanupStaleForwards(): Promise<void> {
 +    const result = await this._run(['fport', 'ls']).catch(() => ({ stdout: '', stderr: '', code: 1 }));
 +    for (const line of result.stdout.split('\n')) {
-+      const match = line.match(/\s+(tcp:\d+)\s+(localabstract:\S+)/);
-+      if (!match || !match[2].includes('webview_devtools_remote'))
++      const match = line.match(/\s+(tcp:\d+)\s+(localabstract:\S+|tcp:\d+)/);
++      if (!match || match[2].startsWith('localabstract:') && !match[2].includes('webview_devtools_remote'))
 +        continue;
 +      await this._run(['fport', 'rm', match[1], match[2]]).catch(() => {});
 +    }
@@ -195,7 +195,7 @@ new file mode 100644
 index 0000000..8f87aee
 --- /dev/null
 +++ b/packages/playwright-core/src/ohos/launcher.ts
-@@ -0,0 +1,361 @@
+@@ -0,0 +1,373 @@
 +/**
 + * Copyright (c) The playwright-ohos and ohos-ports authors.
 + *
@@ -323,13 +323,13 @@ index 0000000..8f87aee
 +// The installed-bundle list is queried once per process: querying `bm` on
 +// every launch stalls under test load and its failures must not block the
 +// launch (a failed query means "unknown", not "missing").
-+let installedBundlesCache: string | null = null;
++const installedBundlesCache = new Map<string, boolean>();
 +const assertBrowserInstalled = async (hdc: HdcBackend, bundleName: string): Promise<void> => {
-+  if (installedBundlesCache === null) {
-+    const result = await hdc.shell('bm dump -a').catch(() => ({ stdout: '', stderr: '', code: 1 }));
-+    installedBundlesCache = result.code === 0 ? result.stdout : '';
++  if (!installedBundlesCache.has(bundleName)) {
++    const result = await hdc.shell(`bm dump -n ${bundleName}`).catch(() => ({ stdout: '', stderr: '', code: 1 }));
++    installedBundlesCache.set(bundleName, result.code === 0 && result.stdout.includes(bundleName));
 +  }
-+  if (installedBundlesCache && !installedBundlesCache.includes(bundleName))
++  if (!installedBundlesCache.get(bundleName))
 +    throw new Error(`browser ${bundleName} is not installed on the device`);
 +};
 +
@@ -396,7 +396,19 @@ index 0000000..8f87aee
 +    } else {
 +      await hdcShellWithRetry(hdc, `aa start -b ${config.bundleName} -a ${config.abilityName}`);
 +    }
-+    const endpointURL = `http://127.0.0.1:${port}`;
++    let endpointURL: string;
++    for (let attempt = 0; attempt < 3; attempt++) {
++      const localPort = await getFreePort();
++      try {
++        await hdc.fport(`tcp:${localPort}`, `tcp:${port}`);
++        endpointURL = `http://127.0.0.1:${localPort}`;
++        break;
++      } catch (e) {
++        await hdc.cleanupStaleForwards().catch(() => {});
++        if (attempt === 2)
++          throw e;
++      }
++    }
 +    await waitForEndpoint(`${endpointURL}/json/version`);
 +    return endpointURL;
 +  }
