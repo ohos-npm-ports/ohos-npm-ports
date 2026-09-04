@@ -22,13 +22,29 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 
 | 原始包名   | 鸿蒙适配后的包名           | 最新版本  |
 | ---------- | -------------------------- | --------- |
+| @ast-grep/napi | @ohos-npm-ports/ast-grep-napi | 0.43.0-1 |
+| @datadog/pprof | @ohos-npm-ports/datadog-pprof | 5.17.0-1 |
+| @parcel/watcher | @ohos-npm-ports/parcel-watcher | 2.5.1-2 |
+| @playwright/mcp | @ohos-npm-ports/playwright-mcp | 0.0.78-1 |
+| @prisma/engines | @ohos-npm-ports/prisma-engines | 5.1.1-2 |
+| @resvg/resvg-js | @ohos-npm-ports/resvg-resvg-js | 2.6.2-1 |
+| @tailwindcss/oxide | @ohos-npm-ports/tailwindcss-oxide | 4.3.3-2 |
 | bufferutil | @ohos-npm-ports/bufferutil | 4.0.9-7   |
-| sqlite3    | @ohos-npm-ports/sqlite3    | 5.1.7-8   |
-| typescript | @ohos-npm-ports/typescript | 7.0.2-2   |
+| bun-pty | @ohos-npm-ports/bun-pty | 0.4.10-1 |
+| lightningcss | @ohos-npm-ports/lightningcss | 1.33.0-1 |
 | nx         | @ohos-npm-ports/nx         | 23.1.1-1  |
-| turbo      | @ohos-npm-ports/turbo      | 2.10.10-1 |
 | opentui-core | @ohos-npm-ports/opentui-core | 0.5.8-1 |
-| playwright-mcp | @ohos-npm-ports/playwright-mcp | 0.0.78-1 |
+| oxlint-tsgolint | @ohos-npm-ports/oxlint-tsgolint | 7.0.2001-1 |
+| playwright-core | @ohos-npm-ports/playwright-core | 1.62.1-1 |
+| sharp | @ohos-npm-ports/sharp | 0.34.5-1 |
+| sqlite3    | @ohos-npm-ports/sqlite3    | 5.1.7-8   |
+| turbo      | @ohos-npm-ports/turbo      | 2.10.10-1 |
+| typescript | @ohos-npm-ports/typescript | 7.0.2-2   |
+| vite-plus | @ohos-npm-ports/vite-plus | 0.2.8-2 |
+| yuku-codegen | @ohos-npm-ports/yuku-codegen | 0.5.44-1 |
+| yuku-parser | @ohos-npm-ports/yuku-parser | 0.7.0-1 |
+
+注：`@ohos-npm-ports/parcel-watcher-openharmony-arm64`、`@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64` 等平台二进制子包由对应主包通过 optionalDependencies 自动引用，无需直接安装。
 
 ## 使用方法
 
