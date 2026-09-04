@@ -3,23 +3,7 @@ new file mode 100644
 index 0000000..0365818
 --- /dev/null
 +++ b/packages/playwright-core/src/ohos/hdc.ts
-@@ -0,0 +1,134 @@
-+/**
-+ * Copyright (c) The playwright-ohos and ohos-ports authors.
-+ *
-+ * Licensed under the Apache License, Version 2.0 (the "License");
-+ * you may not use this file except in compliance with the License.
-+ * You may obtain a copy of the License at
-+ *
-+ * http://www.apache.org/licenses/LICENSE-2.0
-+ *
-+ * Unless required by applicable law or agreed to in writing, software
-+ * distributed under the License is distributed on an "AS IS" BASIS,
-+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+ * See the License for the specific language governing permissions and
-+ * limitations under the License.
-+ */
-+
+@@ -0,0 +1,118 @@
 +// HDC (HarmonyOS Device Connector) backend used to launch and control
 +// on-device browsers.
 +import fs from 'fs';
@@ -143,23 +127,7 @@ new file mode 100644
 index 0000000..b86a58a
 --- /dev/null
 +++ b/packages/playwright-core/src/ohos/index.ts
-@@ -0,0 +1,50 @@
-+/**
-+ * Copyright (c) The playwright-ohos and ohos-ports authors.
-+ *
-+ * Licensed under the Apache License, Version 2.0 (the "License");
-+ * you may not use this file except in compliance with the License.
-+ * You may obtain a copy of the License at
-+ *
-+ * http://www.apache.org/licenses/LICENSE-2.0
-+ *
-+ * Unless required by applicable law or agreed to in writing, software
-+ * distributed under the License is distributed on an "AS IS" BASIS,
-+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+ * See the License for the specific language governing permissions and
-+ * limitations under the License.
-+ */
-+
+@@ -0,0 +1,34 @@
 +// HarmonyOS entry point of playwright-core: re-exports the main entry and
 +// adds the launcher helpers. This is a relative import, not the bare
 +// `playwright-core` specifier: this file is compiled without bundling (see
@@ -199,23 +167,7 @@ new file mode 100644
 index 0000000..8f87aee
 --- /dev/null
 +++ b/packages/playwright-core/src/ohos/launcher.ts
-@@ -0,0 +1,380 @@
-+/**
-+ * Copyright (c) The playwright-ohos and ohos-ports authors.
-+ *
-+ * Licensed under the Apache License, Version 2.0 (the "License");
-+ * you may not use this file except in compliance with the License.
-+ * You may obtain a copy of the License at
-+ *
-+ * http://www.apache.org/licenses/LICENSE-2.0
-+ *
-+ * Unless required by applicable law or agreed to in writing, software
-+ * distributed under the License is distributed on an "AS IS" BASIS,
-+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+ * See the License for the specific language governing permissions and
-+ * limitations under the License.
-+ */
-+
+@@ -0,0 +1,364 @@
 +// Launches on-device browsers through HDC or ohos-aa and wires them into
 +// playwright-core's Chromium implementation.
 +
@@ -585,23 +537,7 @@ new file mode 100644
 index 0000000..91681c8
 --- /dev/null
 +++ b/packages/playwright-core/src/ohos/ohos-aa.ts
-@@ -0,0 +1,56 @@
-+/**
-+ * Copyright (c) The playwright-ohos and ohos-ports authors.
-+ *
-+ * Licensed under the Apache License, Version 2.0 (the "License");
-+ * you may not use this file except in compliance with the License.
-+ * You may obtain a copy of the License at
-+ *
-+ * http://www.apache.org/licenses/LICENSE-2.0
-+ *
-+ * Unless required by applicable law or agreed to in writing, software
-+ * distributed under the License is distributed on an "AS IS" BASIS,
-+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+ * See the License for the specific language governing permissions and
-+ * limitations under the License.
-+ */
-+
+@@ -0,0 +1,40 @@
 +// ohos-aa support: on HarmonyOS 7.1+ the command starts abilities without
 +// developer mode. On this machine it is a shell alias, which is resolved
 +// through the shell.
@@ -642,49 +578,12 @@ index 0000000..91681c8
 +  const { stdout, stderr } = await execFileAsync(command, args, timeoutMs);
 +  return { stdout, stderr };
 +};
-diff --git a/packages/playwright-core/src/ohos/playwright-ohos.LICENSE b/packages/playwright-core/src/ohos/playwright-ohos.LICENSE
-new file mode 100644
-index 0000000..97ea568
---- /dev/null
-+++ b/packages/playwright-core/src/ohos/playwright-ohos.LICENSE
-@@ -0,0 +1,15 @@
-+The HarmonyOS launcher sources in this directory are derived from the
-+playwright-ohos project (https://github.com/pzf0000/playwright-ohos),
-+Copyright (c) 2026 Leo Pan and the playwright-ohos contributors.
-+
-+Permission to use, copy, modify, and/or distribute this software for any
-+purpose with or without fee is hereby granted, provided that the above
-+copyright notice and this permission notice appear in all copies.
-+
-+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 diff --git a/packages/playwright-core/src/ohos/utils.ts b/packages/playwright-core/src/ohos/utils.ts
 new file mode 100644
 index 0000000..e528570
 --- /dev/null
 +++ b/packages/playwright-core/src/ohos/utils.ts
-@@ -0,0 +1,154 @@
-+/**
-+ * Copyright (c) The playwright-ohos and ohos-ports authors.
-+ *
-+ * Licensed under the Apache License, Version 2.0 (the "License");
-+ * you may not use this file except in compliance with the License.
-+ * You may obtain a copy of the License at
-+ *
-+ * http://www.apache.org/licenses/LICENSE-2.0
-+ *
-+ * Unless required by applicable law or agreed to in writing, software
-+ * distributed under the License is distributed on an "AS IS" BASIS,
-+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-+ * See the License for the specific language governing permissions and
-+ * limitations under the License.
-+ */
-+
+@@ -0,0 +1,138 @@
 +// Generic helpers shared by the HarmonyOS launcher and the OS layer.
 +import { execFile, execFileSync } from 'child_process';
 +import fs from 'fs';

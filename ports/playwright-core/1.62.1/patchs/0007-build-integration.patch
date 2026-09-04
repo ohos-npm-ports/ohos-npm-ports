@@ -69,17 +69,10 @@ index 2bef516..dd2215e 100644
      filePath('packages/playwright-core/src/package.ts'),
      filePath('packages/playwright-core/src/tools/utils/socketConnection.ts'),
      filePath('packages/playwright-core/src/tools/utils/extension.ts'),
-@@ -1069,6 +1072,25 @@ copyFiles.push({
+@@ -1069,6 +1072,18 @@ copyFiles.push({
    to: 'packages/playwright-core/lib',
  });
- 
-+// Ship the playwright-ohos license next to the HarmonyOS entry point.
-+copyFiles.push({
-+  files: 'packages/playwright-core/src/ohos/*.LICENSE',
-+  from: 'packages/playwright-core/src',
-+  to: 'packages/playwright-core/lib',
-+});
-+
+
 +// The npm pack of playwright-core ships the root license files.
 +copyFiles.push({
 +  files: 'LICENSE',
