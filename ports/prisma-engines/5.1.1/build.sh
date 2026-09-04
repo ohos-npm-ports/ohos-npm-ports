@@ -94,17 +94,16 @@ cp src/target/release/schema-engine pkg/schema-engine
 cp package.json pkg/package.json
 cp index.js pkg/index.js
 
-# binary-sign-tool is device-only (fails to relocate in this container).
-# selfsign.py refuses files that already carry a .codesign section, which
-# LLD stamps at link time -- so strip first (ports/turbo does the same).
+# The OHOS-patched LLD stamps a placeholder .codesign at link time which
+# binary-sign-tool refuses to overwrite -- strip first (ports/turbo does
+# the same).
 llvm-strip --strip-all pkg/libquery_engine.so
 llvm-strip --strip-all pkg/schema-engine
-curl -fsSL "https://raw.githubusercontent.com/hqzing/ohos-bst-light/main/selfsign.py" -o selfsign.py
-python3 selfsign.py pkg/libquery_engine.so
-chmod +x pkg/libquery_engine.so
-python3 selfsign.py pkg/schema-engine
+binary-sign-tool sign -selfSign 1 -inFile pkg/libquery_engine.so -outFile pkg/libquery_engine.so.signed
+mv pkg/libquery_engine.so.signed pkg/libquery_engine.so
+binary-sign-tool sign -selfSign 1 -inFile pkg/schema-engine -outFile pkg/schema-engine.signed
+mv pkg/schema-engine.signed pkg/schema-engine
 chmod +x pkg/schema-engine
-rm selfsign.py
 readelf -S pkg/libquery_engine.so | grep -q '\.codesign'
 readelf -S pkg/schema-engine | grep -q '\.codesign'
 

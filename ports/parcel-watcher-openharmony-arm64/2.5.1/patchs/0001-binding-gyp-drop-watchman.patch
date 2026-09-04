@@ -1,0 +1,45 @@
+--- a/binding.gyp
++++ b/binding.gyp
+@@ -10,8 +10,6 @@
+       "conditions": [
+         ['OS=="mac"', {
+           "sources": [
+-            "src/watchman/BSER.cc",
+-            "src/watchman/WatchmanBackend.cc",
+             "src/shared/BruteForceBackend.cc",
+             "src/unix/fts.cc",
+             "src/macos/FSEventsBackend.cc",
+@@ -37,8 +35,6 @@
+         }],
+         ['OS=="linux" or OS=="android"', {
+           "sources": [
+-            "src/watchman/BSER.cc",
+-            "src/watchman/WatchmanBackend.cc",
+             "src/shared/BruteForceBackend.cc",
+             "src/linux/InotifyBackend.cc",
+             "src/unix/legacy.cc"
+@@ -45,6 +41,5 @@
+           ],
+           "defines": [
+-            "WATCHMAN",
+             "INOTIFY",
+             "BRUTE_FORCE"
+           ]
+@@ -51,8 +46,6 @@
+         }],
+         ['OS=="win"', {
+           "sources": [
+-            "src/watchman/BSER.cc",
+-            "src/watchman/WatchmanBackend.cc",
+             "src/shared/BruteForceBackend.cc",
+             "src/windows/WindowsBackend.cc",
+             "src/windows/win_utils.cc"
+@@ -70,8 +63,6 @@
+         }],
+         ['OS=="freebsd"', {
+           "sources": [
+-            "src/watchman/BSER.cc",
+-            "src/watchman/WatchmanBackend.cc",
+             "src/shared/BruteForceBackend.cc",
+             "src/unix/fts.cc",
+             "src/kqueue/KqueueBackend.cc"
