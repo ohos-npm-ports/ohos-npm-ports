@@ -10,7 +10,7 @@ set -e
 # revision can still be published without bumping the upstream version.
 
 UPSTREAM_VERSION=1.62.1
-VERSION="$UPSTREAM_VERSION-1"
+VERSION="$UPSTREAM_VERSION-2"
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SCRIPT_DIR"
@@ -118,8 +118,13 @@ node -e "
   # ohos 入口的自包含相对 require 未被 esbuild 内联；exports 暴露 ./lib/ohos；
   # 版本号为 <上游版本>-1 修订号，与仓库其余 port 的版本约定一致
   grep -q 'require("../../index.js")' lib/ohos/index.js
+  # 制品必须携带许可证声明：包整体（含 ohos 运行时）以 Apache-2.0 发布，
+  # 上游 LICENSE/NOTICE 随包分发。缺失即不合规。
+  test -f LICENSE
+  test -f NOTICE
   node -e '
     const pkg = require("./package.json");
+    if (pkg.license !== "Apache-2.0") throw new Error(`unexpected license: ${pkg.license}`);
     if (pkg.name !== "@ohos-npm-ports/playwright-core") throw new Error(`unexpected name: ${pkg.name}`);
     if (!pkg.exports["./lib/ohos"]) throw new Error("exports[./lib/ohos] missing");
     if (pkg.version !== "'"$VERSION"'") throw new Error(`unexpected version: ${pkg.version}`);

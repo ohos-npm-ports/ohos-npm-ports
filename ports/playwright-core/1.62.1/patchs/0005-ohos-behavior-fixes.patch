@@ -24,7 +24,7 @@ index b462b0b..cb71c55 100644
 +    // The device browsers report no CDP events for history navigations;
 +    // wait until the URL actually changes so goBack/goForward complete, and
 +    // report the URL so the caller can skip the event-based wait.
-+    if (this._crPage._browserContext._browser._hdcBackend) {
++    if (this._browserContext._browser._hdcBackend) {
 +      const deadline = Date.now() + 30000;
 +      while (Date.now() < deadline) {
 +        await new Promise(resolve => setTimeout(resolve, 200));
