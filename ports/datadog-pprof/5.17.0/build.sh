@@ -6,7 +6,7 @@ set -e
 # target/toolchain wrapper needed, same as the napi-rs ports.
 
 VERSION=5.17.0
-PKG=pprof
+PKG=datadog-pprof
 
 curl -fsSL "https://github.com/DataDog/pprof-nodejs/archive/refs/tags/v${VERSION}.tar.gz" -o pprof.tar.gz
 tar -zxf pprof.tar.gz
@@ -26,30 +26,23 @@ export PATH="$(pwd)/node_modules/.bin:$PATH"
 
 npm run compile
 
-# node-gyp's generated Makefile falls back to a bare `clang++`/`clang` when
-# CC/CXX aren't set in the environment. That bare name resolves through
-# llvm-gcc-compat's cc/c++ wrapper (a devel-base dependency, so always
-# present) — but that wrapper only points at harmonybrew's llvm@21 clang
-# *after* llvm@21's own post_install hook has patched it to do so. Without
-# llvm@21 actually installed, the wrapper falls back to the OHOS device's
-# older bundled toolchain (clang 15.0.4), whose libcxx-ohos headers don't
-# have <source_location> — which node's own v8 headers pull in
-# unconditionally, so the build fails before it ever reaches this package's
-# own source. setup-tools.sh only installs devel-base, not llvm@21 itself,
-# so install it explicitly (same tap+trust dance bun-pty's build.sh uses for
-# its own bun dependency — this tap isn't pre-trusted on a fresh runner).
-brew tap social4hyq/core https://github.com/social4hyq/homebrew-core.git
-brew trust social4hyq/core
-brew install -y social4hyq/core/llvm@21
-
-export CC=cc CXX=c++
+# The image's default clang predates C++20: node's v8 headers pull in
+# <source_location> unconditionally, so the addon build needs a modern clang.
+# Use llvm@22 — the same toolchain the core node formula itself is built
+# with, so the addon's libc++ ABI (__n1 namespace) matches node's exported
+# v8:: symbols by construction. llvm@2x declares a conflict with the image's
+# linked ohos-sdk (both provide `clang` binaries), so unlink it first;
+# keg_only llvm is not on PATH, hence the explicit CC/CXX.
+brew unlink ohos-sdk || true
+brew install -y llvm@22 lld@22
+LLVM_BIN="$(brew --prefix)/opt/llvm@22/bin"
+export CC="$LLVM_BIN/clang" CXX="$LLVM_BIN/clang++"
+export PATH="$LLVM_BIN:$(brew --prefix)/opt/lld@22/bin:$PATH"
 node-gyp rebuild --jobs=max
 
 ABI=$(node -p process.versions.modules)
-# Bun and the harmonybrew `node` formula on this device both currently
-# report ABI 147; node-gyp-build's resolver keys the prebuild filename off of
-# this value, so if it drifts the file we produce below won't be found at
-# runtime. Fail loudly instead of silently shipping a mis-named binary.
+# node-gyp-build's resolver keys the prebuild filename off of this value; fail
+# loudly instead of silently shipping a mis-named binary.
 [ "$ABI" = "147" ] || { echo "unexpected ABI $ABI (expected 147)" >&2; exit 1; }
 
 mkdir -p prebuilds/openharmony-arm64
@@ -57,7 +50,9 @@ cp "build/Release/dd_pprof.node" "prebuilds/openharmony-arm64/dd_pprof.node.abi$
 
 cd prebuilds/openharmony-arm64
 llvm-strip --strip-all "dd_pprof.node.abi${ABI}.node"
-binary-sign-tool sign -selfSign 1 -inFile "dd_pprof.node.abi${ABI}.node" -outFile "dd_pprof.node.abi${ABI}.node.signed"
+# brew unlink ohos-sdk (above) removed its PATH symlinks, incl. this tool;
+# call it via the keg path.
+"$(brew --prefix)/opt/ohos-sdk/bin/binary-sign-tool" sign -selfSign 1 -inFile "dd_pprof.node.abi${ABI}.node" -outFile "dd_pprof.node.abi${ABI}.node.signed"
 mv "dd_pprof.node.abi${ABI}.node.signed" "dd_pprof.node.abi${ABI}.node"
 chmod +x "dd_pprof.node.abi${ABI}.node"
 cd ../..
@@ -99,29 +94,15 @@ case "$RESOLVED" in
   *) echo "node-gyp-build resolved to unexpected path: $RESOLVED" >&2; exit 1 ;;
 esac
 
-# Real functional smoke test: dlopen'ing this addon and calling its actual
-# V8 CPU-profiler API (not just parsing the ELF header). This can't be done
-# with plain `node` on this device: the addon directly calls host-exported
-# v8:: symbols, and their mangled names embed the calling convention of
-# whatever C++ standard library built the caller. This build links against
-# llvm@21's libc++ (std::__n1::optional<...>). harmonybrew's `node` formula
-# is a different, unrelated case: its own formula builds Node.js/V8 with
-# Alpine Linux's native GCC in a chroot, statically linking GNU libstdc++
-# (plain std::optional<...>, no inline-namespace tag at all) — not a libc++
-# variant, so no ABI-namespace flag on either side could bridge it. bun
-# (r56+) links libc++ with the same __n1 tag as this build, and is also the
-# actual runtime upstream's own acceptance test
-# (test/integration/datadog-pprof/datadog-pprof.test.ts) uses, so that's
-# what we verify against here.
-#
-# The CI image doesn't ship bun (only node/python/devel-base, per
-# setup-tools.sh) — pulling it from our own tap (already trusted above):
-mkdir -p /system/lib
-ln -sf /lib/ld-musl-aarch64.so.1 /system/lib/ld-musl-aarch64.so.1
-brew install -y social4hyq/core/bun
-bun --version
+# Real functional smoke test: dlopen the addon and drive its actual V8
+# CPU-profiler API with harmonybrew's core node (llvm-built, ABI compatible
+# with this addon).
+brew install -y node
 
-bun -e '
+NODE_BIN="$(brew --prefix)/opt/node/bin/node"
+"$NODE_BIN" --version
+
+"$NODE_BIN" -e '
   const { time } = require("./out/src/index.js");
 
   function hotLoop() {
