@@ -33,7 +33,7 @@ jobs:
                  | sort -u \
                  | jq -R -s -c 'split("\n")[:-1]')
 
-          echo "matrix=$dirs" >> $GITHUB_OUTPUT
+          echo "matrix=$dirs" >> "$GITHUB_OUTPUT"
 
   # 对于发生变化的目录，进去执行里面的 build.sh 和 publish.sh
   build-and-publish:
@@ -65,6 +65,17 @@ jobs:
         run: |
           cd "${{ matrix.dir }}"
           ./build.sh
+
+      # 通用兜底冒烟（npm pack → 装进临时工程 → 真 require）：不少 port 自己的
+      # build.sh 已经做了更贴合自身的自验证（见 docs/zh-CN/contributor/
+      # verification.md），这一步是给没做的兜底，防止「编译通过但装上就崩」的
+      # 产物被合并。先非阻塞观察一段时间，稳定后再收紧。
+      - name: Smoke
+        continue-on-error: true
+        run: |
+          name=$(echo "${{ matrix.dir }}" | cut -d/ -f2)
+          ver=$(echo "${{ matrix.dir }}" | cut -d/ -f3)
+          .github/scripts/smoke-port.sh "$name" "$ver"
 
       # 只有直接 push 或 PR 被合入时才会进行发布
       - name: Publish
