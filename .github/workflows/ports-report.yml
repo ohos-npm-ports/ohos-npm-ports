@@ -1,0 +1,36 @@
+name: ports-report
+
+# 周调度：全量 port 的落后报告——不限白名单，给人决定手工 bump、扩白名单、或推动上游
+# 收口/deprecate 的依据。只报告，不动手（不建分支、不开 PR，那是 autobump.yml 的事）。
+#
+# 全程宿主机跑（git/curl/jq/node 齐备），无需容器。
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Mondays 11:00 CST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    if: github.repository == 'ohos-npm-ports/ohos-npm-ports'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Full ports report
+        run: |
+          {
+            echo "### ports report @ $(date -u +%FT%TZ)"
+            echo
+            echo "| port | 目录最新版 | 上游最新版 | 状态 | 白名单 |"
+            echo "|---|---|---|---|---|"
+            .github/scripts/check-upstream-versions.sh |
+            awk -F'\t' '{
+              status = ($4 == "behind" && $5 == "true") ? "**behind**" : $4
+              printf "| %s | %s | %s | %s | %s |\n", $1, $2, $3, status, $5
+            }'
+          } >> "$GITHUB_STEP_SUMMARY"
