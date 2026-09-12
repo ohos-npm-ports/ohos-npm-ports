@@ -1,0 +1,137 @@
+{
+  "max_prs_per_run": 3,
+  "ports": [
+    {
+      "port": "ast-grep-napi",
+      "upstream": "@ast-grep/napi",
+      "tag": "latest",
+      "allowlisted": false
+    },
+    {
+      "port": "bufferutil",
+      "upstream": "bufferutil",
+      "tag": "latest",
+      "allowlisted": true
+    },
+    {
+      "port": "bun-pty",
+      "upstream": null,
+      "tag": null,
+      "allowlisted": false
+    },
+    {
+      "port": "lightningcss",
+      "upstream": "lightningcss",
+      "tag": "latest",
+      "allowlisted": false,
+      "note": "上游 parcel-bundler/lightningcss#1264 已合并 OHOS 支持，优先推动 deprecate 而非 bump"
+    },
+    {
+      "port": "nx",
+      "upstream": "nx",
+      "tag": "latest",
+      "allowlisted": false
+    },
+    {
+      "port": "opentui-core",
+      "upstream": "@opentui/core",
+      "tag": "latest",
+      "allowlisted": true
+    },
+    {
+      "port": "oxlint-tsgolint",
+      "upstream": null,
+      "tag": null,
+      "allowlisted": false
+    },
+    {
+      "port": "parcel-watcher",
+      "upstream": "@parcel/watcher",
+      "tag": "latest",
+      "allowlisted": false,
+      "note": "patch 内 pin 兄弟子包 parcel-watcher-openharmony-arm64@<ver>-N 的带修订版本，子包联动需人工，非纯平直改写"
+    },
+    {
+      "port": "playwright-core",
+      "upstream": "playwright-core",
+      "tag": "latest",
+      "allowlisted": false
+    },
+    {
+      "port": "playwright-mcp",
+      "upstream": "@playwright/mcp",
+      "tag": "latest",
+      "allowlisted": false
+    },
+    {
+      "port": "datadog-pprof",
+      "upstream": "@datadog/pprof",
+      "tag": "latest",
+      "allowlisted": false,
+      "note": "目录名规范化（pprof→datadog-pprof，scope-name 惯例）；改名 PR 合并前本键在上游 main 暂为 missing-upstream"
+    },
+    {
+      "port": "prisma-engines",
+      "upstream": "@prisma/engines",
+      "tag": "latest",
+      "allowlisted": false,
+      "scheme": "commit-pin"
+    },
+    {
+      "port": "resvg-resvg-js",
+      "upstream": "@resvg/resvg-js",
+      "tag": "latest",
+      "allowlisted": false,
+      "note": "目录名规范化（resvg-js→resvg-resvg-js）；发布名 @ohos-npm-ports/resvg-resvg-js 本就是规范形"
+    },
+    {
+      "port": "sharp",
+      "upstream": "sharp",
+      "tag": "latest",
+      "allowlisted": true
+    },
+    {
+      "port": "sqlite3",
+      "upstream": "sqlite3",
+      "tag": "latest",
+      "allowlisted": true
+    },
+    {
+      "port": "tailwindcss-oxide",
+      "upstream": "@tailwindcss/oxide",
+      "tag": "latest",
+      "allowlisted": false,
+      "note": "上游 tailwindlabs/tailwindcss#20276 已合并，优先推动 deprecate 而非 bump"
+    },
+    {
+      "port": "turbo",
+      "upstream": "turbo",
+      "tag": "latest",
+      "allowlisted": false
+    },
+    {
+      "port": "typescript",
+      "upstream": "typescript",
+      "tag": "latest",
+      "allowlisted": false
+    },
+    {
+      "port": "vite-plus",
+      "upstream": "vite-plus",
+      "tag": "latest",
+      "allowlisted": false
+    },
+    {
+      "port": "yuku-codegen",
+      "upstream": null,
+      "tag": null,
+      "allowlisted": false
+    },
+    {
+      "port": "yuku-parser",
+      "upstream": null,
+      "tag": null,
+      "allowlisted": false
+    }
+  ]
+}
