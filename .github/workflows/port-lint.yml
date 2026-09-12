@@ -1,0 +1,94 @@
+name: port-lint
+
+# Fast, host-side static checks — runs before the expensive container build
+# in ci.yml so an obviously-broken PR (orphan patch, stray `npm publish` in
+# build.sh, a bad commit message) gets a result in seconds instead of
+# waiting on a multi-minute container build. See
+# docs/zh-CN/maintainer/ci-pipeline.md for the full rule list and which
+# ones are blocking vs. warning-only.
+#
+# PR-only (unlike ci.yml, which also runs on push to build+publish): the
+# commit-message convention and this comment-summary report both only make
+# sense in a PR's own commit range.
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["ports/**"]
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: port-lint-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Find changed port versions
+        id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          dirs=$(git diff --name-only --diff-filter=d "$BASE" "$HEAD" \
+                 | grep '^ports/' \
+                 | sed -E 's|^(ports/[^/]+/[^/]+)/.*|\1|' \
+                 | sort -u \
+                 | jq -R -s -c 'split("\n")[:-1]')
+          echo "changed=$dirs" >> "$GITHUB_OUTPUT"
+
+  lint:
+    needs: detect
+    if: needs.detect.outputs.changed != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: port-lint
+        run: |
+          echo '${{ needs.detect.outputs.changed }}' | jq -r '.[]' \
+            | xargs .github/scripts/port-lint.sh
+
+  lint-commits:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Lint commit messages
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: .github/scripts/lint-commit-messages.sh
+
+  gate-report:
+    needs: [detect, lint, lint-commits]
+    if: always() && needs.detect.outputs.changed != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Post summary comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          CHANGED_JSON: ${{ needs.detect.outputs.changed }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          COMMIT_RESULT: ${{ needs.lint-commits.result }}
+        run: .github/scripts/gate-report-comment.sh
