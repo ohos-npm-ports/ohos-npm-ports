@@ -1,0 +1,86 @@
+name: ports-regression
+
+# Periodic full-fleet rebuild+smoke of every ports/*/*/ directory, whether or
+# not it changed this week — catches silent drift that a push-triggered
+# ci.yml never sees: an upstream tarball taken down, a dependency's latest
+# resolving to something incompatible, a registry mirror going stale.
+# Adapted from the Harmonybrew tap's daily-regression.sh; weekly rather than
+# daily because most ports here are native builds (rustc/zig/node-gyp), not
+# a cheap bottle reinstall — a daily full-fleet native rebuild would burn
+# far more CI time than the drift it catches is likely to need.
+#
+# Reuses .github/scripts/validate-port.sh (build.sh + smoke combined) — the
+# same script the autobump pipeline uses to pre-validate a version bump
+# before opening a PR against it — so "does this port still build and load"
+# is checked identically whether it's a human PR, an autobump PR, or this
+# unattended sweep.
+
+on:
+  schedule:
+    - cron: '0 4 * * 0' # Sundays 12:00 CST — after ports-report's Monday sync, before the work week
+  workflow_dispatch:
+    inputs:
+      port:
+        description: 'Single ports/<name>/<version> to regress (leave empty for the full fleet)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ports-regression
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: List port directories to regress
+        id: list
+        run: |
+          if [ -n "${{ inputs.port }}" ]; then
+            dirs=$(jq -R -s -c 'split("\n")[:-1]' <<< "${{ inputs.port }}")
+          else
+            dirs=$(find ports -mindepth 2 -maxdepth 2 -type d \
+                   | sed 's|^\./||' | sort | jq -R -s -c 'split("\n")[:-1]')
+          fi
+          echo "matrix=$dirs" >> "$GITHUB_OUTPUT"
+
+  regress:
+    needs: discover
+    if: needs.discover.outputs.matrix != '[]'
+    strategy:
+      matrix:
+        dir: ${{ fromJson(needs.discover.outputs.matrix) }}
+      fail-fast: false
+      max-parallel: 6
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    container:
+      image: ghcr.io/ohos-npm-ports/ci-runner:latest
+      volumes:
+        - /tmp/node24:/__e/node24:rw,rshared
+    steps:
+      # actions/checkout inside this container needs its own node, same as
+      # ci.yml's identical step — caught for real dispatching this workflow
+      # without it: checkout failed with "exec /__e/node24/bin/node: no
+      # such file or directory" (the volume mount above with nothing
+      # populating it yet).
+      - name: Setup node for actions
+        run: |
+          curl -fLO https://github.com/hqzing/ohos-node/releases/download/v24.2.0/node-v24.2.0-openharmony-arm64.tar.gz
+          mkdir /__e/node24/bin
+          tar -zxf node-v24.2.0-openharmony-arm64.tar.gz
+          cp node-v24.2.0-openharmony-arm64/bin/node /__e/node24/bin/node
+          rm -rf node-v24.2.0-openharmony-arm64*
+      - uses: actions/checkout@v5
+      - name: Rebuild + smoke
+        run: |
+          name=$(echo "${{ matrix.dir }}" | cut -d/ -f2)
+          ver=$(echo "${{ matrix.dir }}" | cut -d/ -f3)
+          .github/scripts/validate-port.sh "$name" "$ver"
