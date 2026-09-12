@@ -1,0 +1,104 @@
+--- a/packages/core/src/node-asset-target.ts	2026-08-24 21:03:23.000000000 +0800
++++ b/packages/core/src/node-asset-target.ts	2026-09-12 18:40:40.754382188 +0800
+@@ -14,6 +14,9 @@
+   darwin: "libopentui.dylib",
+   linux: "libopentui.so",
+   win32: "opentui.dll",
++  // Descriptor support only; openharmony resolves the platform package
++  // instead of this fileName (see runtime-assets.{bun,node}.ts).
++  openharmony: "libopentui.so",
+ } as const
+ 
+ export function getNativeAssetDescriptor(target: NodeAssetTarget): NativeAssetDescriptor {
+--- a/packages/core/src/platform/runtime-assets.bun.ts	2026-08-24 21:03:23.000000000 +0800
++++ b/packages/core/src/platform/runtime-assets.bun.ts	2026-09-12 17:30:49.486875001 +0800
+@@ -13,7 +13,7 @@
+ 
+ const bundledTreeSitterWorkerPath = await resolveBundledFilePath(
+   PARSER_WORKER_ASSET_KEY,
+-  () => import("@opentui/core/parser.worker" as string, { with: { type: "file" } }),
++  () => import("#opentui/parser-worker" as string, { with: { type: "file" } }),
+   new URL("../lib/tree-sitter/parser.worker.js", import.meta.url),
+   import.meta.url,
+   { useAssetRoot: false },
+@@ -43,6 +43,10 @@
+     return configuredPath
+   }
+ 
++  if ((process.platform as string) === "openharmony" && process.arch === "arm64") {
++    return ((await import("@opentui/core-openharmony-arm64" as string)) as NativePackageModule).default
++  }
++
+   if (process.platform === "darwin") {
+     if (process.arch === "x64") {
+       return ((await import("@opentui/core-darwin-x64" as string)) as NativePackageModule).default
+--- a/packages/core/src/platform/runtime-assets.node.ts	2026-08-24 21:03:23.000000000 +0800
++++ b/packages/core/src/platform/runtime-assets.node.ts	2026-09-12 17:30:49.486875001 +0800
+@@ -1,3 +1,4 @@
++import { fileURLToPath } from "node:url"
+ import { getCurrentNodeAssetTarget, getNativeAssetDescriptor } from "../node-asset-target.js"
+ import { resolveAssetPath, resolveAssetRootPath } from "./assets.js"
+ 
+@@ -30,6 +31,10 @@
+     return configuredPath
+   }
+ 
++  if ((process.platform as string) === "openharmony" && process.arch === "arm64") {
++    return ((await import("@opentui/core-openharmony-arm64" as string)) as NativePackageModule).default
++  }
++
+   const specifier: string = asset.packageName
+   return ((await import(specifier)) as NativePackageModule).default
+ }
+--- a/packages/core/src/platform/ffi.ts	2026-08-24 21:03:23.000000000 +0800
++++ b/packages/core/src/platform/ffi.ts	2026-09-12 16:59:29.461217031 +0800
+@@ -407,7 +407,17 @@
+             throw new Error(NODE_CALLBACK_THREADSAFE)
+           }
+ 
+-          const callbackPointer = lib.registerCallback(normalizeNodeDefinition(definition), callback)
++          let callbackPointer: bigint
++          try {
++            callbackPointer = lib.registerCallback(normalizeNodeDefinition(definition), callback)
++          } catch (error) {
++            // node:ffi without ffi_closure_alloc cannot build trampolines; a null
++            // callback keeps the library loadable on such runtimes.
++            if (String((error as Error)?.message ?? error).includes("ffi_closure_alloc")) {
++              return createManagedCallback({ ptr: null, threadsafe: false, close() {} }, callbacks)
++            }
++            throw error
++          }
+           const raw: FFICallbackInstance = {
+             ptr: callbackPointer as Pointer,
+             threadsafe: false,
+--- a/packages/core/src/runtime-plugin.ts	2026-08-24 21:03:23.000000000 +0800
++++ b/packages/core/src/runtime-plugin.ts	2026-09-12 17:02:26.005218281 +0800
+@@ -38,7 +38,7 @@
+ import { basename, dirname, isAbsolute, join } from "node:path"
+ import { fileURLToPath } from "node:url"
+ import { type BunPlugin } from "bun"
+-import * as coreRuntime from "@opentui/core"
++const coreRuntime: RuntimeModuleExports = await import("./index.bun.js" as string)
+ 
+ export type RuntimeModuleExports = Record<string, unknown>
+ export type RuntimeModuleLoader = () => RuntimeModuleExports | Promise<RuntimeModuleExports>
+@@ -78,7 +78,7 @@
+ }
+ 
+ const loadCoreTestingRuntimeModule = async (): Promise<RuntimeModuleExports> => {
+-  return (await import("@opentui/core/testing")) as RuntimeModuleExports
++  return (await import("./testing.bun.js" as string)) as RuntimeModuleExports
+ }
+ 
+ const escapeRegExp = (value: string): string => {
+--- a/packages/core/scripts/build.ts	2026-08-24 21:03:23.000000000 +0800
++++ b/packages/core/scripts/build.ts	2026-09-12 17:30:49.486875001 +0800
+@@ -330,7 +330,7 @@
+ 
+   // Keep runtime assets external so Bun consumers can discover literal file imports
+   // and Node consumers can resolve package-relative files.
+-  const externalPatterns = [...externalDeps, "@opentui/core/parser.worker", "*.wasm", "*.scm"]
++  const externalPatterns = [...externalDeps, "@opentui/core/parser.worker", "#opentui/parser-worker", "@opentui/core-openharmony-arm64", "*.wasm", "*.scm"]
+ 
+   const portableEntryPoints = [packageJson.module, "src/testing.ts", "src/yoga.ts"]
+ 
