@@ -29,6 +29,7 @@ cd ohos-npm-ports/ports/<name>/<version>
 
 - 若 GHCR 访问不通，把 `ghcr.io` 换成 `ghcr.nju.edu.cn`（南京大学镜像站）。
 - 镜像会持续更新，建议每次工作前 `docker pull` 一次；镜像未变化时不会重复下载。
+- 镜像源码在本仓库的 [`docker/Dockerfile`](../../../docker/Dockerfile)，基于 `ghcr.io/hqzing/dockerharmony` 加装 Harmonybrew（`brew`）与开发工具。
 - 硬件必须是 arm64 原生（arm 服务器、Mac、鸿蒙 PC 等）——x86_64 上用指令集翻译跑 arm64 容器性能极差，满足不了编译构建需求。
 - 网络需要能访问 GitHub（源码/发行版通常挂在那里），建议选香港或海外地域的服务器。
 
