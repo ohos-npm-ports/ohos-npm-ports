@@ -1,0 +1,45 @@
+name: 已收录的包出问题了
+description: 报告某个已发布的 @ohos-npm-ports/* 包无法安装或运行
+labels: ["bug"]
+body:
+  - type: input
+    id: package
+    attributes:
+      label: 包名与版本
+      placeholder: "例如 @ohos-npm-ports/sqlite3@5.1.7-8"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. npm install ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: 完整报错信息
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: 系统版本
+      description: OpenHarmony 社区版本号，或 HarmonyOS 版本号
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: 运行环境
+      options:
+        - 真机（HarmonyOS 商用发行版）
+        - 真机（OpenHarmony 社区版）
+        - ci-runner / dockerharmony 容器
+        - 其他（请在下方说明）
+    validations:
+      required: true

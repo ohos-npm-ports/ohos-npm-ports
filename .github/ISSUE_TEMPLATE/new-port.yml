@@ -1,0 +1,42 @@
+name: 新包移植请求
+description: 请求把某个 npm 包移植/收录进本仓库
+labels: ["new-port"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请先确认：这个包在上游最新版里**还没有**原生的 OpenHarmony 支持，也**没有**已知的社区适配产物可用（见 `docs/zh-CN/contributor/porting-guide.md` 第一步）。
+  - type: input
+    id: package
+    attributes:
+      label: 包名
+      description: 上游原始包名（含 scope，如 `@foo/bar`）
+      placeholder: "例如 sharp"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 想要的版本
+      placeholder: "例如 0.34.5"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 具体报错或失败现象
+      description: 贴出 `npm install`/`require()` 时的实际报错
+    validations:
+      required: true
+  - type: textarea
+    id: checked
+    attributes:
+      label: 已确认上游和社区都还没有适配
+      description: 说明你查过上游 issue/PR 和 `@ohos-ports`/`@ohos-npm-ports` 之外的社区产物，没有找到可用的
+    validations:
+      required: true
+  - type: textarea
+    id: willing
+    attributes:
+      label: 你是否愿意自己提 PR 移植
+      description: 愿意的话可以直接参照 contributing.md 开始；只是提需求也没关系，但可能需要等其他贡献者有空

@@ -1,0 +1,20 @@
+# Keep GitHub Actions dependencies fresh (borrowed from the Harmonybrew
+# tap's dependabot config — see docs/zh-CN/maintainer/ci-pipeline.md).
+# Floating major tags (`@v5`) rot silently: a future breaking change in an
+# action ships to every workflow run with no warning. Grouped so the
+# weekly result is one PR, not one per action.
+---
+version: 2
+updates:
+- package-ecosystem: github-actions
+  directories:
+  - "/"
+  schedule:
+    interval: weekly
+    day: friday
+    time: '08:00'
+    timezone: Etc/UTC
+  groups:
+    github-actions:
+      patterns:
+      - "*"
