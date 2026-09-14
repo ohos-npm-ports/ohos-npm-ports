@@ -59,80 +59,13 @@ PS：如果需要指定版本号，可以写成这种形式：npm:@ohos-npm-port
 
 ## 兼容性
 
-本项目主要针对社区版 OpenHarmony 构建 npm 包，但一般情况下构建出来的 npm 包也可运行在 OpenHarmoy 的商用发行版——HarmonyOS 中。
+本项目主要针对社区版 OpenHarmony 构建 npm 包，但一般情况下构建出来的 npm 包也可运行在 OpenHarmony 的商用发行版——HarmonyOS 中。
 
 ## 贡献指南
 
-如果你想要往这里面录入一个 npm 包，需要经过以下这些步骤
+新增 port、升级已有 port 或修复构建问题，请先阅读 [贡献文档](docs/zh-CN/contributor/)。
 
-**1\. 准备 Docker 环境**
-
-为了解决 addon 构建过程中极其复杂的工具链依赖问题，并确保你的代码在提交后能够顺利通过流水线构建，ohos-npm-ports 的所有开发、调试与构建工作必须在统一的 Docker 容器中完成。
-
-由于我们使用的容器是一个 arm64 架构的鸿蒙容器（源码在[这里](./docker/Dockerfile)），因此你首先需要准备一个能够运行 arm64 容器的环境。
-
-相关要求如下：
-
-- 硬件要求：请在 arm64 原生硬件上运行容器，例如 arm 服务器、Mac 电脑、鸿蒙 PC 等。不提倡在 x86\_64 设备上通过指令集翻译的方式使用 arm64 容器，这种做法性能极差，难以满足编译构建需求。
-- 网络要求：构建过程中有可能会需要从 GitHub 下载源码，请确保开发环境能够流畅访问 GitHub。建议选用香港或海外地域的 arm 服务器。
-- 软件要求：已安装 Docker 引擎或 Podman 等替代品。
-
-**2\. Fork 仓库**
-
-Fork 本仓库，生成自己的个人仓，并在个人仓的 Actions 菜单启用它的工作流。
-
-**3\. 编写补丁和脚本**
-
-参考现有的包，制作鸿蒙适配补丁，编写构建脚本（build.sh）和发布脚本（publish.sh）。
-
-注意事项：
-
-1. 我们提供的容器已经预置了 ohos-sdk、node、python 等工具。然而，在一些深度的使用场景下它可能仍然无法满足你的需求。此时你也可以在自己的 `build.sh` 和 `publish.sh` 中自己编写环境配置命令，使用 brew 或其他方式来安装你所需的工具。安装工具时请确保来源可信，请从官方或可靠的第三方社区下载，不要从不知名仓库下载制品。
-2. 适配的过程要注意兼容性，请勿破坏这个包在其他 OS 上的行为。不能适配后变得只能在鸿蒙上使用、无法在其他 OS 上使用。那样的包无法支撑实际生产活动。例如：用户的工程可能因此而无法在 Linux 流水线上构建通过。
-3. OpenHarmony 的商用发行版 HarmonyOS 会对 ELF 文件做代码签名校验。为了让产物也支持 HarmonyOS，请确保自己发布的 .node 文件带有代码签名。如果构建时使用的是 Harmonybrew 下载的 ohos-sdk，它构建出的产物会自动带有代码签名（详情请参见 [这篇文档](https://atomgit.com/Harmonybrew/docs/blob/main/zh-CN/user/featured-packages.md)）。如果使用的是来自其他地方的构建工具，则需要自行处理代码签名。
-4. 发布软件包的时候，建议使用 `x.y.z-1`、`x.y.z_1` 等修订版本号，以便在不改变 semver 版本的情况下进行补丁版本迭代。
-5. 注意开源合规，改包的时候请勿改动原有的作者和开源许可证信息。
-
-**4\. 本地构建和验证**
-
-启动一个 ci-runner 容器，然后将你改的代码放到容器中进行构建，把你的脚本调通。
-
-以 sqlite3 这个库为例，构建流程如下
-
-```sh
-# 从 GHCR 拉取 ci-runner 容器镜像
-docker pull ghcr.io/ohos-npm-ports/ci-runner:latest
-# 若 GHCR 访问不通，可使用南京大学镜像站（将 ghcr.io 替换成 ghcr.nju.edu.cn）。
-# 镜像可能随时更新，建议每次工作前执行一次 docker pull 操作。
-# 若镜像未更新，docker pull 不会重复拉取旧镜像，可放心执行。
-
-# 启动容器
-docker run -itd --name=ohos ghcr.io/hqzing/dockerharmony:latest
-
-# 进入容器
-docker exec -it ohos sh
-
-# 下载本仓库
-git clone https://github.com/ohos-npm-ports/ohos-npm-ports.git
-
-# 构建 npm 包
-cd /root/ohos-npm-ports/ports/sqlite3/5.1.7
-./build.sh
-```
-
-构建之后还要验证，以确保自己制作的 npm 包是可用的。要确保用户能够正常 npm install 下载它，能正常被 require/import。
-
-建议使用 [Verdaccio](https://github.com/verdaccio/verdaccio) 之类的工具搭建 npm 私仓，对发布、下载、使用流程进行验证。你也可以使用其他方式进行验证，确保验证到位即可。
-
-**5\. 提交到个人仓**
-
-提交到个人仓，观察个人仓里面的工作流是否能正常触发、正常执行 build.sh。
-
-只要 build.sh 能运行正常就行，另一个 publish.sh 脚本因权限问题一定会产生发布失败的报错，这是预期之内的结果。
-
-**6\. 提交 PR**
-
-将 PR 提到本仓库，待合入后流水线会自动构建发包。
+提交前重点确认构建脚本、补丁、发布包名和版本号符合规范，并完成构建与加载验证。
 
 ## 项目治理
 
