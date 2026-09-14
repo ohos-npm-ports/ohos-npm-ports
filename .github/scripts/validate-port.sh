@@ -6,11 +6,8 @@
 #
 # 用法：validate-port.sh <port> <ver>
 #
-# 冒烟定位（tap「brew test 真跑二进制」原则的 port 版）：
-# - 从 publish.sh 的 cd 行定位构建产物目录，npm pack 出 tgz，装进 scratch 工程，
-#   package.json 有 main/exports 就真 require（addon 走 dlopen）；无入口则只验证安装成功。
-# - port 目录可放可选 smoke.sh 覆盖默认冒烟（cwd = 产物目录，失败即验证失败）。
-# - 盲区：容器验证 ≠ 真机 HarmonyOS 签名/沙箱行为（容器结果不是部署证明）；真机复测建议不阻塞。
+# 从 publish.sh 的 cd 行定位构建产物目录，npm pack 出 tgz，装进临时工程；
+# package.json 有 main/exports 就加载入口。port 目录可放 smoke.sh 覆盖默认检查。
 set -eu
 
 PORT="${1:?usage: validate-port.sh <port> <ver>}"
@@ -42,6 +39,7 @@ PKGDIR=$(sh -c "cd $CDLINE >/dev/null 2>&1 && pwd" './publish.sh' 2>/dev/null)
 
 PORTDIR="$PWD"
 cd "$PKGDIR"
+PKG_NAME=$(node -p 'require("./package.json").name')
 
 # 可选 per-port 冒烟覆盖：smoke.sh 放 port 版本目录，以产物目录为 cwd 运行
 if [ -f "$PORTDIR/smoke.sh" ]; then
@@ -63,20 +61,10 @@ SCRATCH=$(mktemp -d)
   cd "$SCRATCH" || exit 1
   npm init -y >/dev/null
   npm install --no-audit --no-fund --ignore-scripts "$TGZ" >/dev/null
-  # 找安装进来的顶层包（跳过 dotfiles 与 scoped 前缀目录本身）
-  NAME=$(node -e '
-    const fs = require("fs");
-    const mods = [];
-    for (const d of fs.readdirSync("node_modules", { withFileTypes: true })) {
-      if (!d.isDirectory() || d.name.startsWith(".")) continue;
-      if (d.name.startsWith("@")) {
-        for (const n of fs.readdirSync("node_modules/" + d.name, { withFileTypes: true })) {
-          if (n.isDirectory()) mods.push(d.name + "/" + n.name);
-        }
-      } else mods.push(d.name);
-    }
-    console.log(mods.join("\n"));' | head -1)
-  [ -n "$NAME" ] || { echo "error: nothing installed into node_modules" >&2; exit 1; }
+  # Use the package name from the artifact rather than whichever dependency
+  # npm happened to place first in node_modules.
+  NAME="$PKG_NAME"
+  [ -f "node_modules/$NAME/package.json" ] || { echo "error: target package was not installed: $NAME" >&2; exit 1; }
   HAS_ENTRY=$(node -e '
     const p = require("./node_modules/" + process.argv[1] + "/package.json");
     console.log(p.main || p.exports ? "yes" : "no");' "$NAME")

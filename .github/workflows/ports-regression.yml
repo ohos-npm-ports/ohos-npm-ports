@@ -4,7 +4,7 @@ name: ports-regression
 # not it changed this week — catches silent drift that a push-triggered
 # ci.yml never sees: an upstream tarball taken down, a dependency's latest
 # resolving to something incompatible, a registry mirror going stale.
-# Adapted from the Harmonybrew tap's daily-regression.sh; weekly rather than
+# The workflow runs weekly rather than
 # daily because most ports here are native builds (rustc/zig/node-gyp), not
 # a cheap bottle reinstall — a daily full-fleet native rebuild would burn
 # far more CI time than the drift it catches is likely to need.

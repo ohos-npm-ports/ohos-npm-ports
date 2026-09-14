@@ -49,7 +49,7 @@ semver_cmp() {
     }
     return 0;
     };
-    console.log(cmp(process.argv[2], process.argv[3]));
+    console.log(cmp(process.argv[1], process.argv[2]));
   ' "$1" "$2"
 }
 
