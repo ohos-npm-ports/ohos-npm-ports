@@ -1,4 +1,5 @@
-#!/usr/bin/env bash\n# autobump 阶段 1/3（宿主机 runner 上跑，bash 可用；容器内没有 bash，见 workflow 拆分注释）：
+#!/usr/bin/env bash
+# autobump 阶段 1/3（宿主机 runner 上跑，bash 可用；容器内没有 bash，见 workflow 拆分注释）：
 # 检测候选 → 改写新版本目录 → 在独立 worktree 提交并 push 分支 → 输出 validate matrix。
 #
 # 环境变量：

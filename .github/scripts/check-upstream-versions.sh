@@ -1,4 +1,5 @@
-#!/usr/bin/env bash\n# livecheck 等价物：逐个 port 比对「上游 npm 最新版」与「上游 main 里 port 目录的最新版本」。
+#!/usr/bin/env bash
+# livecheck 等价物：逐个 port 比对「上游 npm 最新版」与「上游 main 里 port 目录的最新版本」。
 # 输出 TSV：port \t max_dir_ver \t upstream_ver \t status \t allowlisted
 #   status ∈ current | behind | ahead | hold | manual-scheme | unconfigured
 #          | missing-upstream | prerelease-skipped | check-failed
