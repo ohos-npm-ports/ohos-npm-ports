@@ -16,7 +16,8 @@
 ## 维护者职责范围
 
 - 裁决新包是否符合准入规则（见 [../contributor/contributing.md](../contributor/contributing.md)）。
-- 合并前确认 CI（`port-lint` + `ci.yml` 的 build）通过；CI 通过不等于批准合并，仍需检查包的适配范围和补丁质量。
+- 合并前确认 `port-lint`、`ci.yml` 和 workflow 检查通过；CI 通过不等于批准合并，仍需检查包的适配范围和补丁质量。
+- 关注自动升级、版本报告和周期回归任务的结果，处理版本漂移、上游资源失效和构建回归。
 - 发布环节完全交给 CI（合并触发 `publish.sh`），维护者不需要手动 `npm publish`。
 
 ## 未采用的自动化机制
