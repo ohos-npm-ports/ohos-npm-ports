@@ -93,9 +93,7 @@ lint_one() {
   fi
 
   # --- WARNING: build.sh should self-verify its own output ---
-  # (tap's "brew test must run the real binary" principle, port-side).
-  # Advisory only for now — see verification.md for the target shape and
-  # the known pre-existing gaps this doesn't yet block on.
+  # Advisory only for now — see verification.md for the recommended checks.
   if ! grep -qE 'grep -q|node -e|node --check|readelf' "$build"; then
     echo "⚠️  build.sh has no visible self-verification (grep -q / node -e / readelf); see docs/zh-CN/contributor/verification.md"
   fi

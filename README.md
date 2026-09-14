@@ -62,7 +62,7 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 
 ## 兼容性
 
-本项目主要针对社区版 OpenHarmony 构建 npm 包，但一般情况下构建出来的 npm 包也可运行在 OpenHarmoy 的商用发行版——HarmonyOS 中。
+本项目主要针对社区版 OpenHarmony 构建 npm 包，但一般情况下构建出来的 npm 包也可运行在 OpenHarmony 的商用发行版——HarmonyOS 中。
 
 ## 贡献指南
 
@@ -73,9 +73,9 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 - [port-spec.md](docs/zh-CN/contributor/port-spec.md) — port 目录/命名/版本/patch 规范
 - [verification.md](docs/zh-CN/contributor/verification.md) — 怎样才算验证到位
 
-## 项目治理
+## 贡献与治理
 
-本仓库中的包主要供临时使用，当一个包正式被官方接纳后，维护者会将这个包从本仓库中删去，不再接受贡献。完整的治理规则（包括发布出问题了怎么处理）见 [docs/zh-CN/maintainer/](docs/zh-CN/maintainer/)。
+贡献流程见 [docs/zh-CN/contributor/](docs/zh-CN/contributor/)，项目治理和发布规则见 [docs/zh-CN/maintainer/](docs/zh-CN/maintainer/)。
 
 若有问题咨询求助，可联系以下维护者：
 

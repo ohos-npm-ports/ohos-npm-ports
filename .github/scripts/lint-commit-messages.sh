@@ -1,7 +1,6 @@
 #!/bin/bash
 # Validate each human commit in $BASE..$HEAD that touches ports/** against
-# this repo's de-facto commit convention (adapted from Harmonybrew's tap
-# lint-commit-messages.sh). Commits that don't touch ports/ (a README
+# this repo's de-facto commit convention. Commits that don't touch ports/ (a README
 # update, a CI workflow tweak) are out of scope entirely, not just exempt —
 # this repo has never enforced one-port-one-commit-per-PR, so mixing a
 # port change with an unrelated doc/CI commit in one PR is normal here.
