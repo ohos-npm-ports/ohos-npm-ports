@@ -1,5 +1,4 @@
-#!/bin/bash
-# autobump 阶段 3/3（宿主机 runner 上跑）：读取 validate 阶段上传的通过凭证 artifacts，
+#!/usr/bin/env bash\n# autobump 阶段 3/3（宿主机 runner 上跑）：读取 validate 阶段上传的通过凭证 artifacts，
 # 逐个向本仓开 PR（curl 直调 API，容器里没有 gh 也不引入该依赖）。
 # 用法：open-prs.sh <artifacts-dir>   （每个 *.json = {"port","from","to","branch"}）
 #

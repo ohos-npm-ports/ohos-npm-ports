@@ -1,5 +1,4 @@
-#!/bin/bash
-# port 目录改写器：ports/<port>/<from>/ → ports/<port>/<to>/（版本串改写 + port 修订重置为 -1）。
+#!/usr/bin/env bash\n# port 目录改写器：ports/<port>/<from>/ → ports/<port>/<to>/（版本串改写 + port 修订重置为 -1）。
 # 纯文件操作，不碰 git——commit/push 由上层 autobump.sh 负责；因此可在任意 cwd 沙箱里独立测试。
 #
 # 用法：bump-port.sh <port> <from> <to> [--dry-run]
