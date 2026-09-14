@@ -4,7 +4,7 @@
 #   status ∈ current | behind | ahead | hold | manual-scheme | unconfigured
 #          | missing-upstream | prerelease-skipped | check-failed
 #
-# 设计要点（docs/ohos-npm-ports-autobump.md §五）：
+# 设计要点：
 # - 比对基准 = 上游仓 main 的目录树（UPSTREAM_REF），不是 fork main——fork 滞后不产生重复候选；
 # - registry.npmmirror.com 优先 + 重试（官方 registry 对 CI runner IP 有 CF 挑战，tap 2026-08-23 实录）；
 #   候选（behind）产生时直连官方 registry 复核，两边不一致以官方为准（镜像同步延迟防误报）；
