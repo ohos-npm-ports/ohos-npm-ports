@@ -97,7 +97,9 @@ for line in "${CANDIDATES[@]}"; do
     git config user.email "autobump@users.noreply.github.com"
     git add "ports/$PORT/$TO"
     git commit -q -m "$PORT: add port $TO"
-    git push -q origin "+HEAD:refs/heads/$BRANCH"
+    REMOTE_SHA=$(git ls-remote origin "refs/heads/$BRANCH" | cut -f1)
+    EXPECTED_SHA=${REMOTE_SHA:-0000000000000000000000000000000000000000}
+    git push -q --force-with-lease="refs/heads/$BRANCH:$EXPECTED_SHA" origin "HEAD:refs/heads/$BRANCH"
   ); then
     echo "- ❌ $PORT $TO: commit/push failed" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
     continue

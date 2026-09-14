@@ -28,6 +28,7 @@ permissions:
 
 jobs:
   prepare:
+      always() &&
     if: github.repository == 'ohos-npm-ports/ohos-npm-ports'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
@@ -113,7 +114,8 @@ jobs:
     needs: [prepare, validate]
     if: >-
       github.repository == 'ohos-npm-ports/ohos-npm-ports' &&
-      needs.validate.result == 'success'
+      needs.prepare.result == 'success' &&
+      needs.validate.result != 'cancelled'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
