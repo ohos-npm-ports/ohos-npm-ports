@@ -29,4 +29,4 @@ npm dist-tag add @ohos-npm-ports/<port>@<上一个好版本> latest
 ## 事后
 
 - 在对应 port 的下一次修订（或下一次上游版本升级）里，把导致这次问题的根因写进 commit message 或 patch 注释，避免同类问题重复发生。
-- 如果问题的根因是 CI 门禁本该拦住但没拦住的（比如 smoke 检查漏了这个场景），补一条对应的检查规则，参照 [../maintainer/ci-pipeline.md](ci-pipeline.md) 里"先跑一遍存量确认零误报再定为阻断"的引入方式。
+- 如果问题的根因是 CI 门禁本该拦住但没拦住的（比如自动检查漏掉这个场景），补一条对应的检查规则，参照 [../maintainer/ci-pipeline.md](ci-pipeline.md) 里"先跑一遍存量确认零误报再定为阻断"的引入方式。

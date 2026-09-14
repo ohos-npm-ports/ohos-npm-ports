@@ -22,7 +22,7 @@ Node.js 运行时本身已经支持鸿蒙（见 [官方文档](https://github.co
 
 原生二进制存在，但加载或运行时崩溃，通常是下面几类之一：
 
-- **未签名**：鸿蒙商用发行版对 ELF 做代码签名校验，没有 `.codesign` section 的产物装上也用不了。构建时用 Harmonybrew 的 ohos-sdk 工具链产物默认自带签名；其他工具链产出的要用 `binary-sign-tool sign -selfSign 1` 补签。
+- **未签名**：鸿蒙商用发行版对 ELF 做代码签名校验，没有 `.codesign` section 的产物装上也用不了。使用带签名支持的 OHOS 工具链构建，或对其他工具链产物执行 `binary-sign-tool sign -selfSign 1`。
 - **UND 符号在 dlopen 时未能全部解析**：OHOS musl 的动态链接器不做 lazy binding——`.so`/`.node` 里凡是引用到但没定义的符号，dlopen 那一刻就必须全部能解析到，缺一个就整体加载失败（不是"没调用到就不炸"那套 glibc 习惯）。常见于 addon 依赖某个 musl 缺失的符号（如 `pthread_tryjoin_np`）；修法是给这个符号加 weak 声明 + 运行时判空回退（C/C++ 用 `__attribute__((weak))`；zig 用 `.linkage = .weak` 声明为 optional，`orelse` 兜底）。
 - **无条件探测的 syscall 直接被内核杀掉**：鸿蒙内核对某些 syscall（`fanotify_init`、`close_range` 等）返回 SIGSYS 而不是 `ENOSYS`，代码里"先探测再决定要不要用"的防御逻辑根本没机会跑到 err 分支。修法是运行时判内核类型（`uname()` 识别 HongMeng/HarmonyOS）直接跳过探测，走上游本来就有的降级路径（很多项目对 Android 已经有类似的特判，抄它的路径最省事）。
 - **dlopen 出来的模块无法回溯解析主程序符号**：鸿蒙动态链接器做了命名空间隔离，dlopen 加载的模块默认看不到主二进制导出的符号（zsh/ruby/perl 一类的插件机制都会遇到）。链接时加 `-Wl,-z,global` 恢复类似标准 Linux 的全局符号可见性。
@@ -34,7 +34,7 @@ Node.js 运行时本身已经支持鸿蒙（见 [官方文档](https://github.co
 - **Zig**：交叉编译选 `aarch64-linux-musl` target，不要选 `aarch64-linux-ohos`——后者的产物会引用 OHOS libc 没有的 `__emutls_get_address`，反而跑不起来；`aarch64-linux-musl` 产物和上游官方发布的 musl 版本结构一致，能直接复用。
 - **Go**：原生静态编译即可，不需要特殊处理；`-ldflags="-s -w" -trimpath` 减小体积。
 - **vendored 依赖打补丁**：Rust 生态里一些老版本 crate（如某些版本的 `nix`）没有 OHOS target 支持，而项目又用 `^0.x` semver 锁死版本导致无法直接升级——这时改走 vendor 一份新版本源码，用 `[patch.crates-io]` 或直接替换 vendor 目录里的版本号来打补丁（`[patch.crates-io]` 本身跨不了 0.x 的 minor 版本边界，不能只改 `Cargo.toml` 里的版本号了事）。
-- `ci-runner` 镜像已经用 brew 装好 `git`，`git clone`/`git submodule` 都能用（`oxlint-tsgolint` 就是这么拉 `typescript-go` 子模块的）；但没有子模块、只是拉一份 tag 源码的场景，`curl` 直接拉 GitHub 的 `codeload.github.com` tarball 更快也更省——两种方式都合理，按实际需要选。
+- `ci-runner` 镜像已经包含 `git`，`git clone`/`git submodule` 都能用（`oxlint-tsgolint` 就是这么拉 `typescript-go` 子模块的）；但没有子模块、只是拉一份 tag 源码的场景，`curl` 直接拉 GitHub 的 `codeload.github.com` tarball 更快也更省——两种方式都合理，按实际需要选。
 
 ## npm 生态的几个坑
 

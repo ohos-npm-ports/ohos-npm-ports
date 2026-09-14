@@ -19,47 +19,17 @@ ports/<port>/<version>/
 
 ## build.sh
 
-必须是 `#!/bin/sh`（POSIX，见 [contributing.md](contributing.md) 的容器无 bash 说明），`set -e` 起手。
+`build.sh` 必须使用 `#!/bin/sh` 和 `set -e`，并按以下顺序完成构建：
 
-**分区规范（formula 生命周期同构）**：brew formula 作者只写声明区 + `install` + `test`，是因为 brew 替他把其余阶段（deps 解析、fetch+校验、pour/bottle）都自动化了。build.sh 没有这层自动化框架——deps/fetch 这些阶段需要脚本自己显式写出来（`deps` 阶段里当然可以调用 `brew install` 装工具链，两者不冲突），所以按 brew 内部流水线的形状分五区，每区一个 POSIX sh 函数 + 分区横幅，底部按序调用：
+1. 下载源码或上游包，并固定来源和校验值。
+2. 应用 `patchs/` 下的补丁，随后检查补丁引入的关键标记。
+3. 编译原生 addon 或原生二进制。
+4. 组装发布目录，写入最终的 `package.json`，并对随包分发的原生文件签名。
+5. 执行静态检查和必要的真实加载检查。
 
-```sh
-# ============================== deps ==============================
-# 工具链与环境：brew 缺啥装啥（bun 等）、环境桥接（如容器 /system loader symlink）、
-# 仅 test 脚手架用的工具链（如 zig）也在此获取（sha256 钉死）。
-# ============================== fetch ==============================
-# 物料下载：上游源码 tarball / 已发布 npm 包，加固 CURL + sha256 钉死。
-# ============================== build ==============================
-# 补丁（patch -p1 + marker grep 复验，toybox patch 静默 no-op）→ 上游构建命令或
-# 交叉编译 → 重建产物拼接/组装。到"未签名产物"为止。
-# ============================== package ==============================
-# 发布形态收尾：**签名**（llvm-strip + binary-sign-tool，只属于随包发给用户的
-# 产物）+ 元数据终态（package.json patch）+ 形态断言（父包无 .so 等）。
-# ============================== test ==============================
-# 校验与真跑，静态在前动态在后（fail fast）：包静态断言（node --check / 标记
-# grep / readelf / optionalDependencies）→ e2e 真跑（装进 node_modules：渲染 /
-# require / compile 内嵌）。test 需要的脚手架（如冒烟用 native）在 test 内自建，
-# 与发布物同源同参但不签名。
-```
+构建过程可以拆成函数，但不要求所有 port 使用同一套函数名或横幅。跨函数切换目录时使用稳定的绝对路径，避免检查阶段因当前目录变化而误判。
 
-规则：
-
-- **五个函数**：`do_deps` / `do_fetch` / `do_build` / `do_package` / `do_test`（不叫 `install`/`test`——避免遮蔽同名命令），底部按序调用，等价 brew 的流水线步骤。
-- **跨函数路径一律 `${ROOT}/` 绝对化**。函数会切 CWD，相对元变量在校验时是假阴性高发区（PR #41 分区化实测两次 CI 实挂：zig 非终端静默成功，产物检查因路径翻倍而假失败）。
-- **签名边界 = package 阶段**：`package` 最后一步必是签名（有发布物）或形态终检（纯 JS/无发布物可签）。
-- **范式由 port-lint 阻断检查**：横幅必须恰为 `deps→fetch→build→package→test` 顺序、`do_*` 五函数必须齐全（`port-lint.sh` BLOCKING）。存量 port 只在被触碰（版本修订/修复）时需要补分区——这是有意的 migrate-on-touch 强制力，不做 style-only 批量改版（同版本重发 npm 409）。
-- **签名只属于发布物**：随包发给用户的 .so/二进制才 `llvm-strip` + `binary-sign-tool`；构建期/冒烟产物不签（CI 容器内核不做签名校验）。
-- 参考实现：`ports/opentui-core/0.5.8/build.sh`（JS 源码重建 + 槽位双包 + e2e 冒烟）、`ports/opentui-core-openharmony-arm64/0.5.8/build.sh`（纯 native 槽位包）。
-
-分区内的典型内容：
-
-1. `curl`（或 `git clone`，`ci-runner` 已装好 git）拉取上游源码 tarball 或已发布的 npm 包（`npm pack <name>@<version>`）。
-2. 按需应用 `patchs/*.patch`（`patch -p1 < "${PORT_DIR}/patchs/xxx.patch"`）。
-3. 编译原生 addon 或原生二进制——node-gyp / napi-rs / 手写 Rust / 手写 Go 四类框架的具体打法、以及各自在仓库里的标杆实现，见 [build-frameworks.md](build-frameworks.md)。
-4. **自验证**（见 [verification.md](verification.md)）——`readelf` 校验签名与架构、`node -e` 真实 `require()`、必要时跑一次真实功能调用。
-5. 打印一行 `OK: ...` 收尾。
-
-**build.sh 里绝不能出现 `npm publish`**——发布永远是 `publish.sh` 的职责，`ci.yml` 靠这个边界决定"构建"和"只在 push/合并时才发布"两个阶段能不能拆开触发。
+构建脚本不得执行 `npm publish`；发布由 `publish.sh` 负责。
 
 ## publish.sh
 

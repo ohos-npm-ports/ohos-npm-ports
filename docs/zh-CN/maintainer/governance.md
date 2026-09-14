@@ -16,13 +16,12 @@
 ## 维护者职责范围
 
 - 裁决新包是否符合准入规则（见 [../contributor/contributing.md](../contributor/contributing.md)）。
-- 合并前确认 CI（`port-lint` + `ci.yml` 的 build/smoke）全绿；CI 全绿不等于批准合并——仍需要维护者判断这个包是否值得收录、补丁质量是否可维护。
-- 定期查看 `ports-regression.yml` 的周期性重跑结果，处理因上游 tarball 下线/依赖版本漂移导致的静默失效。
+- 合并前确认 CI（`port-lint` + `ci.yml` 的 build）通过；CI 通过不等于批准合并，仍需检查包的适配范围和补丁质量。
 - 发布环节完全交给 CI（合并触发 `publish.sh`），维护者不需要手动 `npm publish`。
 
 ## 未采用的自动化机制
 
-以下机制在同类项目（如本项目参照的 Harmonybrew tap 自动化经验）里存在，但本仓库刻意不引入：
+以下机制当前不在本仓库的自动化范围内：
 
 - **自动合并（automerge）**：本仓库的合并即刻触发 npm 发布（见 CI 流水线），这一步的爆炸半径值得一次人工点击确认，不适合完全自动化。
 - **发布回滚（unpublish）**：npm 官方不鼓励 `unpublish`（会破坏依赖它的下游构建），出问题走 `npm deprecate` + 发一个新修订号修复，见 [release-rollback.md](release-rollback.md)。

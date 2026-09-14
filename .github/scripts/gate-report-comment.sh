@@ -1,6 +1,6 @@
 #!/bin/bash
-# Post a single upfront PR comment summarizing port-lint's findings, adapted
-# from Harmonybrew tap's gate-report-comment.sh. Comment-only — never
+# Post a single upfront PR comment summarizing port-lint's findings. This is
+# comment-only — never
 # decides whether the PR can merge on its own; the actual required checks
 # are port-lint.yml's job statuses. This just saves a contributor from
 # digging through job logs to find out which port(s) failed and why.
