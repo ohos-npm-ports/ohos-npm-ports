@@ -21,7 +21,7 @@ ports/<port>/<version>/
 
 必须是 `#!/bin/sh`（POSIX，见 [contributing.md](contributing.md) 的容器无 bash 说明），`set -e` 起手。
 
-**分区规范（formula 生命周期同构）**：brew formula 作者只见声明区 + `install` + `test`，是因为 brew 替他做了其余阶段（deps 解析、fetch+校验、pour/bottle）。build.sh 没有 brew——**它自己就是 brew**，所以要按 brew 内部流水线分五区，每区一个 POSIX sh 函数 + 分区横幅，底部按序调用：
+**分区规范（formula 生命周期同构）**：brew formula 作者只写声明区 + `install` + `test`，是因为 brew 替他把其余阶段（deps 解析、fetch+校验、pour/bottle）都自动化了。build.sh 没有这层自动化框架——deps/fetch 这些阶段需要脚本自己显式写出来（`deps` 阶段里当然可以调用 `brew install` 装工具链，两者不冲突），所以按 brew 内部流水线的形状分五区，每区一个 POSIX sh 函数 + 分区横幅，底部按序调用：
 
 ```sh
 # ============================== deps ==============================
@@ -31,7 +31,7 @@ ports/<port>/<version>/
 # 物料下载：上游源码 tarball / 已发布 npm 包，加固 CURL + sha256 钉死。
 # ============================== build ==============================
 # 补丁（patch -p1 + marker grep 复验，toybox patch 静默 no-op）→ 上游构建命令或
-# 交叉编译 → 重建产物拼接/组装。到「未签名产物」为止。
+# 交叉编译 → 重建产物拼接/组装。到"未签名产物"为止。
 # ============================== package ==============================
 # 发布形态收尾：**签名**（llvm-strip + binary-sign-tool，只属于随包发给用户的
 # 产物）+ 元数据终态（package.json patch）+ 形态断言（父包无 .so 等）。
@@ -53,17 +53,17 @@ ports/<port>/<version>/
 
 分区内的典型内容：
 
-1. `curl` 拉取上游源码 tarball 或已发布的 npm 包（`npm pack <name>@<version>`）。
+1. `curl`（或 `git clone`，`ci-runner` 已装好 git）拉取上游源码 tarball 或已发布的 npm 包（`npm pack <name>@<version>`）。
 2. 按需应用 `patchs/*.patch`（`patch -p1 < "${PORT_DIR}/patchs/xxx.patch"`）。
-3. 编译原生 addon（node-gyp / zig 交叉编译 / cargo 均有先例）或直接重打包已有产物。
+3. 编译原生 addon 或原生二进制——node-gyp / napi-rs / 手写 Rust / 手写 Go 四类框架的具体打法、以及各自在仓库里的标杆实现，见 [build-frameworks.md](build-frameworks.md)。
 4. **自验证**（见 [verification.md](verification.md)）——`readelf` 校验签名与架构、`node -e` 真实 `require()`、必要时跑一次真实功能调用。
 5. 打印一行 `OK: ...` 收尾。
 
-**build.sh 里绝不能出现 `npm publish`**——发布永远是 `publish.sh` 的职责，`ci.yml` 靠这个边界决定「构建」和「只在 push/合并时才发布」两个阶段能不能拆开触发。
+**build.sh 里绝不能出现 `npm publish`**——发布永远是 `publish.sh` 的职责，`ci.yml` 靠这个边界决定"构建"和"只在 push/合并时才发布"两个阶段能不能拆开触发。
 
 ## publish.sh
 
-固定两行模式：
+固定模式：
 
 ```sh
 #!/bin/sh
@@ -72,18 +72,20 @@ cd <构建产物目录>
 npm publish --tag latest --access public
 ```
 
-第二行的 `cd` 目标是「构建产物目录」——CI 的门禁脚本靠 `sed -n 's/^cd //p' publish.sh` 取出这一行、再用 `sh -c "cd <取出的内容> && pwd"`（`$0` 绑定成 `publish.sh` 自身路径）求出真实目录，不是死抠字面量文本。两种写法都可以：
+第二行的 `cd` 目标是"构建产物目录"——CI 的门禁脚本靠 `sed -n 's/^cd //p' publish.sh` 取出这一行、再用 `sh -c "cd <取出的内容> && pwd"`（`$0` 绑定成 `publish.sh` 自身路径）求出真实目录，不是死抠字面量文本。两种写法都可以：
 
 - 字面量相对路径最简单：`cd sqlite3-5.1.7`（绝大多数 port 用这个）
 - 平台专属子包可以用 `cd "$(dirname "$0")/<pkg>-<ver>"`（`parcel-watcher-openharmony-arm64`、`opentui-core-openharmony-arm64` 先例）——`$0` 保证不依赖调用者的 cwd 就能定位到脚本自己所在目录
 
 不要用别的形式（函数包一层、多行拼接等）——门禁脚本只认这一行、只 eval 这一行，写复杂了会解析不出来。
 
+**`--tag latest` 只属于这个包当前真正应该分发给新用户的那条版本线**。一个包如果有多个 `<version>` 目录并存（如 `opentui-core` 的 `0.4.5` 和 `0.5.8`），只有其中最新的那条线的 publish.sh 才写 `--tag latest`；给较旧那条线发修订版（比如给 `0.4.5` 修一个只有那条线才有的 bug）时，必须显式换一个不同的 tag（如 `--tag legacy-0.4`），不能照抄模板漏改——npm 的 `latest` dist-tag 谁发布得晚就是谁，跟 semver 版本号大小无关：如果 `0.5.8` 已经是 `latest`，之后再发一次 `0.4.5-2` 却还打 `--tag latest`，`latest` 会被错误地拉回 `0.4.5-2`，新装的用户全部拿到旧版本。新增 port 只有一条版本线时无需关心这条，正常照抄模板即可。
+
 ## 包名与版本号
 
 - `package.json` 的 `name` 字段改成 `@ohos-npm-ports/<port>`。这个改写可能来自三种载体，任选其一：
   - 打补丁改写 fetch 下来的上游 `package.json`（最常见，通常在 `0001-update-package-json.patch`）
-  - `build.sh` 里用 heredoc 直接生成整份 `package.json`（平台专属子包这类没有「上游 package.json」可改的场景）
+  - `build.sh` 里用 heredoc 直接生成整份 `package.json`（平台专属子包这类没有"上游 package.json"可改的场景）
   - port 目录里直接放一份静态 `package.json`，`build.sh` 用 `cp` 复制进构建产物（commit-pin 类的原生构建，如 `prisma-engines`）
 - `version` 字段改成 `<上游版本>-<修订号>`（`5.1.7-8`）。修订号只在**补丁本身**改进时才 +1，不随上游发版自动变化；升级到新的上游版本要新开一个 `<version>` 目录，修订号从 `-1` 重新起。
 - `repository.url` 指回本仓库（`https://github.com/ohos-npm-ports/ohos-npm-ports`），不要留着上游原仓库地址。
@@ -93,7 +95,7 @@ npm publish --tag latest --access public
 - 编号前缀 `NNNN-`（四位数字，从 `0001` 起），描述用短横线连词：`0001-update-package-json.patch`。
 - **每个 patch 必须被 build.sh 实际应用**：要么按文件名逐条 `patch -p1 < ../patchs/0001-xxx.patch`，要么整体 glob 循环 `for patch in ../patchs/*.patch; do patch -p1 < "$patch"; done`（`playwright-core` 用的是后者——patch 数量多、顺序靠文件名排序时更省事）。没被应用到的 patch 文件是死代码，CI 的 `port-lint` 会拦下来。
 - **改已有 patch 要重新生成 diff，不要手改 `@@` 行号**——上游文件哪怕只挪动几行，手改的行号在 `patch` 工具下常常静默不生效（打完补丁退出码是 0，但内容根本没变），验证靠 grep 补丁引入的标记字符串，不要只看退出码。
-- 一个 patch 可以身兼数职（`sqlite3` 的唯一 patch 同时改了 `binding.gyp`、`lib/sqlite3-binding.js` 和 `package.json`）——不必强行拆成「一个改动一个 patch」，只要每个改动本身内聚。
+- 一个 patch 可以身兼数职（`sqlite3` 的唯一 patch 同时改了 `binding.gyp`、`lib/sqlite3-binding.js` 和 `package.json`）——不必强行拆成"一个改动一个 patch"，只要每个改动本身内聚。
 
 ## 校验规则来源
 

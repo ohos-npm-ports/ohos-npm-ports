@@ -1,6 +1,6 @@
 # CI 流水线
 
-给要理解或维护 `.github/workflows/**` 的人看；贡献者只需要知道「合并前 CI 会跑什么」，见 [../contributor/verification.md](../contributor/verification.md)。
+给要理解或维护 `.github/workflows/**` 的人看；贡献者只需要知道"合并前 CI 会跑什么"，见 [../contributor/verification.md](../contributor/verification.md)。
 
 ## 触发与整体形状
 
@@ -34,4 +34,4 @@
 
 ## 容器验证的边界
 
-CI 全程跑在容器里，验证到「编译通过 + 模块可加载」为止，不是真机 HarmonyOS 部署的证明——这个边界写在 [verification.md](../contributor/verification.md)，维护者审 PR 时不应把「容器 CI 全绿」等同于「真机上没问题」。
+CI 全程跑在容器里，验证到"编译通过 + 模块可加载"为止，不是真机 HarmonyOS 部署的证明——这个边界写在 [verification.md](../contributor/verification.md)，维护者审 PR 时不应把"容器 CI 全绿"等同于"真机上没问题"。
