@@ -1,4 +1,5 @@
-#!/usr/bin/env bash\n# Static shape checks for one or more ports/<name>/<version>/ directories.
+#!/usr/bin/env bash
+# Static shape checks for one or more ports/<name>/<version>/ directories.
 # Host-side (ubuntu-latest, no container needed) — fast enough to run on
 # every push/PR before the expensive container build. Rules below were
 # derived empirically: every rule marked BLOCKING was verified to pass
