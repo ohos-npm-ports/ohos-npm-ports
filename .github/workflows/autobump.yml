@@ -1,23 +1,7 @@
 name: autobump
 
-# 日调度：对白名单内、上游 npm 已发新版的 port，自动生成新版本目录、构建+冒烟验证通过后
-# 向本仓开 PR。合并与发布仍完全交给人工（合并即触发 ci.yml 的 publish，这一步值得一次
-# 人工点击）。
-#
-# 三个 job 的拆分是被迫的（ci-runner 镜像内没有 bash——含 bash 的步骤一律
-# `exec: "bash": executable file not found`；上游 ci.yml 之所以能跑，是它从不显式指定
-# shell: bash，GitHub 对无 bash 容器回退到 sh）：
-#   job 1 prepare（宿主机，bash）——检测候选、改写目录、push bump 分支，
-#        并把新 port 目录打成 tar 上传为 artifact；
-#   job 2 validate（容器，matrix）——checkout main，下载 tar 展开进 ports/，
-#        只跑 POSIX sh 步骤 + 本仓已有的 build.sh；
-#        通过的 leg 上传 validated-<port>.json 凭证（无凭证 = 验证失败 = 不开 PR）；
-#   job 3 open-prs（宿主机，bash）——下载凭证、dedup、开 PR。
-#
-# 全程只用 GITHUB_TOKEN——同仓操作，不需要额外的 PAT。
-#
-# 白名单与上游映射维护在 .github/scripts/ports-index.json；hold: true 可暂停单个 port。
-# 注意：容器内的 run 步骤一律 POSIX sh 语法，勿加 shell: bash。
+# 根据上游版本更新白名单内的 port，验证通过后创建升级 PR。
+# 合并和发布由维护者决定。
 
 on:
   schedule:
