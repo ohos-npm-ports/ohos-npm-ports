@@ -3,17 +3,10 @@
 # a clean project, and load its declared entry point.
 # Assumes build.sh has already produced the package directory (this is a
 # separate CI step run right after Build, not a rebuild) and that cwd is
-# the repository root. Must stay POSIX sh: the ci-runner container has no
-# bash (see docs/zh-CN/contributor/contributing.md).
+# the repository root. Must stay POSIX sh.
 #
-# This exists as its own gate — not folded into build.sh, and not merged
-# with the autobump pipeline's ../scripts/validate-port.sh (which does its
-# own build+smoke for pre-merge PR validation against the upstream fork) —
-# so this PR's diff to ci.yml stays a small, reviewable addition instead of
-# rewiring the existing Build step. Many ports already self-verify at the
-# end of their own build.sh (readelf/.codesign checks, functional dlopen
-# probes, slot-name require — see verification.md); this is the fallback
-# for ports that don't, so nothing ships with zero load-time verification.
+# This check is separate from build.sh so it can validate the packed artifact
+# without changing the existing build or publish steps.
 #
 # Usage: smoke-port.sh <port> <version>
 set -eu

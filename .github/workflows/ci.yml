@@ -66,9 +66,7 @@ jobs:
           cd "${{ matrix.dir }}"
           ./build.sh
 
-      # 通用兜底冒烟（npm pack → 装进临时工程 → 真 require）：不少 port 自己的
-      # build.sh 已经做了更贴合自身的自验证（见 docs/zh-CN/contributor/
-      # verification.md），这一步是给没做的兜底，防止「编译通过但装上就崩」的
+      # 通用兜底冒烟（npm pack → 装进临时工程 → 真 require）：防止「编译通过但装上就崩」的
       # 产物被合并。先非阻塞观察一段时间，稳定后再收紧。
       - name: Smoke
         continue-on-error: true
