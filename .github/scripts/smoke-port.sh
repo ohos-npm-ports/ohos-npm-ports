@@ -1,10 +1,6 @@
 #!/bin/sh
-# Post-build smoke check for one port (tap's "brew test must run the real
-# binary, not just assert a file exists" principle, ported): confirms the
-# npm package actually installs and its entry point actually loads —
-# `.node` addons included, since a broken dlopen only shows up here, not
-# at `build.sh`'s compile step.
-#
+# Post-build smoke check for one port: pack the built artifact, install it in
+# a clean project, and load its declared entry point.
 # Assumes build.sh has already produced the package directory (this is a
 # separate CI step run right after Build, not a rebuild) and that cwd is
 # the repository root. Must stay POSIX sh: the ci-runner container has no
@@ -46,6 +42,7 @@ PKGDIR=$(sh -c "cd $CDLINE >/dev/null 2>&1 && pwd" './publish.sh' 2>/dev/null)
 
 PORTDIR="$PWD"
 cd "$PKGDIR"
+PKG_NAME=$(node -p 'require("./package.json").name')
 
 # Optional per-port override: smoke.sh next to build.sh, cwd = product dir.
 if [ -f "$PORTDIR/smoke.sh" ]; then
@@ -77,21 +74,10 @@ SCRATCH=$(mktemp -d)
   npm init -y >/dev/null
   npm install --no-audit --no-fund --ignore-scripts "$TGZ" >/dev/null
 
-  # Find the one top-level package install put in place (skip dotfiles;
-  # descend one level for a scoped @ohos-npm-ports/... package).
-  NAME=$(node -e '
-    const fs = require("fs");
-    const mods = [];
-    for (const d of fs.readdirSync("node_modules", { withFileTypes: true })) {
-      if (!d.isDirectory() || d.name.startsWith(".")) continue;
-      if (d.name.startsWith("@")) {
-        for (const n of fs.readdirSync("node_modules/" + d.name, { withFileTypes: true })) {
-          if (n.isDirectory()) mods.push(d.name + "/" + n.name);
-        }
-      } else mods.push(d.name);
-    }
-    console.log(mods.join("\n"));' | head -1)
-  [ -n "$NAME" ] || { echo "error: nothing installed into node_modules" >&2; exit 1; }
+  # Use the package name from the artifact rather than whichever dependency
+  # npm happened to place first in node_modules.
+  NAME="$PKG_NAME"
+  [ -f "node_modules/$NAME/package.json" ] || { echo "error: target package was not installed: $NAME" >&2; exit 1; }
 
   HAS_ENTRY=$(node -e '
     const p = require("./node_modules/" + process.argv[1] + "/package.json");

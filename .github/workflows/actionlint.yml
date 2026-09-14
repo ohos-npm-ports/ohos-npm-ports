@@ -1,9 +1,6 @@
 name: actionlint
 
-# Static check of every .github/workflows/*.yml on push + PR — YAML syntax,
-# unknown context/expression typos, and (via the bundled shellcheck)
-# unquoted-variable / quoting bugs in `run:` blocks. Borrowed from the
-# Harmonybrew tap's workflow of the same name.
+# Static check of workflow syntax and expressions on push and pull request.
 
 on:
   push:
