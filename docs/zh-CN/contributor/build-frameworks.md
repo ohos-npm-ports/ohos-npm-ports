@@ -66,10 +66,6 @@ flowchart TD
     A[napi-rs 系] --> B{CLI 能否识别 OpenHarmony}
     B -->|能| C[napi build --platform]
     B -->|不能| D[cargo build --release<br/>手动放置并命名]
-    E[自定义工具链] --> F{最终产物}
-    F -->|N-API addon| G[按 loader 约定放置并加载]
-    F -->|独立二进制| H[Node wrapper 负责 spawn]
-    F -->|平台子包| I[optionalDependencies 自动选择]
 ```
 
 ### 2.1 `napi build --platform` 能识别 openharmony host
@@ -85,6 +81,14 @@ flowchart TD
 **示例：仓库内的 `ports/resvg-resvg-js/2.6.2`（build.sh 头部注释详细说明了这个绕过的理由）、`ports/ast-grep-napi/0.43.0`**。
 
 ## 3. 自定义工具链
+
+```mermaid
+flowchart TD
+    A[自定义工具链] --> B{最终产物}
+    B -->|N-API addon| C[按 loader 约定放置并加载]
+    B -->|独立二进制| D[Node wrapper 负责 spawn]
+    B -->|平台子包| E[optionalDependencies 自动选择]
+```
 
 ### 3.1 自定义 Rust 工具链
 
