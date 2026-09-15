@@ -10,11 +10,11 @@
 
 上游不提供预构建分发，用户安装时在本机现场运行 `node-gyp rebuild`。这类 port 不需要 `prebuilds/` 目录，直接把编译出的 `.node` 放入最终包的固定位置即可。`nan` 只是 addon 使用的 API 封装，不改变这种打包方式。
 
-**标杆：仓库内 `ports/datadog-pprof/5.17.0`**（`node-gyp rebuild` 编译，需显式安装 `node-gyp`）、**`ports/parcel-watcher/2.5.1`**。
+**标杆：仓库内 `ports/parcel-watcher/2.5.1`**。`datadog-pprof` 虽然用 `node-gyp` 编译，但最终也按 `node-gyp-build` 的预构建目录分发，不属于纯 node-gyp 示例。
 
 ### 1.2 node-pre-gyp（历史遗留）
 
-`mapbox/node-pre-gyp`，早期原生模块预编译分发方案，社区已基本迁移到 `prebuildify`/`prebuild`。仓库里没有遇到用这个框架的上游包。真遇到时，处理思路和"prebuild + prebuild-install"一致（下面那条）——都是"下载/复制其他平台产物到一个约定目录，loader 按平台名找文件"的模式，把 openharmony 产物放进它认的目录结构、改 loader 认标识符即可，不需要额外改造成别的框架。
+`node-pre-gyp` 使用自己的目录和文件名约定，loader 也可能依赖安装时下载。先确认 loader 的平台标识和产物布局；需要跨平台分发时，在构建阶段取得并整理所需产物，随 npm 包发布，避免安装时访问外部 release。只有在不依赖安装时联网、且目录和 loader 行为已经验证时，才保留原框架。
 
 ### 1.3 prebuild + prebuild-install → 改造成 prebuildify + node-gyp-build
 

@@ -41,8 +41,8 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 | turbo      | @ohos-npm-ports/turbo      | 2.10.10-1 |
 | typescript | @ohos-npm-ports/typescript | 7.0.2-2   |
 | vite-plus | @ohos-npm-ports/vite-plus | 0.2.8-2 |
-| yuku-codegen | @ohos-npm-ports/yuku-codegen | 0.5.44-1 |
-| yuku-parser | @ohos-npm-ports/yuku-parser | 0.7.0-1 |
+| yuku-codegen | @ohos-npm-ports/yuku-codegen | 0.8.3-1 |
+| yuku-parser | @ohos-npm-ports/yuku-parser | 0.8.3-1 |
 
 注：`@ohos-npm-ports/parcel-watcher-openharmony-arm64`、`@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64` 等平台二进制子包由对应主包通过 optionalDependencies 自动引用，无需直接安装。
 
@@ -62,7 +62,7 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 
 ## 兼容性
 
-本项目主要针对社区版 OpenHarmony 构建 npm 包，但一般情况下构建出来的 npm 包也可运行在 OpenHarmony 的商用发行版——HarmonyOS 中。
+本项目主要针对 OpenHarmony 构建 npm 包，未对所有商用系统版本逐包验证。请在目标设备上验证具体包的加载和运行。
 
 ## 贡献指南
 
