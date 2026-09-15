@@ -33,8 +33,6 @@ cd ohos-npm-ports/ports/<name>/<version>
 - 硬件必须是 arm64 原生（arm 服务器、Mac、鸿蒙 PC 等）——x86_64 上用指令集翻译跑 arm64 容器性能极差，满足不了编译构建需求。
 - 网络需要能访问 GitHub（源码/发行版通常挂在那里），建议选香港或海外地域的服务器。
 
-**容器内脚本使用 POSIX shell**：`ci-runner`（`ghcr.io/ohos-npm-ports/ci-runner`）是本仓库 CI 实际使用的镜像，镜像包含构建所需工具和 bash，但 bash 不在 `/bin` 下，`#!/bin/bash` 这个 shebang 在容器里找不到解释器，`exec: "/bin/bash": stat /bin/bash: no such file or directory`。真要用 bash 得写 `#!/usr/bin/env bash`（吃 `$PATH`）。上游 CI 早期用过的裸 `dockerharmony` 镜像则是压根没装 bash，任何形式的 bash 调用都不行。凡是要在容器里跑的脚本（`build.sh`、`publish.sh`，以及本仓库自己的门禁脚本）一律用 POSIX `sh` 语法最稳妥，别依赖 `[[ ]]`/数组这类 bash-only 语法。宿主机（GitHub Actions runner 本身，不进容器的 job）不受此限制，`#!/bin/bash` 和 bash-only 语法都能正常用。
-
 ## Fork 与 PR 流程
 
 1. Fork 本仓库到自己的账号，在个人仓的 Actions 里启用工作流。
