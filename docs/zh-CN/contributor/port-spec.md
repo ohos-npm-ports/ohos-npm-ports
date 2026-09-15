@@ -2,7 +2,7 @@
 
 本文档归纳自仓库内现有 20+ 个 port 的共同结构。跟已有包（尤其是移植手法接近的）抄起，别从零发明格式。
 
-## 目录形状
+## 1. 目录形状
 
 ```
 ports/<port>/<version>/
@@ -17,7 +17,7 @@ ports/<port>/<version>/
 - `<version>` 是**上游基准版本号**（不含本仓库的修订后缀），如 `5.1.7`、`0.5.8`。同一个包可以有多个版本目录并存（`opentui-core` 现有 `0.4.5` 和 `0.5.8` 两代）——旧版本目录何时删除由维护者决定，不在贡献者范围内。
 - 平台专属子包（如 `@parcel/watcher` 的 openharmony 二进制槽位）独立开一个 `ports/<port>-openharmony-arm64/<version>/` 目录，不要塞进主包目录。
 
-## build.sh
+## 2. build.sh
 
 `build.sh` 必须使用 `#!/bin/sh` 和 `set -e`，并按以下顺序完成构建：
 
@@ -33,7 +33,7 @@ ports/<port>/<version>/
 
 构建脚本不得执行 `npm publish`；发布由 `publish.sh` 负责。
 
-## publish.sh
+## 3. publish.sh
 
 固定模式：
 
@@ -53,7 +53,7 @@ npm publish --tag latest --access public
 
 **`--tag latest` 只属于这个包当前真正应该分发给新用户的那条版本线**。一个包如果有多个 `<version>` 目录并存（如 `opentui-core` 的 `0.4.5` 和 `0.5.8`），只有其中最新的那条线的 publish.sh 才写 `--tag latest`；给较旧那条线发修订版（比如给 `0.4.5` 修一个只有那条线才有的 bug）时，必须显式换一个不同的 tag（如 `--tag legacy-0.4`），不能照抄模板漏改——npm 的 `latest` dist-tag 谁发布得晚就是谁，跟 semver 版本号大小无关：如果 `0.5.8` 已经是 `latest`，之后再发一次 `0.4.5-2` 却还打 `--tag latest`，`latest` 会被错误地拉回 `0.4.5-2`，新装的用户全部拿到旧版本。新增 port 只有一条版本线时无需关心这条，正常照抄模板即可。
 
-## 包名与版本号
+## 4. 包名与版本号
 
 - `package.json` 的 `name` 字段改成 `@ohos-npm-ports/<port>`。这个改写可能来自三种载体，任选其一：
   - 打补丁改写 fetch 下来的上游 `package.json`（最常见，通常在 `0001-update-package-json.patch`）
@@ -62,13 +62,13 @@ npm publish --tag latest --access public
 - `version` 字段改成 `<上游版本>-<修订号>`（`5.1.7-8`）。修订号只在**补丁本身**改进时才 +1，不随上游发版自动变化；升级到新的上游版本要新开一个 `<version>` 目录，修订号从 `-1` 重新起。
 - `repository.url` 指回本仓库（`https://github.com/ohos-npm-ports/ohos-npm-ports`），不要留着上游原仓库地址。
 
-## patch 命名与纪律
+## 5. patch 命名与纪律
 
 - 编号前缀 `NNNN-`（四位数字，从 `0001` 起），描述用短横线连词：`0001-update-package-json.patch`。
 - **每个 patch 必须被 build.sh 实际应用**：要么按文件名逐条 `patch -p1 < ../patchs/0001-xxx.patch`，要么整体 glob 循环 `for patch in ../patchs/*.patch; do patch -p1 < "$patch"; done`（`playwright-core` 用的是后者——patch 数量多、顺序靠文件名排序时更省事）。没被应用到的 patch 文件是死代码，CI 的 `port-lint` 会拦下来。
 - **改已有 patch 要重新生成 diff，不要手改 `@@` 行号**——上游文件哪怕只挪动几行，手改的行号在 `patch` 工具下常常静默不生效（打完补丁退出码是 0，但内容根本没变），验证靠 grep 补丁引入的标记字符串，不要只看退出码。
 - 一个 patch 可以身兼数职（`sqlite3` 的唯一 patch 同时改了 `binding.gyp`、`lib/sqlite3-binding.js` 和 `package.json`）——不必强行拆成"一个改动一个 patch"，只要每个改动本身内聚。
 
-## 校验规则来源
+## 6. 校验规则来源
 
 `port-lint.sh` 的阻断级规则都是先对仓库里全部现存 port 目录跑一遍确认零误报，再定为阻断（见该脚本头部注释）；仍在观察阶段的规则（版本号字符串是否过期、build.sh 是否有自验证）先只报警告，不拦截 PR。来源校验值尚未覆盖全部存量 port，新增或升级 port 不得新增缺少校验值的例外，存量 port 另行补齐。
