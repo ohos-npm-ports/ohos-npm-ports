@@ -1,0 +1,57 @@
+diff --git a/internal/fswatch/fanotify_linux.go b/internal/fswatch/fanotify_linux.go
+index 82fe3eb8..63328c35 100644
+--- a/internal/fswatch/fanotify_linux.go
++++ b/internal/fswatch/fanotify_linux.go
+@@ -6,6 +6,7 @@ import (
+ 	"encoding/binary"
+ 	"errors"
+ 	"fmt"
++	"strings"
+ 	"sync/atomic"
+ 	"unsafe"
+ 
+@@ -187,6 +188,14 @@ func init() {
+ // fanotifyAvailable probes whether fanotify_init succeeds with the flags
+ // this backend needs.
+ func fanotifyAvailable() bool {
++	if hongMengKernel() {
++		// The HongMeng kernel sandbox (HarmonyOS) terminates the process
++		// with SIGSYS when a syscall is not permitted, instead of
++		// returning an errno like seccomp does. Probing fanotify_init
++		// would therefore be fatal rather than merely unsuccessful.
++		// Skip fanotify entirely; the inotify backend works fine there.
++		return false
++	}
+ 	fd, err := unix.FanotifyInit(fanotifyInitFlags, unix.O_RDONLY|unix.O_CLOEXEC)
+ 	if err != nil {
+ 		return false
+@@ -195,6 +204,29 @@ func fanotifyAvailable() bool {
+ 	return true
+ }
+ 
++// hongMengKernel reports whether the running kernel is HongMeng
++// (HarmonyOS). Detection uses uname(2): on HarmonyOS devices the sysname
++// is "HarmonyOS" and the release string starts with "HongMeng Kernel".
++func hongMengKernel() bool {
++	var uts unix.Utsname
++	if err := unix.Uname(&uts); err != nil {
++		return false
++	}
++	return utsFieldContains(uts.Sysname[:], "HongMeng") ||
++		utsFieldContains(uts.Release[:], "HongMeng") ||
++		utsFieldContains(uts.Sysname[:], "HarmonyOS")
++}
++
++// utsFieldContains reports whether the NUL-terminated field of
++// unix.Utsname contains sub.
++func utsFieldContains(field []byte, sub string) bool {
++	s := string(field)
++	if i := strings.IndexByte(s, 0); i >= 0 {
++		s = s[:i]
++	}
++	return strings.Contains(s, sub)
++}
++
+ // newFanotifyBackend creates a fanotify backend. If noRename is true, the
+ // backend skips the FAN_RENAME probe and forces the FAN_MOVED_FROM/FAN_MOVED_TO
+ // fallback path; this is only used by the fanotify-no-rename test watcher to
