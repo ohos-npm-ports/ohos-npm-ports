@@ -5,35 +5,27 @@
 ```mermaid
 flowchart TD
     A[上游 npm 包] --> B{构建框架}
-
-    B -->|node-gyp 系| C{上游如何分发原生文件}
-    C -->|没有预构建| C1[port 内编译 .node<br/>随主包发布]
-    C -->|node-pre-gyp| C2[核对目录和 loader<br/>构建时整理并随包发布]
-    C -->|prebuild + prebuild-install| C3[改为 prebuildify + node-gyp-build<br/>构建时整理并随包发布]
-    C -->|prebuildify + node-gyp-build| C4[增加 openharmony-arm64<br/>预构建目录]
-
-    B -->|napi-rs| D{CLI 能否识别 OpenHarmony}
-    D -->|能| D1[napi build --platform]
-    D -->|不能| D2[cargo build --release<br/>手动放置并命名]
-
-    B -->|自定义工具链| E[编译独立二进制或平台子包<br/>Node 侧负责加载或 spawn]
-
-    C1 --> F[发布包中包含可用产物]
-    C2 --> F
-    C3 --> F
-    C4 --> F
-    D1 --> F
-    D2 --> F
-    E --> F
-
-    F --> G[npm install 不依赖安装时联网编译]
-    G --> H[loader / Node wrapper 选择产物]
-    H --> I[require 原生 addon 或执行二进制]
+    B -->|node-gyp 系| C[看上游的原生文件分发方式]
+    B -->|napi-rs 系| D[检查 napi CLI 是否识别 OpenHarmony]
+    B -->|自定义工具链| E[确认最终是 addon、平台子包还是独立二进制]
 ```
 
 ## 1. node-gyp 系
 
 判断依据：`binding.gyp` 存在，`package.json` 里有 `node-gyp`/`node-addon-api`/`nan` 相关依赖。
+
+```mermaid
+flowchart TD
+    A[node-gyp 系] --> B{上游如何分发原生文件}
+    B -->|没有预构建| C[port 内编译 .node<br/>随主包发布]
+    B -->|node-pre-gyp| D[核对目录和 loader<br/>构建时整理并随包发布]
+    B -->|prebuild + prebuild-install| E[改为 prebuildify + node-gyp-build<br/>构建时整理并随包发布]
+    B -->|prebuildify + node-gyp-build| F[增加 openharmony-arm64<br/>预构建目录]
+    C --> G[安装时从包内加载]
+    D --> G
+    E --> G
+    F --> G
+```
 
 ### 1.1 纯 node-gyp（含 nan）
 
@@ -68,6 +60,17 @@ flowchart TD
 ## 2. napi-rs 系
 
 判断依据：上游用 Rust 写的 N-API binding，`Cargo.toml` 依赖 `napi`/`napi-derive`，`package.json` 的 `devDependencies` 有 `@napi-rs/cli`。
+
+```mermaid
+flowchart TD
+    A[napi-rs 系] --> B{CLI 能否识别 OpenHarmony}
+    B -->|能| C[napi build --platform]
+    B -->|不能| D[cargo build --release<br/>手动放置并命名]
+    E[自定义工具链] --> F{最终产物}
+    F -->|N-API addon| G[按 loader 约定放置并加载]
+    F -->|独立二进制| H[Node wrapper 负责 spawn]
+    F -->|平台子包| I[optionalDependencies 自动选择]
+```
 
 ### 2.1 `napi build --platform` 能识别 openharmony host
 
