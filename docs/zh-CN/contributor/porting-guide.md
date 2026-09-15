@@ -16,7 +16,7 @@ Node.js 运行时本身已经支持鸿蒙（见 [官方文档](https://github.co
 
 原生 addon 只发布了 darwin/linux(glibc)/win32 的预编译产物，没有 openharmony 的。统一走**源码构建**：容器内原生编译（见下面"工具链要点"，不同构建框架的具体打法见 [build-frameworks.md](build-frameworks.md)），产物签名后塞进重打包的 npm 包里。
 
-不要复用别的平台（如 `linux-arm64-musl`）已发布的预编译产物再配一个 loader patch——即使 addon 本身不依赖鸿蒙特有 API 理论上能跑，这条路径对用户和后续维护者的理解成本都偏高（"这个包到底是不是真的针对鸿蒙编译过"变成一个要专门确认的问题），产物的稳定性也没有源码构建有保障。全仓统一走现编。
+OpenHarmony 产物必须通过源码构建。其他平台的预编译产物可以在来源、ABI、签名和功能都经过验证后复用，并随包分发；不能用其他平台产物替代 OpenHarmony 目标产物。
 
 ### `dlopen` 失败 / SIGSYS 崩溃
 
@@ -32,7 +32,7 @@ Node.js 运行时本身已经支持鸿蒙（见 [官方文档](https://github.co
 
 - **Rust**：容器里 `rustc` 的 host triple 本身就是 `aarch64-unknown-linux-ohos`，`cargo`/`napi build --platform` 原生构建即可，不需要配交叉 target。`napi-rs` 不同大版本对 openharmony host 的支持程度不一样——2.x 系可能不认 openharmony host（这时候绕开 `napi build`，直接 `cargo build --release` 再把产物改名成 loader 认的文件名），3.x 系平台名固定 `openharmony-arm64`；各家 loader 命名也不统一（有的用 `openharmony-arm64`，有的走自定义的 `linux-arm64-ohos`），动手前先读目标包的 loader 源码确认它实际认哪个名字。
 - **Zig**：交叉编译选 `aarch64-linux-musl` target，不要选 `aarch64-linux-ohos`——后者的产物会引用 OHOS libc 没有的 `__emutls_get_address`，反而跑不起来；`aarch64-linux-musl` 产物和上游官方发布的 musl 版本结构一致，能直接复用。
-- **Go**：原生静态编译即可，不需要特殊处理；`-ldflags="-s -w" -trimpath` 减小体积。
+- **Go**：无 cgo 且依赖允许时可以静态编译；存在 cgo 或动态依赖时，需要额外处理库路径和签名。`-ldflags="-s -w" -trimpath` 可用于减小体积。
 - **vendored 依赖打补丁**：Rust 生态里一些老版本 crate（如某些版本的 `nix`）没有 OHOS target 支持，而项目又用 `^0.x` semver 锁死版本导致无法直接升级——这时改走 vendor 一份新版本源码，用 `[patch.crates-io]` 或直接替换 vendor 目录里的版本号来打补丁（`[patch.crates-io]` 本身跨不了 0.x 的 minor 版本边界，不能只改 `Cargo.toml` 里的版本号了事）。
 - `ci-runner` 镜像已经包含 `git`，`git clone`/`git submodule` 都能用（`oxlint-tsgolint` 就是这么拉 `typescript-go` 子模块的）；但没有子模块、只是拉一份 tag 源码的场景，`curl` 直接拉 GitHub 的 `codeload.github.com` tarball 更快也更省——两种方式都合理，按实际需要选。
 
