@@ -21,6 +21,8 @@ ports/<port>/<version>/
 
 `build.sh` 必须使用 `#!/bin/sh` 和 `set -e`，并按以下顺序完成构建：
 
+`build.sh` 和 `publish.sh` 统一使用 POSIX sh 语法，不支持 bash 或 zsh 等扩展语法。
+
 1. 下载源码或上游包，并固定来源和校验值。
 2. 应用 `patchs/` 下的补丁，随后检查补丁引入的关键标记。
 3. 编译原生 addon 或原生二进制。
