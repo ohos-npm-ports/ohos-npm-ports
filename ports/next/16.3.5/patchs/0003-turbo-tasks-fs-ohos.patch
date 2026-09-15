@@ -1,0 +1,10 @@
+--- a/turbopack/crates/turbo-tasks-fs/src/disk.rs
++++ b/turbopack/crates/turbo-tasks-fs/src/disk.rs
+@@ -143,6 +143,7 @@
+ /// exist on disk. Returns an error if it cannot be canonicalized or is not valid unicode.
+ pub fn canonicalize_to_rcstr(path: &Path) -> io::Result<RcStr> {
+     fs_err::canonicalize(path)?
++        .into_os_string()
+         .into_string()
+         .map(RcStr::from)
+         .map_err(|p| {
