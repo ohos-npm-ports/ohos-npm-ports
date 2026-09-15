@@ -1,6 +1,6 @@
 # 不同构建框架的 port 制作方式
 
-原生 addon/二进制的打包方式跟着上游选的构建框架走，框架不同，"要不要分发多平台产物"、"产物放哪"、"loader 怎么找到它"这些问题的答案完全不一样。抄错框架类型的标杆包，方向就偏了。先判断上游用的是哪一种，再照对应类别的标杆包抄。
+原生 addon/二进制的打包方式跟着上游选的构建框架走，框架不同，"要不要分发多平台产物"、"产物放哪"、"loader 怎么找到它"这些问题的答案完全不一样。参考错框架类型的示例，方向就会偏。先判断上游用的是哪一种，再参考对应类别的示例。
 
 ## 1. node-gyp 系
 
@@ -10,7 +10,7 @@
 
 上游不提供预构建分发，用户安装时在本机现场运行 `node-gyp rebuild`。这类 port 不需要 `prebuilds/` 目录，直接把编译出的 `.node` 放入最终包的固定位置即可。`nan` 只是 addon 使用的 API 封装，不改变这种打包方式。
 
-**标杆：仓库内 `ports/parcel-watcher/2.5.1`**。`datadog-pprof` 虽然用 `node-gyp` 编译，但最终也按 `node-gyp-build` 的预构建目录分发，不属于纯 node-gyp 示例。
+**示例：仓库内的 `ports/parcel-watcher/2.5.1`**。`datadog-pprof` 虽然用 `node-gyp` 编译，但最终也按 `node-gyp-build` 的预构建目录分发，不属于纯 node-gyp 示例。
 
 ### 1.2 node-pre-gyp（历史遗留）
 
@@ -20,7 +20,7 @@
 
 上游用 `prebuild` 构建、`prebuild-install` 下载预编译产物，安装时通常还要访问 GitHub release assets。port 应改造成 `prebuildify` + `node-gyp-build`：构建阶段可以下载并整理其他平台产物，最终全部放入发布的 npm 包；用户安装时只从 npm 获取包，不再依赖 GitHub release assets。这样也与本仓库的源码构建和随包分发模式一致。
 
-**标杆：仓库内 `ports/sqlite3/5.1.7`**。改造要点（`patchs/0001-change-prebuild-framework.patch`）：
+**示例：仓库内的 `ports/sqlite3/5.1.7`**。改造要点（`patchs/0001-change-prebuild-framework.patch`）：
 
 - `package.json`：`dependencies` 去掉 `bindings`+`prebuild-install`，加 `node-gyp-build`；`devDependencies` 的 `prebuild` 换成 `prebuildify`
 - 运行时入口文件（sqlite3 是 `lib/sqlite3-binding.js`）：
@@ -34,7 +34,7 @@
 
 上游已经是 `prebuildify`/`node-gyp-build`，不需要改造框架，直接在已有的 `prebuilds/<platform>-<arch>/` 目录旁边加一个 `openharmony-arm64` 目录即可。
 
-**标杆：仓库内 `ports/bufferutil/4.0.9`**。`npm run prebuild` 编出 OHOS 产物，其余平台产物从已发布的官方 npm tarball 里的 `prebuilds/` 直接复制过来，文件名同样按 `node-gyp-build` 约定重命名（`bufferutil.node` → `@ohos-npm-ports+bufferutil.node`）。
+**示例：仓库内的 `ports/bufferutil/4.0.9`**。`npm run prebuild` 编出 OHOS 产物，其余平台产物从已发布的官方 npm tarball 里的 `prebuilds/` 直接复制过来，文件名同样按 `node-gyp-build` 约定重命名（`bufferutil.node` → `@ohos-npm-ports+bufferutil.node`）。
 
 ## 2. napi-rs 系
 
@@ -44,13 +44,13 @@
 
 容器里 `rustc` 的 host triple 本身就是 `aarch64-unknown-linux-ohos`，新版本的 `@napi-rs/cli` 能正确识别这是 openharmony 平台，`napi build --platform` 直接可用，产出的文件名、`package.json` 里的 `napi.packageName` 平台后缀都由 napi-rs 自己生成好。
 
-**标杆：仓库内 `ports/lightningcss/1.33.0`、`ports/tailwindcss-oxide/4.3.3`**。
+**示例：仓库内的 `ports/lightningcss/1.33.0`、`ports/tailwindcss-oxide/4.3.3`**。
 
 ### 2.2 `napi` CLI 版本较老、不认 openharmony host——绕开 `napi build`，直接 `cargo build --release`
 
 上游锁定的 `@napi-rs/cli` 是较老的 2.x 系列，不识别 `openharmony` 这个平台标识，跑 `napi build` 会失败或产出错误的文件名。绕过 CLI，直接 `cargo build --release` 拿到 `.so`（cdylib 产物），再手动按 napi-rs 的命名约定重命名/放置成 loader 期望的路径，效果等价。
 
-**标杆：仓库内 `ports/resvg-resvg-js/2.6.2`（build.sh 头部注释详细说明了这个绕过的理由）、`ports/ast-grep-napi/0.43.0`**。
+**示例：仓库内的 `ports/resvg-resvg-js/2.6.2`（build.sh 头部注释详细说明了这个绕过的理由）、`ports/ast-grep-napi/0.43.0`**。
 
 ## 3. 自定义工具链
 
@@ -60,7 +60,7 @@
 
 容器里 `cargo build --release` 直接原生编译（host triple 已经是 `aarch64-unknown-linux-ohos`，不需要配交叉 target）；vendored 依赖（如某些版本的 `nix` crate）没有 OHOS target 支持时，按 [porting-guide.md](porting-guide.md) 的 vendor 补丁手法处理。
 
-**标杆：仓库内 `ports/turbo/2.10.10`**（Rust CLI 主体 + zig 编译的 `libghostty-vt` TUI 部分，产物是独立可执行文件而非 N-API binding）、**`ports/bun-pty/0.4.10`**（专为 Bun 写的原生 pty 库，走 Bun 自己的原生加载机制而非经典 Node N-API，`main` 直接是 TypeScript 源码）。
+**示例：仓库内的 `ports/turbo/2.10.10`**（Rust CLI 主体 + zig 编译的 `libghostty-vt` TUI 部分，产物是独立可执行文件而非 N-API binding）、**`ports/bun-pty/0.4.10`**（专为 Bun 写的原生 pty 库，走 Bun 自己的原生加载机制而非经典 Node N-API，`main` 直接是 TypeScript 源码）。
 
 ### 3.2 自定义 Go 工具链
 
@@ -68,4 +68,4 @@
 
 Go 静态编译天然适合这个场景：host == target（都是 `aarch64-unknown-linux-ohos`），无 cgo 依赖时直接原生编译即可，产物是单个静态二进制，`-ldflags="-s -w" -trimpath` 减小体积。
 
-**标杆：仓库内 `ports/oxlint-tsgolint/7.0.2001`**（`tsgolint` Go 二进制，源码含 git submodule，`ci-runner` 已装好 git，`git clone`+`git submodule update` 直接用）、**`ports/typescript/7.0.2`**（内嵌 `typescript-go`/`tsgo` 原生编译器的 Go 二进制）。
+**示例：仓库内的 `ports/oxlint-tsgolint/7.0.2001`**（`tsgolint` Go 二进制，源码含 git submodule，`ci-runner` 已装好 git，`git clone`+`git submodule update` 直接用）、**`ports/typescript/7.0.2`**（内嵌 `typescript-go`/`tsgo` 原生编译器的 Go 二进制）。

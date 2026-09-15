@@ -36,7 +36,7 @@ cd ohos-npm-ports/ports/<name>/<version>
 ## Fork 与 PR 流程
 
 1. Fork 本仓库到自己的账号，在个人仓的 Actions 里启用工作流。
-2. 参照最近同类包的 `build.sh`/`publish.sh`/`patchs/` 写移植补丁（目录/命名/版本规范见 [port-spec.md](port-spec.md)；不确定该抄哪个包，按构建框架挑标杆——见 [build-frameworks.md](build-frameworks.md)）。
+2. 参照最近同类包的 `build.sh`/`publish.sh`/`patchs/` 写移植补丁（目录/命名/版本规范见 [port-spec.md](port-spec.md)；不确定该参考哪个包，按构建框架选择示例——见 [build-frameworks.md](build-frameworks.md)）。
 3. 在容器内本地构建、验证通过（见 [verification.md](verification.md)）。
 4. 推到个人仓，确认 `ci.yml` 在自己仓里能跑通 `build.sh`（`publish.sh` 会因权限报错——这是预期行为，个人仓没有发包用的 `NPM_TOKEN`）。
 5. 提 PR 到本仓库。合并后流水线自动构建发包，不需要人工介入发布。
