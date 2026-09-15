@@ -2,6 +2,35 @@
 
 原生 addon/二进制的打包方式跟着上游选的构建框架走，框架不同，"要不要分发多平台产物"、"产物放哪"、"loader 怎么找到它"这些问题的答案完全不一样。参考错框架类型的示例，方向就会偏。先判断上游用的是哪一种，再参考对应类别的示例。
 
+```mermaid
+flowchart TD
+    A[上游 npm 包] --> B{构建框架}
+
+    B -->|node-gyp 系| C{上游如何分发原生文件}
+    C -->|没有预构建| C1[port 内编译 .node<br/>随主包发布]
+    C -->|node-pre-gyp| C2[核对目录和 loader<br/>构建时整理并随包发布]
+    C -->|prebuild + prebuild-install| C3[改为 prebuildify + node-gyp-build<br/>构建时整理并随包发布]
+    C -->|prebuildify + node-gyp-build| C4[增加 openharmony-arm64<br/>预构建目录]
+
+    B -->|napi-rs| D{CLI 能否识别 OpenHarmony}
+    D -->|能| D1[napi build --platform]
+    D -->|不能| D2[cargo build --release<br/>手动放置并命名]
+
+    B -->|自定义工具链| E[编译独立二进制或平台子包<br/>Node 侧负责加载或 spawn]
+
+    C1 --> F[发布包中包含可用产物]
+    C2 --> F
+    C3 --> F
+    C4 --> F
+    D1 --> F
+    D2 --> F
+    E --> F
+
+    F --> G[npm install 不依赖安装时联网编译]
+    G --> H[loader / Node wrapper 选择产物]
+    H --> I[require 原生 addon 或执行二进制]
+```
+
 ## 1. node-gyp 系
 
 判断依据：`binding.gyp` 存在，`package.json` 里有 `node-gyp`/`node-addon-api`/`nan` 相关依赖。
