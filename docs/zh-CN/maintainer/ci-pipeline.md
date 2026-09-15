@@ -4,7 +4,7 @@
 
 ## 触发与整体形状
 
-所有和 port 相关的 workflow 都以 `paths: ["ports/**"]` 过滤，只在 `ports/` 目录有变化时触发：
+`ci.yml` 和 `port-lint.yml` 使用 `paths: ["ports/**"]` 过滤，只在 `ports/` 目录有变化时触发；自动升级、版本报告和周期回归按各自的调度或手动触发规则运行：
 
 | workflow | 触发 | 职责 |
 |---|---|---|

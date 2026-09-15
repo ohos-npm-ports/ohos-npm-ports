@@ -32,7 +32,7 @@ body:
     id: checked
     attributes:
       label: 已确认上游和社区都还没有适配
-      description: 说明你查过上游 issue/PR 和 `@ohos-ports`/`@ohos-npm-ports` 之外的社区产物，没有找到可用的
+      description: 说明你查过上游 issue/PR、`@ohos-ports`、`@ohos-npm-ports` 及其他社区产物，没有找到可用的适配版本
     validations:
       required: true
   - type: textarea
