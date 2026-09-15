@@ -59,7 +59,7 @@ PS：如果需要指定版本号，可以写成这种形式：npm:@ohos-npm-port
 
 ## 兼容性
 
-本项目主要针对社区版 OpenHarmony 构建 npm 包，但一般情况下构建出来的 npm 包也可运行在 OpenHarmony 的商用发行版——HarmonyOS 中。
+本项目主要针对 OpenHarmony 构建 npm 包，未对所有商用系统版本逐包验证。请在目标设备上验证具体包的加载和运行。
 
 ## 贡献指南
 

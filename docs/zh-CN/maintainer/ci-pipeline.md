@@ -25,10 +25,6 @@
 - `Build` 步骤运行 `cd <port-version-dir> && ./build.sh`。
 - `Publish` 步骤的触发条件（`if: github.event_name == 'push'`）没有变化——只有直接 push 到 main（通常是 PR 合并后）才会真正发包，PR 本身只构建不发布。
 
-## 已知的容器 shell 限制
-
-`ci-runner` 镜像带 bash；但如果哪天换回不带 bash 的裸鸿蒙容器镜像，容器内运行的一切脚本都要保持 POSIX `sh` 兼容——`port-lint.yml` 这类宿主机 job 不受此限制，可以正常用 bash。
-
 ## 容器验证的边界
 
 CI 在容器内完成构建，不是真机部署证明。目标设备上的签名、沙箱和业务行为仍需单独验证。

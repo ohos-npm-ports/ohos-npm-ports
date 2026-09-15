@@ -37,4 +37,4 @@
 
 ## 兼容性
 
-本仓库主要针对社区版 OpenHarmony 构建，但一般情况下构建出来的包也能运行在 OpenHarmony 的商用发行版——HarmonyOS 上。如果遇到某个包在 HarmonyOS 上表现和 OpenHarmony 社区版不一致，欢迎提 issue 说明具体差异。
+本仓库主要针对 OpenHarmony 构建，未对所有商用系统版本逐包验证。请在目标设备上验证具体包的加载和运行；如果表现与 OpenHarmony 社区版不同，欢迎提 issue 说明系统版本和差异。
