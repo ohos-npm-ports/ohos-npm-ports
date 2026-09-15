@@ -36,12 +36,6 @@
 
 **标杆：仓库内 `ports/bufferutil/4.0.9`**。`npm run prebuild` 编出 OHOS 产物，其余平台产物从已发布的官方 npm tarball 里的 `prebuilds/` 直接复制过来，文件名同样按 `node-gyp-build` 约定重命名（`bufferutil.node` → `@ohos-npm-ports+bufferutil.node`）。
 
-### 纯 node-gyp/nan，产物直接内嵌本包（无多平台分发）
-
-有些包的原生 addon不走任何预构建分发框架——上游预期用户装包时现场编译，或者这个包本来就只服务单一运行环境（不是发布给广泛平台用的通用库）。这种情况不需要 `prebuilds/` 目录，编出来的 `.node` 直接放包里对应位置就行，跟 OHOS 现场编译天然契合。
-
-**标杆：仓库内 `ports/datadog-pprof/5.17.0`**（`node-gyp rebuild` 编译，注意上游 node-gyp 不是 devDependency，需要 `npm install --ignore-scripts --no-save node-gyp` 显式装到 `node_modules/.bin`）、**`ports/parcel-watcher/2.5.1`**。
-
 ## 2. napi-rs 系
 
 判断依据：上游用 Rust 写的 N-API binding，`Cargo.toml` 依赖 `napi`/`napi-derive`，`package.json` 的 `devDependencies` 有 `@napi-rs/cli`。
