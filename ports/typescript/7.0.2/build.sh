@@ -2,98 +2,138 @@
 set -e
 
 # ============================================================
-# ohos-npm-ports: @ohos-npm-ports/typescript 7.0.2-2
+# ohos-npm-ports: @ohos-npm-ports/typescript 7.0.2-3
 #
 # 构建方式：
-#   1. 下载官方 typescript@7.0.2 包
-#   2. 打 patch 改名
+#   1. 下载官方 typescript@7.0.2（JS wrapper：bin/tsc → getExePath → 平台二进制）
+#   2. 打 patch：改名/版本、optionalDependencies 挂 openharmony 槽位包、
+#      getExePath 在 openharmony 上解析槽位包
 #   3. clone typescript-go 源码，本地编译 Go 二进制
-#   4. 将二进制内嵌到包中
-#   5. 修改 getExePath.js 以支持 OpenHarmony
+#   4. 二进制 + noembed 声明文件装进平台槽位包
+#      @ohos-npm-ports/typescript-openharmony-arm64（lib/tsc + lib/*.d.ts）
 #
-# 7.0.2-2 变更：
-#   - 新增 patchs/0003：HongMeng 内核上跳过 fanotify 探测。
-#     HongMeng 沙盒对不允许的 syscall 直接 SIGSYS 杀进程而非返回
-#     errno，导致包初始化阶段无条件执行的 fanotify_init 探测在
-#     HarmonyOS 真机上必崩（tsc --version 即 SIGSYS）。改为 uname
-#     检测到 HongMeng/HarmonyOS 内核时直接回落 inotify 后端。
+# 槽位包布局镜像上游平台包 @typescript/typescript-linux-arm64
+# （lib/tsc + lib/*.d.ts，os/cpu 限定，preferUnplugged，无 main/bin）。
+# 上游平台包里的 lib/tsc.sig 为上游发布流水线产物，运行时不校验，槽位包不带。
 # ============================================================
 
 PKG_NAME="typescript"
 PKG_VERSION="7.0.2"
-PORTS_VERSION="7.0.2-2"
+PORTS_VERSION="7.0.2-3"
+SLOT_NAME="typescript-openharmony-arm64"
+SLOT_PKG_NAME="@ohos-npm-ports/${SLOT_NAME}"
 TSGO_TAG="typescript/v7.0.2"
 WORK_DIR="$(pwd)"
 BUILD_DIR="${WORK_DIR}/build"
 
-mkdir -p /data/storage/el2/base/cache
-mkdir -p /data/storage/el2/base/file
-brew install -y go git
+# ===== deps =====
+do_deps() {
+    mkdir -p /data/storage/el2/base/cache
+    mkdir -p /data/storage/el2/base/file
+    brew install -y go git
+}
 
-echo "=== 1/6: 清理旧构建目录 ==="
-rm -rf "${BUILD_DIR}"
-mkdir -p "${BUILD_DIR}"
+# ===== fetch =====
+do_fetch() {
+    echo "=== fetch: 官方 typescript@${PKG_VERSION}（主包坯子）==="
+    rm -rf "${BUILD_DIR}"
+    mkdir -p "${BUILD_DIR}"
+    npm pack "typescript@${PKG_VERSION}" --pack-destination "${BUILD_DIR}"
+    tar -zxf "${BUILD_DIR}/typescript-${PKG_VERSION}.tgz" -C "${BUILD_DIR}"
+    mv "${BUILD_DIR}/package" "${BUILD_DIR}/typescript-${PKG_VERSION}"
 
-echo "=== 2/6: 下载官方 typescript@${PKG_VERSION} ==="
-npm pack "typescript@${PKG_VERSION}" --pack-destination "${BUILD_DIR}"
-cd "${BUILD_DIR}"
-tar -zxf "typescript-${PKG_VERSION}.tgz"
-mv package "typescript-${PKG_VERSION}"
-cd "typescript-${PKG_VERSION}"
+    echo "=== fetch: typescript-go 源码（只取当前 tag）==="
+    git clone --depth 1 --branch "${TSGO_TAG}" \
+        https://github.com/microsoft/typescript-go.git \
+        "${BUILD_DIR}/typescript-go"
+    cd "${BUILD_DIR}/typescript-go"
+    patch -p1 < "${WORK_DIR}/patchs/0003-skip-fanotify-on-hongmeng.patch"
+}
 
-echo "=== 3/6: 打 patch 修改包名和版本 ==="
-patch -p1 < "${WORK_DIR}/patchs/0001-update-package-json.patch"
+# ===== build =====
+do_build() {
+    echo "=== build: 编译 tsgo ==="
+    mkdir -p "${BUILD_DIR}/${SLOT_NAME}/lib"
+    cd "${BUILD_DIR}/typescript-go"
+    go build \
+        -ldflags="-s -w" \
+        -trimpath \
+        -tags=noembed \
+        -o "${BUILD_DIR}/${SLOT_NAME}/lib/tsc" \
+        ./cmd/tsgo
 
-echo "=== 4/6: 编译 Go 原生二进制 ==="
-# 克隆 typescript-go 源码（只取当前版本，不含历史）
-git clone --depth 1 --branch "${TSGO_TAG}" \
-    https://github.com/microsoft/typescript-go.git \
-    "${BUILD_DIR}/typescript-go"
+    echo "=== build: 复制 noembed 模式需要的 lib 声明文件（与二进制同目录）==="
+    cp "${BUILD_DIR}/typescript-go/internal/bundled/libs/"*.d.ts \
+        "${BUILD_DIR}/${SLOT_NAME}/lib/"
 
-cd "${BUILD_DIR}/typescript-go"
+    echo "=== build: 二进制自检（容器内直接执行）==="
+    "${BUILD_DIR}/${SLOT_NAME}/lib/tsc" --version
+}
 
-echo "--- 打 patch：HongMeng 内核跳过 fanotify 探测 ---"
-patch -p1 < "${WORK_DIR}/patchs/0003-skip-fanotify-on-hongmeng.patch"
+# ===== package =====
+do_package() {
+    echo "=== package: 主包打 patch（改名/版本/槽位接线）==="
+    cd "${BUILD_DIR}/typescript-${PKG_VERSION}"
+    patch -p1 < "${WORK_DIR}/patchs/0001-update-package-json.patch"
+    patch -p1 < "${WORK_DIR}/patchs/0002-add-openharmony-support.patch"
 
-go build \
-    -ldflags="-s -w" \
-    -trimpath \
-    -tags=noembed \
-    -o "${BUILD_DIR}/typescript-${PKG_VERSION}/lib/tsc" \
-    ./cmd/tsgo
+    echo "=== package: 组装槽位包 ==="
+    cp "${BUILD_DIR}/typescript-${PKG_VERSION}/LICENSE" "${BUILD_DIR}/${SLOT_NAME}/LICENSE"
+    cp "${BUILD_DIR}/typescript-${PKG_VERSION}/NOTICE.txt" "${BUILD_DIR}/${SLOT_NAME}/NOTICE.txt"
+    cat > "${BUILD_DIR}/${SLOT_NAME}/package.json" <<EOF
+{
+  "name": "${SLOT_PKG_NAME}",
+  "version": "${PORTS_VERSION}",
+  "description": "OpenHarmony arm64 native tsgo binary for @ohos-npm-ports/typescript",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
+    "directory": "ports/typescript/${PKG_VERSION}"
+  },
+  "license": "Apache-2.0",
+  "preferUnplugged": true,
+  "os": ["openharmony"],
+  "cpu": ["arm64"],
+  "files": ["lib", "LICENSE", "NOTICE.txt"],
+  "publishConfig": { "access": "public" }
+}
+EOF
+}
 
-# 复制 lib 声明文件（noembed 模式需要与二进制同目录）
-echo "--- 复制 lib 声明文件 ---"
-cp "${BUILD_DIR}/typescript-go/internal/bundled/libs/"*.d.ts \
-    "${BUILD_DIR}/typescript-${PKG_VERSION}/lib/"
+# ===== test =====
+do_test() {
+    cd "${BUILD_DIR}"
+    echo "=== test: 槽位包二进制 ==="
+    readelf -h "${SLOT_NAME}/lib/tsc" | grep -q AArch64
+    test -s "${SLOT_NAME}/lib/lib.d.ts"
 
-# 验证二进制
-file "${BUILD_DIR}/typescript-${PKG_VERSION}/lib/tsc"
-echo "--- 验证 lib 文件 ---"
-ls "${BUILD_DIR}/typescript-${PKG_VERSION}/lib/"lib.d.ts
-echo "--- 测试二进制版本 ---"
-"${BUILD_DIR}/typescript-${PKG_VERSION}/lib/tsc" --version 2>&1 || true
+    echo "=== test: 主包接线（版本/槽位 optionalDependencies/getExePath 指向）==="
+    node -e '
+        const fs = require("fs");
+        const main = JSON.parse(fs.readFileSync(process.argv[1] + "/package.json", "utf8"));
+        if (main.name !== "@ohos-npm-ports/typescript") process.exit(1);
+        if (main.version !== process.argv[2]) process.exit(1);
+        if (main.optionalDependencies["@ohos-npm-ports/typescript-openharmony-arm64"] !== process.argv[2]) process.exit(1);
+    ' "${BUILD_DIR}/typescript-${PKG_VERSION}" "${PORTS_VERSION}"
+    grep -qF "@ohos-npm-ports/typescript-openharmony-arm64" \
+        "${BUILD_DIR}/typescript-${PKG_VERSION}/lib/getExePath.js"
 
-# 清理源码
-rm -rf "${BUILD_DIR}/typescript-go"
+    echo "=== test: 槽位包二进制真跑 typecheck ==="
+    SMOKE="$(mktemp -d)"
+    cd "${SMOKE}"
+    printf '{"compilerOptions":{"strict":true}}' > tsconfig.json
+    printf 'const n: number = "x";\n' > bad.ts
+    "${BUILD_DIR}/${SLOT_NAME}/lib/tsc" --version
+    "${BUILD_DIR}/${SLOT_NAME}/lib/tsc" --noEmit -p tsconfig.json > out.txt 2>&1 || true
+    grep -q 'error TS' out.txt || { cat out.txt >&2; exit 1; }
+    cd "${BUILD_DIR}"
+    rm -rf "${SMOKE}"
 
-echo "=== 5/6: 打 patch 增加 OpenHarmony 支持 ==="
-cd "${BUILD_DIR}/typescript-${PKG_VERSION}"
-patch -p1 < "${WORK_DIR}/patchs/0002-add-openharmony-support.patch"
+    echo "OK: ${SLOT_PKG_NAME} + @ohos-npm-ports/${PKG_NAME} ${PORTS_VERSION}"
+}
 
-echo "=== 6/6: 构建完成，验证包结构 ==="
-echo ""
-echo "--- 文件列表 ---"
-find "${BUILD_DIR}/typescript-${PKG_VERSION}" -maxdepth 1 -type d | sort
-echo ""
-echo "--- lib/ 内容 ---"
-ls -lh "${BUILD_DIR}/typescript-${PKG_VERSION}/lib/"
-echo ""
-echo "--- 二进制验证 ---"
-file "${BUILD_DIR}/typescript-${PKG_VERSION}/lib/tsc"
-echo ""
-echo "--- 版本信息 ---"
-"${BUILD_DIR}/typescript-${PKG_VERSION}/lib/tsc" --version 2>&1 || true
-echo ""
-echo "=== 构建成功！产物位于: ${BUILD_DIR}/typescript-${PKG_VERSION} ==="
-echo "=== 运行 publish.sh 发布到 npm ==="
+do_deps
+do_fetch
+do_build
+do_package
+do_test

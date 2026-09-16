@@ -1,17 +1,14 @@
 --- a/lib/getExePath.js
 +++ b/lib/getExePath.js
-@@ -8,6 +8,14 @@
-     const __dirname = path.dirname(fileURLToPath(import.meta.url));
-     const normalizedDirname = __dirname.replace(/\\/g, "/");
- 
-+
-+    // [ohos-npm-ports] OpenHarmony: use bundled Go binary
-+    if (process.platform === "openharmony") {
-+        const exe = path.join(__dirname, "tsc");
-+        if (fs.existsSync(exe)) {
-+            return exe;
-+        }
-+    }
-     const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
-     const pkgName = pkg.name;
-     const baseName = pkgName.startsWith("@") ? pkgName.split("/")[1] : pkgName;
+@@ -34,7 +34,10 @@
+     }
+     else {
+         // We're actually running from an installed package.
+-        const platformPackageName = "@typescript/" + expectedPackage;
++        // [ohos-npm-ports] OpenHarmony: 上游没有 openharmony 平台包，改解析我们的槽位包
++        const platformPackageName = process.platform === "openharmony"
++            ? "@ohos-npm-ports/typescript-openharmony-arm64"
++            : "@typescript/" + expectedPackage;
+         try {
+             if (typeof import.meta.resolve === "undefined") {
+                 // v16.20.1
