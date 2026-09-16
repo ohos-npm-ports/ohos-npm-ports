@@ -1,6 +1,6 @@
 {
   "name": "@ohos-npm-ports/prisma-engines",
-  "version": "5.1.1-2",
+  "version": "5.1.1-3",
   "description": "Native OpenHarmony (OHOS) query-engine and schema-engine binaries for Prisma, built from prisma-engines source at the exact commit prisma@5.1.1 pins.",
   "main": "index.js",
   "repository": {
@@ -20,9 +20,9 @@
     "index.js",
     "libquery_engine.so",
     "schema-engine",
-    "libquery_engine-debian-openssl-1.1.x.so",
+    "libquery_engine-debian-openssl-1.1.x.so.node",
     "schema-engine-debian-openssl-1.1.x",
-    "libquery_engine-debian-openssl-3.0.x.so",
+    "libquery_engine-debian-openssl-3.0.x.so.node",
     "schema-engine-debian-openssl-3.0.x"
   ]
 }
