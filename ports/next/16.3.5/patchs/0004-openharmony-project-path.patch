@@ -1,0 +1,10 @@
+--- a/crates/next-napi-bindings/src/next_api/project.rs
++++ b/crates/next-napi-bindings/src/next_api/project.rs
+@@ -2373,6 +2373,7 @@
+     };
+ 
+     let path = path
++        .into_os_string()
+         .into_string()
+         .map(RcStr::from)
+         .map_err(|p| anyhow!("path {p:?} is not valid unicode"))?;

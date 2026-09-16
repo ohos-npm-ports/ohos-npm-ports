@@ -1,0 +1,21 @@
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+-  "name": "next",
+-  "version": "16.3.5",
++  "name": "@ohos-npm-ports/next",
++  "version": "16.3.5-1",
+   "description": "The React Framework",
+   "main": "./dist/server/next.js",
+   "license": "MIT",
+@@ -119,7 +119,8 @@
+     "@next/swc-linux-x64-gnu": "16.3.5",
+     "@next/swc-linux-x64-musl": "16.3.5",
+     "@next/swc-win32-arm64-msvc": "16.3.5",
+-    "@next/swc-win32-x64-msvc": "16.3.5"
++    "@next/swc-win32-x64-msvc": "16.3.5",
++    "@ohos-npm-ports/next-swc-openharmony-arm64": "16.3.5-1"
+   },
+   "keywords": [
+     "react",

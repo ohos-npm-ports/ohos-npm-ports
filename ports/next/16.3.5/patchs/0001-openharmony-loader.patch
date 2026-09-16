@@ -1,0 +1,33 @@
+--- a/dist/build/swc/index.js
++++ b/dist/build/swc/index.js
+@@ -152,6 +152,10 @@
+ }
+ function getSupportedArchTriples() {
+     const { darwin, win32, linux, freebsd, android } = _triples.platformArchTriples;
++    const openharmony = [{
++            platformArchABI: 'openharmony-arm64',
++            raw: 'aarch64-unknown-linux-ohos'
++        }];
+     return {
+         darwin,
+         win32: {
+@@ -173,6 +177,9 @@
+         android: {
+             arm64: android.arm64,
+             arm: android.arm
++        },
++        openharmony: {
++            arm64: openharmony
+         }
+     };
+ }
+@@ -1192,7 +1199,8 @@
+             throw attempts;
+         }
+         for (const triple of triples){
+-            let pkg = importPath ? _path.default.join(importPath, `@next/swc-${triple.platformArchABI}`, `next-swc.${triple.platformArchABI}.node`) : `@next/swc-${triple.platformArchABI}`;
++            const packageName = PlatformName === 'openharmony' ? '@ohos-npm-ports/next-swc-openharmony-arm64' : `@next/swc-${triple.platformArchABI}`;
++            let pkg = importPath ? _path.default.join(importPath, packageName, `next-swc.${triple.platformArchABI}.node`) : packageName;
+             try {
+                 bindings = require(pkg);
+                 bindingsPath = require.resolve(pkg);
