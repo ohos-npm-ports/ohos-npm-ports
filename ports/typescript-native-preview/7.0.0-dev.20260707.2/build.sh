@@ -10,7 +10,7 @@ set -e
 # （0002 只改了 openharmony 分支的包名，不动上游解析）。
 
 VERSION=7.0.0-dev.20260707.2
-PORTS_VERSION="${VERSION}-1"
+PORTS_VERSION="${VERSION}-2"
 PKG=typescript-native-preview
 SLOT_NAME="typescript-native-preview-openharmony-arm64"
 SLOT_PKG_NAME="@ohos-npm-ports/${SLOT_NAME}"
