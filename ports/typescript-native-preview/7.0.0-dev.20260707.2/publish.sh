@@ -5,5 +5,5 @@ set -e
 cd "$(dirname "$0")/build/typescript-native-preview-openharmony-arm64"
 npm publish --tag latest --access public
 
-cd "$(dirname "$0")/build/typescript-native-preview-7.0.0-dev.20260707.2"
+cd ../typescript-native-preview-7.0.0-dev.20260707.2
 npm publish --tag latest --access public
