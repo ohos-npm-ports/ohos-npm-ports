@@ -1,0 +1,31 @@
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+-    "name": "@typescript/native-preview",
+-    "version": "7.0.0-dev.20260707.2",
++    "name": "@ohos-npm-ports/typescript-native-preview",
++    "version": "7.0.0-dev.20260707.2-1",
+     "license": "Apache-2.0",
+     "author": "Microsoft Corp.",
+     "homepage": "https://www.typescriptlang.org/",
+@@ -18,7 +18,8 @@
+     },
+     "repository": {
+         "type": "git",
+-        "url": "https://github.com/microsoft/typescript-go.git"
++        "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
++        "directory": "ports/typescript-native-preview/7.0.0-dev.20260707.2"
+     },
+     "type": "module",
+     "preferUnplugged": true,
+@@ -90,6 +91,7 @@
+         "@typescript/native-preview-linux-arm": "7.0.0-dev.20260707.2",
+         "@typescript/native-preview-linux-arm64": "7.0.0-dev.20260707.2",
+         "@typescript/native-preview-darwin-x64": "7.0.0-dev.20260707.2",
+-        "@typescript/native-preview-darwin-arm64": "7.0.0-dev.20260707.2"
++        "@typescript/native-preview-darwin-arm64": "7.0.0-dev.20260707.2",
++        "@ohos-npm-ports/typescript-native-preview-openharmony-arm64": "7.0.0-dev.20260707.2-1"
+     }
+ }
+\ No newline at end of file
