@@ -1,0 +1,30 @@
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+-  "name": "bun-plugin-tailwind",
+-  "version": "0.1.2",
++  "name": "@ohos-npm-ports/bun-plugin-tailwind",
++  "version": "0.1.2-1",
+   "description": "Bun plugin for Tailwind CSS v4",
+   "license": "MIT",
+   "repository": {
+@@ -7,6 +7,6 @@
+     "type": "git",
+-    "url": "https://github.com/tailwindlabs/tailwindcss.git",
+-    "directory": "packages/@tailwindcss-bun"
++    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
++    "directory": "ports/bun-plugin-tailwind/0.1.2"
+   },
+   "bugs": "https://github.com/tailwindlabs/tailwindcss/issues",
+   "homepage": "https://tailwindcss.com",
+@@ -32,7 +32,8 @@
+     "./tailwindcss-oxide.linux-x64-gnu.node",
+     "./tailwindcss-oxide.linux-x64-musl.node",
+     "./tailwindcss-oxide.win32-arm64-msvc.node",
+-    "./tailwindcss-oxide.win32-x64-msvc.node"
++    "./tailwindcss-oxide.win32-x64-msvc.node",
++    "./tailwindcss-oxide.openharmony-arm64.node"
+   ],
+   "dependencies": {},
+   "peerDependencies": {
