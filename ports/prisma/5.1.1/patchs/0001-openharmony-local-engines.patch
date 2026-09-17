@@ -1,0 +1,47 @@
+--- a/build/index.js
++++ b/build/index.js
+@@ -91610,6 +91610,26 @@
+ }
+ 
+ // ../internals/src/get-generators/utils/getBinaryPathsByVersion.ts
++// OpenHarmony: binaries.prisma.sh has no OHOS engine builds, so resolve them
++// from the @prisma/engines package root (npm override to
++// @ohos-npm-ports/prisma-engines) instead of downloading platform-mismatched
++// debian glibc binaries that cannot be dlopened on OHOS.
++async function ohosLocalEngines(params) {
++  const root = (0, import_engines4.getEnginesPath)();
++  const binaryPaths = /* @__PURE__ */ Object.create(null);
++  for (const binaryName of Object.keys(params.binaries)) {
++    binaryPaths[binaryName] = {};
++    for (const binaryTarget of params.binaryTargets) {
++      const localPath = import_path21.default.join(root, getBinaryName(binaryName, binaryTarget));
++      if (!import_fs_extra4.default.existsSync(localPath)) {
++        return null;
++      }
++      binaryPaths[binaryName][binaryTarget] = localPath;
++    }
++  }
++  return binaryPaths;
++}
++
+ async function getBinaryPathsByVersion({
+   neededVersions,
+   platform,
+@@ -91653,7 +91673,7 @@
+         version: currentVersion && currentVersion !== "latest" ? currentVersion : import_engines4.enginesVersion,
+         skipDownload
+       };
+-      const binaryPathsWithEngineType = await download(downloadParams);
++      const binaryPathsWithEngineType = process.platform === "openharmony" ? (await ohosLocalEngines(downloadParams)) ?? await download(downloadParams) : await download(downloadParams);
+       const binaryPaths2 = mapKeys(binaryPathsWithEngineType, binaryTypeToEngineType);
+       binaryPathsByVersion[currentVersion] = binaryPaths2;
+     }
+@@ -91771,7 +91791,7 @@
+         version,
+         skipDownload
+       };
+-      const binaryPathsWithEngineType = await download(downloadParams);
++      const binaryPathsWithEngineType = process.platform === "openharmony" ? (await ohosLocalEngines(downloadParams)) ?? await download(downloadParams) : await download(downloadParams);
+       prismaPath = binaryPathsWithEngineType[queryEngineBinaryType][platform];
+     }
+   }
