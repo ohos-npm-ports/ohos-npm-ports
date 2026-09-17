@@ -44,10 +44,9 @@ cd <构建产物目录>
 npm publish --tag latest --access public
 ```
 
-`cd` 的目标是“构建产物目录”。CI 调用 publish.sh 时先 `cd` 进 port 目录再执行 `./publish.sh`（见 ci.yml），所以字面量相对路径就够：
+`cd` 的目标是“构建产物目录”。CI 调用 publish.sh 时先 `cd` 进 port 目录再执行 `./publish.sh`（见 ci.yml），cwd 就是 port 目录，所以一律用字面量相对路径：`cd sqlite3-5.1.7`。
 
-- 字面量相对路径最简单：`cd sqlite3-5.1.7`（绝大多数 port 用这个）
-- 平台专属子包可以用 `cd "$(dirname "$0")/<pkg>-<ver>"`（`parcel-watcher-openharmony-arm64`、`opentui-core-openharmony-arm64` 先例）——`$0` 保证不依赖调用者的 cwd 就能定位到脚本自己所在目录
+旧 port 里有 `cd "$(dirname "$0")/<pkg>-<ver>"` 的写法（`parcel-watcher-openharmony-arm64`、`opentui-core-openharmony-arm64`），新 port 不要照抄。
 
 一个包同时发主包和平台槽位包时（如 `typescript`），publish.sh 里写两条 `cd` + 两条 `npm publish`：先发槽位包，再 `cd ../<主包目录>` 发主包。
 
