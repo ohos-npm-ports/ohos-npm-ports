@@ -31,6 +31,7 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 | playwright-mcp | @ohos-npm-ports/playwright-mcp | 0.0.78-1 |
 | @prisma/engines | @ohos-npm-ports/prisma-engines | 5.1.1-3 |
 | prisma | @ohos-npm-ports/prisma | 5.1.1-1 |
+| @prisma/client | @ohos-npm-ports/prisma-client | 5.8.0-1 |
 | @typescript/native-preview | @ohos-npm-ports/typescript-native-preview | 7.0.0-dev.20260707.2-1 |
 
 ## 使用方法
