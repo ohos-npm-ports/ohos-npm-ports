@@ -39,7 +39,7 @@ body:
       options:
         - 真机（HarmonyOS 商用发行版）
         - 真机（OpenHarmony 社区版）
-        - ci-runner / dockerharmony 容器
+        - ci-runner 容器
         - 其他（请在下方说明）
     validations:
       required: true

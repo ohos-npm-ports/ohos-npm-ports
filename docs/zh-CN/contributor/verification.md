@@ -16,7 +16,7 @@
 3. **真实加载**：入口必须用 `node -e "require('./index.js')"` 或等价方式实际加载；`node --check` 只能检查 JavaScript 语法，不能替代加载测试。有条件的话再调一次真实功能（`opentui-core` 的 dlopen 探测、`parcel-watcher-openharmony-arm64` 的 `writeSnapshot` 真实调用都是这个层级）。
 4. **loader 分支命中检查**：如果补丁给上游 loader 加了 `process.platform === 'openharmony'` 分支，就在自验证里 `grep` 一下这个分支真的进了产物文件，而不是假设补丁打上去了就万事大吉。
 
-这不是选做项——CI 的 `port-lint` 会对没有任何自验证痕迹（`grep -q`/`node -e`/`readelf`）的 `build.sh` 发警告（目前非阻断，仓库里 `bufferutil`/`sqlite3`/`typescript` 三个包是已知的历史缺口，正在补）。
+这不是选做项——CI 的 `port-lint` 会对没有任何自验证痕迹（`grep -q`/`node -e`/`readelf`）的 `build.sh` 发警告（目前非阻断，仓库里 `bufferutil`/`sqlite3` 两个包是已知的历史缺口，正在补）。
 
 ## 2. CI 验证边界
 

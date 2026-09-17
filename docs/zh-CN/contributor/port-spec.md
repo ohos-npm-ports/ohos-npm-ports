@@ -44,12 +44,14 @@ cd <构建产物目录>
 npm publish --tag latest --access public
 ```
 
-第二行的 `cd` 目标是“构建产物目录”——CI 的门禁脚本靠 `sed -n 's/^cd //p' publish.sh` 取出这一行、再用 `sh -c "cd <取出的内容> && pwd"`（`$0` 绑定成 `publish.sh` 自身路径）求出真实目录，不是死抠字面量文本。两种写法都可以：
+`cd` 的目标是“构建产物目录”。CI 调用 publish.sh 时先 `cd` 进 port 目录再执行 `./publish.sh`（见 ci.yml），所以字面量相对路径就够：
 
 - 字面量相对路径最简单：`cd sqlite3-5.1.7`（绝大多数 port 用这个）
 - 平台专属子包可以用 `cd "$(dirname "$0")/<pkg>-<ver>"`（`parcel-watcher-openharmony-arm64`、`opentui-core-openharmony-arm64` 先例）——`$0` 保证不依赖调用者的 cwd 就能定位到脚本自己所在目录
 
-不要用别的形式（函数包一层、多行拼接等）——门禁脚本只认这一行、只 eval 这一行，写复杂了会解析不出来。
+一个包同时发主包和平台槽位包时（如 `typescript`），publish.sh 里写两条 `cd` + 两条 `npm publish`：先发槽位包，再 `cd ../<主包目录>` 发主包。
+
+CI 对 publish.sh 只检查三件事：文件存在、`sh -n` 语法通过、port 文件里能找到 `@ohos-npm-ports/` scope 字符串（见 port-lint.sh）——不解析 `cd` 目标，但请保持上面的简单结构，方便人读。
 
 **`--tag latest` 只属于这个包当前真正应该分发给新用户的那条版本线**。一个包如果有多个 `<version>` 目录并存（如 `opentui-core` 的 `0.4.5` 和 `0.5.8`），只有其中最新的那条线的 publish.sh 才写 `--tag latest`；给较旧那条线发修订版（比如给 `0.4.5` 修一个只有那条线才有的 bug）时，必须显式换一个不同的 tag（如 `--tag legacy-0.4`），不能照抄模板漏改——npm 的 `latest` dist-tag 谁发布得晚就是谁，跟 semver 版本号大小无关：如果 `0.5.8` 已经是 `latest`，之后再发一次 `0.4.5-2` 却还打 `--tag latest`，`latest` 会被错误地拉回 `0.4.5-2`，新装的用户全部拿到旧版本。新增 port 只有一条版本线时无需关心这条，正常照抄模板即可。
 
