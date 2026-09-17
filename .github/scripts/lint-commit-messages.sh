@@ -6,7 +6,7 @@
 # port change with an unrelated doc/CI commit in one PR is normal here.
 #
 # The convention below is reverse-engineered from this repo's own history
-# (see docs/zh-CN/contributor/port-spec.md "commit 规范"): it converged
+# (see docs/zh-CN/contributor/port-spec.md “commit 规范”): it converged
 # organically on `<port>: <action> ...` once the repo settled past its
 # early free-form/Chinese-only commits. Those older commits are never
 # re-checked — this only ever looks at $BASE..$HEAD, i.e. the PR's own

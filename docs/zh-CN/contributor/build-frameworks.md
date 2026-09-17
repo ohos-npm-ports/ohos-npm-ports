@@ -4,31 +4,14 @@
 
 ## 1. 最终产物
 
-```mermaid
-flowchart TD
-    A[上游 npm 包] --> B{是否包含原生代码}
-    B -->|否| C[纯 JavaScript<br/>直接检查并重打包]
-    B -->|是| D{Node 侧如何使用}
-    D -->|require 原生 addon| E[N-API .node 文件]
-    D -->|启动外部程序| F[独立可执行文件]
-    E --> G[主包内嵌或平台二进制子包]
-    F --> H[Node wrapper 负责定位并 spawn]
-```
+按两个问题的答案归类：
 
-- 纯 JavaScript 包不需要原生编译，重点是确认运行时没有写死平台名称。
-- N-API addon 最终必须能被 Node loader 找到并加载，不能只验证 ELF 文件存在。
-- 独立可执行文件不经过 `require()` 加载，重点是架构、运行路径、权限和签名。
+- **有没有原生代码？** 没有 → 纯 JavaScript 包，不需要原生编译，重点是确认运行时没有写死平台名称。
+- **有 → Node 侧怎么用它？** `require()` 加载的是 N-API addon（`.node`），最终必须能被 Node loader 找到并加载，不能只验证 ELF 文件存在；`spawn` 启动的是独立可执行文件，不经过 `require()` 加载，重点是架构、运行路径、权限和签名。
 
 ## 2. 二进制分发方式
 
-```mermaid
-flowchart TD
-    A[N-API addon] --> B{发布包如何携带 .node}
-    B -->|主包内嵌| C[固定路径<br/>loader 直接加载]
-    B -->|prebuilds 目录| D[node-gyp-build<br/>按平台和 ABI 选择]
-    B -->|平台二进制子包| E[optionalDependencies<br/>安装时选择]
-    B -->|安装时远程下载| F[不推荐<br/>改为构建阶段取得并随包发布]
-```
+N-API addon 随发布包携带 `.node` 的方式有四种，后文逐一说明：主包内嵌、prebuilds 目录（`node-gyp-build`）、平台二进制子包、安装时远程下载（不推荐）。
 
 ### 2.1 主包内嵌
 
@@ -79,13 +62,7 @@ flowchart TD
 
 ### 3.3 自定义工具链
 
-```mermaid
-flowchart TD
-    A[自定义工具链] --> B{最终产物}
-    B -->|N-API addon| C[按 loader 规则放置并加载]
-    B -->|独立二进制| D[Node wrapper 定位并 spawn]
-    B -->|平台二进制子包| E[主包通过 optionalDependencies 选择]
-```
+自定义工具链的产物同样归为三类，与前文的分发方式一一对应：N-API addon（按 loader 规则放置并验证真实加载）、独立二进制（Node wrapper 定位并 spawn）、平台二进制子包（主包通过 `optionalDependencies` 选择）。
 
 - Rust CLI 或原生库：确认依赖支持 `aarch64-unknown-linux-ohos`，处理系统调用和 vendored 依赖差异。
 - Go 二进制：无 cgo 且依赖允许时可以尝试静态编译；有 cgo 或动态依赖时，必须额外处理库路径和签名。
@@ -95,11 +72,9 @@ flowchart TD
 
 ## 4. 发布前检查
 
-```text
-源码和上游包来源固定，并有校验值
-补丁确实应用，关键修改在产物中可见
-package.json 的 name、version、入口和依赖正确
-二进制架构正确，随包文件已签名
-loader 能命中 OpenHarmony 产物
-npm pack 后在干净项目中安装并真实加载
-```
+1. 源码和上游包来源固定，并有校验值。
+2. 补丁确实应用，关键修改在产物中可见。
+3. `package.json` 的 name、version、入口和依赖正确。
+4. 二进制架构正确，随包文件已签名。
+5. loader 能命中 OpenHarmony 产物。
+6. `npm pack` 后在干净项目中安装并真实加载。

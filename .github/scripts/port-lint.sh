@@ -4,7 +4,7 @@
 # every push/PR before the expensive container build. Rules below were
 # derived empirically: every rule marked BLOCKING was verified to pass
 # cleanly against all port directories in this repo before being made
-# blocking (see docs/zh-CN/contributor/port-spec.md "校验规则来源").
+# blocking (see docs/zh-CN/contributor/port-spec.md “校验规则来源”).
 #
 # Usage:
 #   port-lint.sh                  # lint every ports/*/*/ directory

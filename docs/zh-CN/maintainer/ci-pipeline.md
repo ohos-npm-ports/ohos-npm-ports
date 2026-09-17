@@ -1,6 +1,6 @@
 # CI 流水线
 
-给要理解或维护 `.github/workflows/**` 的人看；贡献者只需要知道"合并前 CI 会跑什么"，见 [../contributor/verification.md](../contributor/verification.md)。
+给要理解或维护 `.github/workflows/**` 的人看；贡献者只需要知道“合并前 CI 会跑什么”，见 [../contributor/verification.md](../contributor/verification.md)。
 
 ## 1. 触发与整体形状
 
