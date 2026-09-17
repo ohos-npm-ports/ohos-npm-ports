@@ -16,8 +16,8 @@
 
 const path = require("path");
 
-const ENGINES_VERSION = "5.1.1-1.6a3747c37ff169c90047725a05a6ef02e32ac97e";
-const DEFAULT_CLI_QUERY_ENGINE_BINARY_TYPE = "library";
+const ENGINES_VERSION = "6a3747c37ff169c90047725a05a6ef02e32ac97e";
+const DEFAULT_CLI_QUERY_ENGINE_BINARY_TYPE = "libquery-engine";
 
 function getEnginesPath() {
   return __dirname;
