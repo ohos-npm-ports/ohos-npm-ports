@@ -1,0 +1,30 @@
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -2675,8 +2675,6 @@ dependencies = [
+ [[package]]
+ name = "iana-time-zone"
+ version = "0.1.65"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "e31bc9ad994ba00e440a8aa5c9ef0ec67d5cb5e5cb0cc7f8b744a35b389cc470"
+ dependencies = [
+  "android_system_properties",
+  "core-foundation-sys",
+@@ -3986,6 +3984,10 @@ dependencies = [
+  "subtle",
+ ]
+ 
++[[package]]
++name = "ohos-sign"
++version = "0.1.0"
++
+ [[package]]
+ name = "once_cell"
+ version = "1.21.4"
+@@ -6094,6 +6096,7 @@ dependencies = [
+  "dunce",
+  "miette 7.6.0",
+  "node-semver",
++ "ohos-sign",
+  "pipe-trait",
+  "pnpm-crypto-hash",
+  "pnpm-deps-path",

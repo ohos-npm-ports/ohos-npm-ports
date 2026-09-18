@@ -1,0 +1,592 @@
+new file mode 100644
+--- /dev/null
++++ b/pnpm/crates/ohos-sign/Cargo.toml
+@@ -0,0 +1,10 @@
++[package]
++name = "ohos-sign"
++version = "0.1.0"
++description = "Pure-Rust OHOS ELF self-signing. No external dependencies."
++edition = "2024"
++publish = false
++
++[lib]
++path = "src/selfsign.rs"
++doctest = false
+new file mode 100644
+--- /dev/null
++++ b/pnpm/crates/ohos-sign/src/selfsign.rs
+@@ -0,0 +1,574 @@
++// Copyright (C) 2026 hqzing
++// SPDX-License-Identifier: 0BSD
++// Repository: https://github.com/hqzing/ohos-bst-light
++//
++// Licensed under the BSD Zero Clause License.
++
++/*
++ * selfsign.rs — 轻量级 OpenHarmony 二进制自签名工具
++ *
++ * 用法:
++ *     rustc -O selfsign.rs -o selfsign
++ *     ./selfsign <input_elf> [output_elf] [--force] [--strip]
++ *         缺省 output 时, inplace 改写 input.
++ *         --force : 若已含 .codesign 段, 先剥离再重签
++ *         --strip : 仅剥离 .codesign 段, 不做签名
++ */
++
++use std::fs;
++
++const DESC_SIZE: usize = 256;
++const PAGE_SIZE: usize = 4096;
++const FLAG_SELF_SIGN: u32 = 0x10;
++const FS_VERITY_DESCRIPTOR_TYPE: u32 = 1;
++const HASH_OUT: usize = 32; // SHA-256 输出字节数
++
++// ELF64 header 字段偏移
++const E_SHOFF: usize = 0x28;
++const E_SHENTSIZE: usize = 0x3a;
++const E_SHNUM: usize = 0x3c;
++const E_SHSTRNDX: usize = 0x3e;
++
++const CODESIGN_NAME: &[u8] = b".codesign\0"; // 含结尾 NUL, 共 10 字节
++
++/* ─────────────────────────── SHA-256 ─────────────────────────── */
++/* 按 FIPS 180-4 自实现 */
++struct Sha256 {
++    state: [u32; 8],
++    bitlen: u64,
++    buf: [u8; 64],
++    buflen: usize,
++}
++
++const SHA256_K: [u32; 64] = [
++    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
++    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
++    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
++    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
++    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
++    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
++    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
++    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
++];
++
++fn rotr32(x: u32, n: u32) -> u32 {
++    x.rotate_right(n)
++}
++
++impl Sha256 {
++    fn new() -> Self {
++        Sha256 {
++            state: [
++                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
++                0x5be0cd19,
++            ],
++            bitlen: 0,
++            buf: [0u8; 64],
++            buflen: 0,
++        }
++    }
++
++    fn block(&mut self, p: &[u8]) {
++        let mut w = [0u32; 64];
++        for i in 0..16 {
++            w[i] = ((p[i * 4] as u32) << 24)
++                | ((p[i * 4 + 1] as u32) << 16)
++                | ((p[i * 4 + 2] as u32) << 8)
++                | (p[i * 4 + 3] as u32);
++        }
++        for i in 16..64 {
++            let s0 = rotr32(w[i - 15], 7) ^ rotr32(w[i - 15], 18) ^ (w[i - 15] >> 3);
++            let s1 = rotr32(w[i - 2], 17) ^ rotr32(w[i - 2], 19) ^ (w[i - 2] >> 10);
++            w[i] = w[i - 16]
++                .wrapping_add(s0)
++                .wrapping_add(w[i - 7])
++                .wrapping_add(s1);
++        }
++        let (mut a, mut b, mut c, mut d) =
++            (self.state[0], self.state[1], self.state[2], self.state[3]);
++        let (mut e, mut f, mut g, mut h) =
++            (self.state[4], self.state[5], self.state[6], self.state[7]);
++        for i in 0..64 {
++            let s1 = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25);
++            let ch = (e & f) ^ ((!e) & g);
++            let t1 = h
++                .wrapping_add(s1)
++                .wrapping_add(ch)
++                .wrapping_add(SHA256_K[i])
++                .wrapping_add(w[i]);
++            let s0 = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22);
++            let maj = (a & b) ^ (a & c) ^ (b & c);
++            let t2 = s0.wrapping_add(maj);
++            h = g;
++            g = f;
++            f = e;
++            e = d.wrapping_add(t1);
++            d = c;
++            c = b;
++            b = a;
++            a = t1.wrapping_add(t2);
++        }
++        self.state[0] = self.state[0].wrapping_add(a);
++        self.state[1] = self.state[1].wrapping_add(b);
++        self.state[2] = self.state[2].wrapping_add(c);
++        self.state[3] = self.state[3].wrapping_add(d);
++        self.state[4] = self.state[4].wrapping_add(e);
++        self.state[5] = self.state[5].wrapping_add(f);
++        self.state[6] = self.state[6].wrapping_add(g);
++        self.state[7] = self.state[7].wrapping_add(h);
++    }
++
++    fn update(&mut self, data: &[u8]) {
++        self.bitlen = self
++            .bitlen
++            .wrapping_add((data.len() as u64).wrapping_mul(8));
++        for &byte in data {
++            self.buf[self.buflen] = byte;
++            self.buflen += 1;
++            if self.buflen == 64 {
++                let block = self.buf;
++                self.block(&block);
++                self.buflen = 0;
++            }
++        }
++    }
++
++    fn finalize(mut self) -> [u8; 32] {
++        let bits = self.bitlen;
++        let mut i = self.buflen;
++        self.buf[i] = 0x80;
++        i += 1;
++        if i > 56 {
++            while i < 64 {
++                self.buf[i] = 0;
++                i += 1;
++            }
++            let block = self.buf;
++            self.block(&block);
++            i = 0;
++        }
++        while i < 56 {
++            self.buf[i] = 0;
++            i += 1;
++        }
++        for j in 0..8 {
++            self.buf[56 + j] = (bits >> (56 - 8 * j)) as u8;
++        }
++        let block = self.buf;
++        self.block(&block);
++        let mut out = [0u8; 32];
++        for i in 0..8 {
++            out[i * 4] = (self.state[i] >> 24) as u8;
++            out[i * 4 + 1] = (self.state[i] >> 16) as u8;
++            out[i * 4 + 2] = (self.state[i] >> 8) as u8;
++            out[i * 4 + 3] = self.state[i] as u8;
++        }
++        out
++    }
++}
++
++fn sha256(data: &[u8]) -> [u8; 32] {
++    let mut c = Sha256::new();
++    c.update(data);
++    c.finalize()
++}
++
++/* ─────────────────────────── 字节读写工具 ─────────────────────────── */
++fn read_u16(b: &[u8], off: usize) -> u16 {
++    u16::from_le_bytes([b[off], b[off + 1]])
++}
++fn read_u32(b: &[u8], off: usize) -> u32 {
++    u32::from_le_bytes([b[off], b[off + 1], b[off + 2], b[off + 3]])
++}
++fn read_u64(b: &[u8], off: usize) -> u64 {
++    u64::from_le_bytes([
++        b[off],
++        b[off + 1],
++        b[off + 2],
++        b[off + 3],
++        b[off + 4],
++        b[off + 5],
++        b[off + 6],
++        b[off + 7],
++    ])
++}
++fn write_u16(b: &mut [u8], off: usize, v: u16) {
++    let bytes = v.to_le_bytes();
++    b[off..off + 2].copy_from_slice(&bytes);
++}
++fn write_u32(b: &mut [u8], off: usize, v: u32) {
++    let bytes = v.to_le_bytes();
++    b[off..off + 4].copy_from_slice(&bytes);
++}
++fn write_u64(b: &mut [u8], off: usize, v: u64) {
++    let bytes = v.to_le_bytes();
++    b[off..off + 8].copy_from_slice(&bytes);
++}
++
++fn align_up(v: u64, a: u64) -> u64 {
++    v.div_ceil(a) * a
++}
++
++/* ─────────────────── ELF 预清洗/标准化 (非签名必需) ─────────────────── */
++fn parse_elf_header(elf: &[u8]) -> Result<(u64, u16, u16), String> {
++    if elf.len() < 64 || &elf[0..4] != b"\x7fELF" || elf[4] != 2 {
++        return Err("not ELF64".to_string());
++    }
++    let e_shoff = read_u64(elf, E_SHOFF);
++    let e_shentsize = read_u16(elf, E_SHENTSIZE);
++    let e_shnum = read_u16(elf, E_SHNUM);
++    let e_shstrndx = read_u16(elf, E_SHSTRNDX);
++    if e_shentsize != 64 || e_shoff == 0 || e_shnum == 0 || e_shstrndx >= e_shnum {
++        return Err("ELF has no usable section header table".to_string());
++    }
++    if e_shoff > elf.len() as u64 || (e_shnum as u64) > (elf.len() as u64 - e_shoff) / 64 {
++        return Err("section header table out of bounds".to_string());
++    }
++    Ok((e_shoff, e_shnum, e_shstrndx))
++}
++
++fn find_section_by_name(
++    elf: &[u8],
++    e_shoff: u64,
++    e_shnum: u16,
++    e_shstrndx: u16,
++    name: &[u8],
++) -> i64 {
++    let name_len = name.len();
++    let shstr_e = e_shoff + (e_shstrndx as u64) * 64;
++    let shstr_off = read_u64(elf, shstr_e as usize + 24);
++    let shstr_sz = read_u64(elf, shstr_e as usize + 32);
++    if shstr_off > elf.len() as u64 || shstr_sz > elf.len() as u64 - shstr_off {
++        return -1;
++    }
++    for i in 0..e_shnum {
++        let e = e_shoff + (i as u64) * 64;
++        let name_off = read_u32(elf, e as usize);
++        if (name_off as u64) + (name_len as u64) <= shstr_sz {
++            let start = (shstr_off + name_off as u64) as usize;
++            if &elf[start..start + name_len] == name {
++                return e as i64;
++            }
++        }
++    }
++    -1
++}
++
++pub fn has_codesign_section(elf: &[u8]) -> bool {
++    match parse_elf_header(elf) {
++        Ok((e_shoff, e_shnum, e_shstrndx)) => {
++            find_section_by_name(elf, e_shoff, e_shnum, e_shstrndx, CODESIGN_NAME) >= 0
++        }
++        Err(_) => false,
++    }
++}
++
++fn new_shstrndx(old_shstrndx: u16, cs_idx: usize) -> u16 {
++    if (cs_idx as u16) < old_shstrndx {
++        old_shstrndx - 1
++    } else {
++        old_shstrndx
++    }
++}
++
++pub fn strip_codesign(buf: &[u8]) -> Result<(bool, Vec<u8>), String> {
++    let elf = buf.to_vec();
++    let (e_shoff, e_shnum, e_shstrndx) = parse_elf_header(&elf)?;
++
++    let cs_entry_off = find_section_by_name(&elf, e_shoff, e_shnum, e_shstrndx, CODESIGN_NAME);
++    if cs_entry_off < 0 {
++        return Ok((false, elf));
++    }
++    let cs_idx = ((cs_entry_off as u64 - e_shoff) / 64) as usize;
++
++    let shstr_e = e_shoff + (e_shstrndx as u64) * 64;
++    let shstr_off = read_u64(&elf, shstr_e as usize + 24);
++    let shstr_sz = read_u64(&elf, shstr_e as usize + 32);
++    if shstr_off > elf.len() as u64 || shstr_sz > elf.len() as u64 - shstr_off {
++        return Err("shstrtab out of bounds".to_string());
++    }
++
++    // 2. 新 shstrtab = 旧 shstrtab 删掉 ".codesign\0"
++    let cs_name_off = read_u32(&elf, cs_entry_off as usize);
++    let cs_name_len = CODESIGN_NAME.len(); // 10, 含 NUL
++    let shstr_start = shstr_off as usize;
++    let mut new_shstr = elf[shstr_start..shstr_start + shstr_sz as usize].to_vec();
++    let mut new_shstr_sz = new_shstr.len();
++    if cs_name_off as usize + cs_name_len <= new_shstr.len() {
++        new_shstr.drain(cs_name_off as usize..cs_name_off as usize + cs_name_len);
++        new_shstr_sz = new_shstr.len();
++    }
++
++    // 3. 新 SHT = 旧 SHT 去掉 cs_idx 条目
++    let new_shnum = e_shnum - 1;
++    let mut new_sht = Vec::with_capacity(new_shnum as usize * 64);
++    for i in 0..e_shnum {
++        if i as usize == cs_idx {
++            continue;
++        }
++        let e = e_shoff as usize + i as usize * 64;
++        new_sht.extend_from_slice(&elf[e..e + 64]);
++    }
++
++    // 4. 截断到 .codesign 段文件偏移, 依次追加 新shstrtab / 8B对齐 新SHT
++    let cs_sec_off = read_u64(&elf, cs_entry_off as usize + 24);
++    let keep_len = (cs_sec_off as usize).min(elf.len());
++    let new_shstr_off = keep_len;
++    let new_sht_off = align_up((new_shstr_off + new_shstr_sz) as u64, 8) as usize;
++    let new_total = new_sht_off + new_shnum as usize * 64;
++
++    let mut out = vec![0u8; new_total];
++    out[0..keep_len].copy_from_slice(&elf[0..keep_len]);
++    out[new_shstr_off..new_shstr_off + new_shstr_sz].copy_from_slice(&new_shstr);
++    out[new_sht_off..new_sht_off + new_shnum as usize * 64].copy_from_slice(&new_sht);
++
++    // 5. 重写 shstrtab 条目
++    let shstr_entry_off_in_new = new_shstrndx(e_shstrndx, cs_idx) as usize * 64;
++    write_u64(
++        &mut out,
++        new_sht_off + shstr_entry_off_in_new + 24,
++        new_shstr_off as u64,
++    );
++    write_u64(
++        &mut out,
++        new_sht_off + shstr_entry_off_in_new + 32,
++        new_shstr_sz as u64,
++    );
++
++    // 6. 所有 sh_name > cs_name_off 的段名偏移整体前移 cs_name_len
++    for i in 0..new_shnum as usize {
++        let e = new_sht_off + i * 64;
++        let noff = read_u32(&out, e);
++        if noff > cs_name_off {
++            write_u32(&mut out, e, noff - cs_name_len as u32);
++        }
++    }
++
++    // 7. 更新 header
++    write_u64(&mut out, E_SHOFF, new_sht_off as u64);
++    write_u16(&mut out, E_SHNUM, new_shnum);
++    if (cs_idx as u16) < e_shstrndx {
++        write_u16(&mut out, E_SHSTRNDX, e_shstrndx - 1);
++    }
++
++    Ok((true, out))
++}
++
++/* ─────────────────── 签名必需的算法核心 ─────────────────── */
++fn inject_codesign_section(elf: &[u8]) -> Result<(Vec<u8>, usize), String> {
++    let (e_shoff, e_shnum, e_shstrndx) = parse_elf_header(elf)?;
++
++    let shstr_e = e_shoff + (e_shstrndx as u64) * 64;
++    let shstr_off = read_u64(elf, shstr_e as usize + 24);
++    let shstr_sz = read_u64(elf, shstr_e as usize + 32);
++    if shstr_off > elf.len() as u64 || shstr_sz > elf.len() as u64 - shstr_off {
++        return Err("shstrtab out of bounds".to_string());
++    }
++
++    // 1. cur_end: SHT 末尾与各段 off+sz 的最大值 (SHT_NOBITS=8 不占文件)
++    let mut cur_end = e_shoff + (e_shnum as u64) * 64;
++    for i in 0..e_shnum {
++        let e = e_shoff + (i as u64) * 64;
++        let sh_type = read_u32(elf, e as usize + 4);
++        let off = read_u64(elf, e as usize + 24);
++        let sz = if sh_type == 8 {
++            0
++        } else {
++            read_u64(elf, e as usize + 32)
++        };
++        if off + sz > cur_end {
++            cur_end = off + sz;
++        }
++    }
++    let cs_off = align_up(cur_end, PAGE_SIZE as u64) as usize;
++
++    // 2. 新 shstrtab = 旧 + ".codesign\0"
++    let shstr_start = shstr_off as usize;
++    let mut new_shstr = elf[shstr_start..shstr_start + shstr_sz as usize].to_vec();
++    new_shstr.extend_from_slice(CODESIGN_NAME);
++    let new_shstr_sz = new_shstr.len();
++    let cs_shname = shstr_sz as u32; // .codesign 在新 shstrtab 内的偏移
++
++    // 3. 新布局
++    let new_shstr_off = cs_off + PAGE_SIZE;
++    let new_sht_off = align_up((new_shstr_off + new_shstr_sz) as u64, 8) as usize;
++    let new_shnum = e_shnum + 1;
++    let new_total = new_sht_off + new_shnum as usize * 64;
++
++    let mut buf = vec![0u8; new_total];
++    // 4. 拷贝原内容: 只拷到 cs_off
++    let copy_len = elf.len().min(new_total).min(cs_off);
++    buf[0..copy_len].copy_from_slice(&elf[0..copy_len]);
++
++    buf[new_shstr_off..new_shstr_off + new_shstr_sz].copy_from_slice(&new_shstr);
++    let sht_start = e_shoff as usize;
++    buf[new_sht_off..new_sht_off + e_shnum as usize * 64]
++        .copy_from_slice(&elf[sht_start..sht_start + e_shnum as usize * 64]);
++
++    // .codesign 段条目 (64B)
++    let cs_e = new_sht_off + e_shnum as usize * 64;
++    write_u32(&mut buf, cs_e, cs_shname); // sh_name
++    write_u32(&mut buf, cs_e + 4, 1); // sh_type = SHT_PROGBITS
++    write_u64(&mut buf, cs_e + 24, cs_off as u64); // sh_offset
++    write_u64(&mut buf, cs_e + 32, PAGE_SIZE as u64); // sh_size
++    write_u64(&mut buf, cs_e + 48, PAGE_SIZE as u64); // sh_addralign
++
++    // 更新 shstrtab 条目偏移/大小
++    let shstr_e_new = new_sht_off + e_shstrndx as usize * 64;
++    write_u64(&mut buf, shstr_e_new + 24, new_shstr_off as u64);
++    write_u64(&mut buf, shstr_e_new + 32, new_shstr_sz as u64);
++
++    // 更新 header: e_shoff / e_shnum; e_shstrndx 不变
++    write_u64(&mut buf, E_SHOFF, new_sht_off as u64);
++    write_u16(&mut buf, E_SHNUM, new_shnum);
++
++    Ok((buf, cs_off))
++}
++
++fn merkle_root_hash(data: &[u8], cs_off: usize, cs_len: usize) -> [u8; 32] {
++    if data.is_empty() {
++        return sha256(&[0u8; PAGE_SIZE]);
++    }
++
++    let npages = data.len().div_ceil(PAGE_SIZE);
++    let cs_page_begin = cs_off / PAGE_SIZE;
++    let cs_page_end = (cs_off + cs_len).div_ceil(PAGE_SIZE);
++
++    let mut hashes = Vec::with_capacity(npages * HASH_OUT);
++    for i in 0..npages {
++        if cs_len > 0 && i >= cs_page_begin && i < cs_page_end {
++            hashes.extend_from_slice(&[0u8; HASH_OUT]); // 段所在页: 叶哈希置 0
++            continue;
++        }
++        let mut page = vec![0u8; PAGE_SIZE];
++        let off = i * PAGE_SIZE;
++        let n = if off + PAGE_SIZE <= data.len() {
++            PAGE_SIZE
++        } else {
++            data.len() - off
++        };
++        page[0..n].copy_from_slice(&data[off..off + n]);
++        hashes.extend_from_slice(&sha256(&page));
++    }
++
++    if npages == 1 {
++        let mut root = [0u8; 32];
++        root.copy_from_slice(&hashes[0..HASH_OUT]);
++        return root;
++    }
++
++    let mut cur = hashes;
++    loop {
++        let packed = cur.len();
++        if packed <= PAGE_SIZE {
++            let mut page = vec![0u8; PAGE_SIZE];
++            page[0..packed].copy_from_slice(&cur);
++            return sha256(&page);
++        }
++        let next_pages = packed.div_ceil(PAGE_SIZE);
++        let mut next = Vec::with_capacity(next_pages * HASH_OUT);
++        for i in 0..next_pages {
++            let mut page = vec![0u8; PAGE_SIZE];
++            let off = i * PAGE_SIZE;
++            let n = if off + PAGE_SIZE <= packed {
++                PAGE_SIZE
++            } else {
++                packed - off
++            };
++            page[0..n].copy_from_slice(&cur[off..off + n]);
++            next.extend_from_slice(&sha256(&page));
++        }
++        cur = next;
++    }
++}
++
++fn build_descriptor(
++    sign_size: u32,
++    file_size: u64,
++    root: &[u8; 32],
++    flags: u32,
++) -> [u8; DESC_SIZE] {
++    let mut d = [0u8; DESC_SIZE];
++    d[0] = 1; // version
++    d[1] = 1; // hashAlgorithm = SHA-256
++    d[2] = 12; // log2BlockSize = 2^12 = 4096
++    d[3] = 0; // saltSize
++    d[4..8].copy_from_slice(&sign_size.to_le_bytes());
++    d[8..16].copy_from_slice(&file_size.to_le_bytes());
++    d[16..16 + 32].copy_from_slice(root); // rootHash 左对齐
++    d[112..116].copy_from_slice(&flags.to_le_bytes());
++    d[255] = 3; // csVersion
++    d
++}
++
++pub fn sign_elf(elf: &[u8], force: bool) -> Result<Vec<u8>, String> {
++    if elf.len() < 64 || &elf[0..4] != b"\x7fELF" || elf[4] != 2 {
++        return Err("not ELF64".to_string());
++    }
++
++    let mut buf = elf.to_vec();
++    if has_codesign_section(&buf) {
++        if !force {
++            return Err("already has a .codesign section; strip first or use --force".to_string());
++        }
++        buf = strip_codesign(&buf)?.1;
++    }
++
++    // 1. 注入 4KB 占位 .codesign 段
++    let (tmp0, cs_off) = inject_codesign_section(&buf)?;
++    let file_size = tmp0.len() as u64;
++
++    // 2. merkle 根哈希
++    let root = merkle_root_hash(&tmp0, cs_off, PAGE_SIZE);
++
++    // 3/4. descriptor(signSize=0) 用于摘要
++    let desc_for_digest = build_descriptor(0, file_size, &root, FLAG_SELF_SIGN);
++    // 5. signature = SHA256(descriptor)
++    let signature = sha256(&desc_for_digest);
++    // 6. descriptor(signSize=32) 用于落盘
++    let desc_on_disk = build_descriptor(32, file_size, &root, FLAG_SELF_SIGN);
++
++    // 7. ElfSignInfo: 8B 头 + descriptor 256B + signature 32B = 296B
++    let mut payload = vec![0u8; 4 + 4 + DESC_SIZE + HASH_OUT];
++    write_u32(&mut payload, 0, FS_VERITY_DESCRIPTOR_TYPE); // type
++    write_u32(&mut payload, 4, (DESC_SIZE + HASH_OUT) as u32); // length = 288
++    payload[8..8 + DESC_SIZE].copy_from_slice(&desc_on_disk);
++    payload[8 + DESC_SIZE..8 + DESC_SIZE + HASH_OUT].copy_from_slice(&signature);
++
++    // 8. 原地写入段内
++    let mut tmp = tmp0;
++    tmp[cs_off..cs_off + payload.len()].copy_from_slice(&payload);
++    Ok(tmp)
++}
++
++/* ─────────────────── 文件 I/O 层 ─────────────────── */
++pub fn sign_file_atomic(path: &str, force: bool) -> Result<(), String> {
++    let raw = fs::read(path).map_err(|e| e.to_string())?;
++    let signed = sign_elf(&raw, force)?;
++
++    let mode = fs::metadata(path)
++        .map(|m| {
++            #[cfg(unix)]
++            {
++                use std::os::unix::fs::PermissionsExt;
++                Some(m.permissions().mode() & 0o7777)
++            }
++            #[cfg(not(unix))]
++            {
++                let _ = m;
++                None
++            }
++        })
++        .unwrap_or(None);
++
++    let tmp_path = format!("{}.ohos-signing.{}.tmp", path, std::process::id());
++    let _ = fs::remove_file(&tmp_path);
++    fs::write(&tmp_path, &signed).map_err(|e| e.to_string())?;
++    #[cfg(unix)]
++    if let Some(m) = mode {
++        use std::os::unix::fs::PermissionsExt;
++        let _ = fs::set_permissions(&tmp_path, fs::Permissions::from_mode(m));
++    }
++    fs::rename(&tmp_path, path).map_err(|e| e.to_string())?;
++    Ok(())
++}

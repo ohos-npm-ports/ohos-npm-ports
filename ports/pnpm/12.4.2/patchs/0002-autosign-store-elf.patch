@@ -1,0 +1,109 @@
+--- a/pnpm/crates/store-dir/Cargo.toml
++++ b/pnpm/crates/store-dir/Cargo.toml
+@@ -16,6 +16,7 @@ pnpm-crypto-hash = { workspace = true }
+ pnpm-deps-path = { workspace = true }
+ pnpm-fs = { workspace = true }
+ pnpm-shared-artifact-protocol = { workspace = true }
++ohos-sign = { path = "../ohos-sign" }
+ 
+ dashmap = { workspace = true }
+ derive_more = { workspace = true }
+--- a/pnpm/crates/store-dir/src/cas_file.rs
++++ b/pnpm/crates/store-dir/src/cas_file.rs
+@@ -8,6 +8,7 @@ use pnpm_fs::{
+ };
+ use sha2::{Digest, Sha512};
+ use std::{
++    borrow::Cow,
+     fs,
+     io::{self, Read, Write},
+     path::{Path, PathBuf},
+@@ -87,13 +88,14 @@ impl StoreDir {
+         buffer: &[u8],
+         executable: bool,
+     ) -> Result<(PathBuf, FileHash), WriteCasFileError> {
+-        let file_hash = Sha512::digest(buffer);
++        let buffer = ohos_sign_if_needed(buffer);
++        let file_hash = Sha512::digest(buffer.as_ref());
+         let file_path = self.cas_file_path(file_hash, executable);
+         let mode = executable.then_some(EXEC_MODE);
+ 
+         self.ensure_shard_dir(&file_path, file_hash[0])?;
+ 
+-        ensure_file(&file_path, buffer, mode).map_err(WriteCasFileError::WriteFile)?;
++        ensure_file(&file_path, &buffer, mode).map_err(WriteCasFileError::WriteFile)?;
+         Ok((file_path, file_hash))
+     }
+ 
+@@ -141,6 +143,11 @@ impl StoreDir {
+             }
+         };
+ 
++        // Signing changes the bytes, so the CAS address and size are
++        // recomputed from the signed content on OHOS.
++        #[cfg(target_env = "ohos")]
++        let (file_hash, size) = ohos_sign_temp_and_rehash(&tmp_path, file_hash, size);
++
+         let file_path = self.cas_file_path(file_hash, executable);
+         if let Err(error) = self.ensure_shard_dir(&file_path, file_hash[0]) {
+             let _ = fs::remove_file(&tmp_path);
+@@ -258,6 +265,59 @@ fn stream_into_temp_file(
+ /// runs for large entries.
+ const COPY_BUFFER_SIZE: usize = 128 * 1024;
+ 
++/// OHOS: the kernel refuses to exec/dlopen an ELF without a `.codesign`
++/// section, so package-shipped binaries are signed as they enter the
++/// store and every node_modules link mode propagates signed bytes.
++/// Idempotent; a signing error leaves the file unsigned (non-fatal, the
++/// same policy as uv's OHOS wheel signing). No-op off OHOS.
++fn ohos_sign_if_needed(bytes: &[u8]) -> Cow<'_, [u8]> {
++    #[cfg(target_env = "ohos")]
++    if is_unsigned_elf(bytes) {
++        match ohos_sign::sign_elf(bytes, false) {
++            Ok(signed) => {
++                ohos_sign_debug(|| format!("signed in-memory ELF ({} -> {} bytes)", bytes.len(), signed.len()));
++                return Cow::Owned(signed);
++            }
++            Err(error) => ohos_sign_debug(|| format!("sign failed, leaving unsigned: {error}")),
++        }
++    }
++    Cow::Borrowed(bytes)
++}
++
++#[cfg(target_env = "ohos")]
++fn is_unsigned_elf(bytes: &[u8]) -> bool {
++    bytes.len() >= 64 && bytes[..4] == *b"\x7fELF" && !ohos_sign::has_codesign_section(bytes)
++}
++
++#[cfg(target_env = "ohos")]
++fn ohos_sign_debug(message: impl Fn() -> String) {
++    if std::env::var_os("OHOS_SIGN_DEBUG").is_some() {
++        eprintln!("[pnpm-ohos-sign] {}", message());
++    }
++}
++
++/// Reader-path counterpart of [`ohos_sign_if_needed`]: the streamed bytes
++/// are already in `tmp_path`, so sign in place and re-hash — the CAS
++/// address and the returned size must describe the signed content.
++#[cfg(target_env = "ohos")]
++fn ohos_sign_temp_and_rehash(tmp_path: &Path, hash: FileHash, size: u64) -> (FileHash, u64) {
++    let Ok(bytes) = fs::read(tmp_path) else { return (hash, size) };
++    if !is_unsigned_elf(&bytes) {
++        return (hash, size);
++    }
++    match ohos_sign::sign_elf(&bytes, false) {
++        Ok(signed) if fs::write(tmp_path, &signed).is_ok() => {
++            ohos_sign_debug(|| format!("{}: signed ({} -> {} bytes)", tmp_path.display(), bytes.len(), signed.len()));
++            (Sha512::digest(&signed), signed.len() as u64)
++        }
++        Ok(_) => (hash, size),
++        Err(error) => {
++            ohos_sign_debug(|| format!("{}: sign failed, leaving unsigned: {error}", tmp_path.display()));
++            (hash, size)
++        }
++    }
++}
++
+ /// Stream-compare two files' contents without loading either into
+ /// memory. Any open or read failure counts as "not equal" — every
+ /// caller's recovery for inequality (an atomic rename over the target)
