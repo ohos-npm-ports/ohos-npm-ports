@@ -5,7 +5,7 @@
 -  "name": "bun-plugin-tailwind",
 -  "version": "0.1.2",
 +  "name": "@ohos-npm-ports/bun-plugin-tailwind",
-+  "version": "0.1.2-1",
++  "version": "0.1.2-2",
    "description": "Bun plugin for Tailwind CSS v4",
    "license": "MIT",
    "repository": {
@@ -18,7 +18,7 @@
    },
    "bugs": "https://github.com/tailwindlabs/tailwindcss/issues",
    "homepage": "https://tailwindcss.com",
-@@ -32,7 +32,8 @@
+@@ -32,10 +32,8 @@
      "./tailwindcss-oxide.linux-x64-gnu.node",
      "./tailwindcss-oxide.linux-x64-musl.node",
      "./tailwindcss-oxide.win32-arm64-msvc.node",
@@ -26,5 +26,9 @@
 +    "./tailwindcss-oxide.win32-x64-msvc.node",
 +    "./tailwindcss-oxide.openharmony-arm64.node"
    ],
-   "dependencies": {},
-   "peerDependencies": {
+-  "dependencies": {},
+-  "peerDependencies": {
+-    "bun": ">=1.0.0"
+-  }
++  "dependencies": {}
+ }

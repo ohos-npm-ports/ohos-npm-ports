@@ -4,18 +4,29 @@ set -e
 # Repackage of upstream bun-plugin-tailwind: the published bundle inlines the
 # napi-rs loader for tailwindcss-oxide, which already has an openharmony
 # branch resolving ./tailwindcss-oxide.openharmony-arm64.node next to
-# index.mjs — so the only native work is building that addon from the
-# tailwindcss source tag matching the inlined glue (v4.1.14) and shipping it
-# inside the repackaged bundle. The upstream JS is not patched at all; the
-# only patched file is package.json (name/version/repository/files).
+# index.mjs — so the only native work is building that addon and shipping it
+# inside the repackaged bundle.
+#
+# The addon MUST be built from the tailwindcss oxide FORK that adds the
+# bun-plugin napi exports (twctxCreate / twctxIsDirty / twctxToJs /
+# bunPluginRegister — index.mjs calls them during plugin setup), not from
+# the upstream tailwindcss tag: upstream 4.1.14 oxide only exports Scanner,
+# which passes signature/dlopen checks while being functionally broken
+# (0.1.2-1 shipped exactly that mistake). The fork commit is pinned to the
+# one that produced the bundled binaries of bun-plugin-tailwind 0.1.2
+# (last fork commit before the 0.1.2 publish date). The upstream JS is not
+# patched at all; the only patched file is package.json (name/version/
+# repository/files, plus dropping the `bun` peerDependency — npm would
+# otherwise try to install the npm `bun` package, whose os whitelist rejects
+# openharmony and fails the whole install with EBADPLATFORM).
 
 PKG_NAME=bun-plugin-tailwind
 PKG_VERSION=0.1.2
-PORTS_VERSION=0.1.2-1
-OXIDE_VERSION=4.1.14
+PORTS_VERSION=0.1.2-2
+FORK_COMMIT=47852eb7227eee179d8ed5c5e046a924c0234829
 
 SHA256_BUN_PLUGIN=5a27cc0e559e731a497fee377d4dc05a67889f8acca567f2e1900f6974922d90
-SHA256_TAILWINDCSS=fcc3bf81aaed7eadc1506855cf57859d28ac68b16e30d8e605bdbd7128d8c11c
+SHA256_OXIDE_FORK=60bda74e6e86083f2d1570ebec13c0b0b0c1a861cb6a8945fb773fb5d1e328e3
 
 RUST_VER=1.98.0
 RUST_DIST_DATE=2026-08-20
@@ -44,18 +55,18 @@ do_fetch() {
   rm -rf "$BUILD_DIR"
   mkdir -p "$BUILD_DIR" "$TMP_DIR/unpack"
 
-  curl -fsSL "https://registry.npmjs.org/${PKG_NAME}/-/${PKG_NAME}-${PKG_VERSION}.tgz" -o "$BUILD_DIR/${PKG_NAME}-${PKG_VERSION}.tgz"
+  curl -fsSL --retry 8 --retry-all-errors "https://registry.npmjs.org/${PKG_NAME}/-/${PKG_NAME}-${PKG_VERSION}.tgz" -o "$BUILD_DIR/${PKG_NAME}-${PKG_VERSION}.tgz"
   [ "$(sha256sum "$BUILD_DIR/${PKG_NAME}-${PKG_VERSION}.tgz" | awk '{print $1}')" = "$SHA256_BUN_PLUGIN" ]
-  curl -fsSL "https://github.com/tailwindlabs/tailwindcss/archive/refs/tags/v${OXIDE_VERSION}.tar.gz" -o "$BUILD_DIR/tailwindcss.tar.gz"
-  [ "$(sha256sum "$BUILD_DIR/tailwindcss.tar.gz" | awk '{print $1}')" = "$SHA256_TAILWINDCSS" ]
+  curl -fsSL "https://codeload.github.com/zackradisic/tailwindcss/tar.gz/${FORK_COMMIT}" -o "$BUILD_DIR/oxide-fork.tar.gz"
+  printf '%s  %s\n' "$SHA256_OXIDE_FORK" "$BUILD_DIR/oxide-fork.tar.gz" | sha256sum -c -
 
   tar -zxf "$BUILD_DIR/${PKG_NAME}-${PKG_VERSION}.tgz" -C "$TMP_DIR/unpack"
   rm "$BUILD_DIR/${PKG_NAME}-${PKG_VERSION}.tgz"
   mv "$TMP_DIR/unpack/package" "$BUILD_DIR/pkg"
 
-  tar -zxf "$BUILD_DIR/tailwindcss.tar.gz" -C "$BUILD_DIR"
-  rm "$BUILD_DIR/tailwindcss.tar.gz"
-  mv "$BUILD_DIR/tailwindcss-${OXIDE_VERSION}" "$BUILD_DIR/oxide-src"
+  tar -zxf "$BUILD_DIR/oxide-fork.tar.gz" -C "$BUILD_DIR"
+  rm "$BUILD_DIR/oxide-fork.tar.gz"
+  mv "$BUILD_DIR/tailwindcss-${FORK_COMMIT}" "$BUILD_DIR/oxide-src"
 
   # pristine file hashes, recorded before any patch is applied
   (cd "$BUILD_DIR/pkg" && find . -type f | sort | xargs sha256sum | sort) > "$TMP_DIR/before.sha256"
@@ -116,7 +127,8 @@ do_package() {
   mv tailwindcss-oxide.openharmony-arm64.node.signed tailwindcss-oxide.openharmony-arm64.node
 
   # the only patch the port carries: the published manifest (delta is
-  # name/version/repository/files only)
+  # name/version/repository/files plus dropping the `bun` peerDependency,
+  # see header)
   patch -p1 < "$WORK_DIR/patchs/0001-update-package-json.patch"
 
   grep -q '"name": "@ohos-npm-ports/bun-plugin-tailwind"' package.json
@@ -151,6 +163,9 @@ do_test() {
 
   [ "$(node -p 'require("./package.json").name')" = "@ohos-npm-ports/bun-plugin-tailwind" ]
   [ "$(node -p 'require("./package.json").version')" = "${PORTS_VERSION}" ]
+  # the `bun` peerDependency is dropped (see header): npm would otherwise
+  # fail openharmony installs with EBADPLATFORM
+  [ "$(node -p '"bun" in (require("./package.json").peerDependencies ?? {})')" = "false" ]
 
   # --- native addon: AArch64 + codesign, real dlopen + functional scan ---
 
@@ -167,6 +182,23 @@ do_test() {
     if (!candidates.includes("text-red-500") || !candidates.includes("flex")) {
       throw new Error("unexpected scan output: " + JSON.stringify(candidates));
     }
+  '
+
+  # --- fork exports: index.mjs calls these during plugin setup. Upstream
+  # 4.1.14 oxide exports only Scanner and passes every check above — 0.1.2-1
+  # shipped exactly that broken build — so assert the fork exports are
+  # present AND callable, not just that the addon dlopen'ed ---
+
+  node -e '
+    const m = require(process.cwd() + "/tailwindcss-oxide.openharmony-arm64.node");
+    for (const k of ["twctxCreate", "twctxIsDirty", "twctxToJs", "bunPluginRegister"]) {
+      if (typeof m[k] !== "function") throw new Error("missing fork export: " + k);
+    }
+    const ctx = m.twctxCreate();
+    if (m.twctxIsDirty(ctx) !== false) throw new Error("twctxIsDirty: unexpected initial state");
+    const candidates = m.twctxToJs(ctx);
+    if (!Array.isArray(candidates)) throw new Error("twctxToJs did not return an array");
+    console.log("fork exports OK: twctxCreate/twctxIsDirty/twctxToJs present and callable");
   '
 
   # --- loader wiring: openharmony branch present, other-platform branches
