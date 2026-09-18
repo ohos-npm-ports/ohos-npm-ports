@@ -1,0 +1,17 @@
+--- a/pnpm/crates/detect-libc/src/lib.rs
++++ b/pnpm/crates/detect-libc/src/lib.rs
+@@ -77,8 +77,14 @@ fn detect_implementation() -> Option<Implementation> {
+ /// `sunos` / `aix` / `android`. Rust uses `macos` / `linux` /
+ /// `windows` / `freebsd` / `openbsd` / `solaris` / `aix` /
+ /// `android`. Only `macos`, `windows`, and `solaris` differ.
++///
++/// OpenHarmony: Rust reports target_os "linux", Node reports "openharmony".
++/// Report Node's name so default platform selection matches napi-rs loaders.
+ #[must_use]
+ pub fn host_platform() -> &'static str {
++    if cfg!(target_env = "ohos") {
++        return "openharmony";
++    }
+     match std::env::consts::OS {
+         "macos" => "darwin",
+         "windows" => "win32",

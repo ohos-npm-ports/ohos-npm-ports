@@ -1,0 +1,39 @@
+--- a/package.json
++++ b/package.json
+@@ -1,5 +1,5 @@
+ {
+-  "name": "pnpm",
++  "name": "@ohos-npm-ports/pnpm",
+   "publishConfig": {
+     "executableFiles": [
+       "./dist/node-gyp-bin/node-gyp",
+@@ -9,7 +9,7 @@
+       "./dist/node_modules/node-gyp/gyp/gyp"
+     ]
+   },
+-  "version": "12.4.2",
++  "version": "12.4.2-1",
+   "description": "Fast, disk space efficient package manager",
+   "keywords": [
+     "pnpm",
+@@ -21,8 +21,8 @@
+   "bugs": "https://github.com/pnpm/pnpm/issues",
+   "repository": {
+     "type": "git",
+-    "url": "https://github.com/pnpm/pnpm",
+-    "directory": "pnpm/npm/pnpm"
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports",
++    "directory": "ports/pnpm/12.4.2"
+   },
+   "bin": {
+     "pnpm": "pnpm",
+@@ -59,7 +59,8 @@
+     "@pnpm/exe.linux-arm64-musl": "12.4.2",
+     "@pnpm/exe.freebsd-x64": "12.4.2",
+     "@pnpm/exe.android-arm64": "12.4.2",
+-    "@pnpm/exe.android-x64": "12.4.2"
++    "@pnpm/exe.android-x64": "12.4.2",
++    "@ohos-npm-ports/pnpm-openharmony-arm64": "12.4.2-1"
+   },
+   "scripts": {
+     "preinstall": "node install.js",
