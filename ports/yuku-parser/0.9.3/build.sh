@@ -16,6 +16,9 @@ set -e
 #
 # binding.js 按 process.platform/process.arch 拼后缀，包内路径即 openharmony
 # 分支的第一个候选。
+#
+# 发布目录名由 publish.sh 约定为 <pkg>-<version>，必须留在 port 目录根下，
+# 所以中间件放 STAGE，成品由 do_package 落到 OUT，do_test 不删 OUT。
 # ============================================================
 
 PKG_NAME="yuku-parser"
@@ -25,16 +28,17 @@ SLOT="@yuku-parser/binding-openharmony-arm64"
 ZIG_VERSION="0.16.0"
 ZIG_SHA256="ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17"
 WORK_DIR="$(pwd)"
-BUILD_DIR="${WORK_DIR}/build"
+STAGE="${WORK_DIR}/build"
+OUT="${WORK_DIR}/${PKG_NAME}-${PKG_VERSION}"
 
 CURL="curl -fsSL --retry 8 --retry-all-errors --connect-timeout 30 --speed-limit 10240 --speed-time 30"
 
 # ===== fetch =====
 do_fetch() {
     echo "=== fetch: 官方 ${PKG_NAME}@${PKG_VERSION} + yuku monorepo + zig ==="
-    rm -rf "${BUILD_DIR}"
-    mkdir -p "${BUILD_DIR}"
-    cd "${BUILD_DIR}"
+    rm -rf "${STAGE}"
+    mkdir -p "${STAGE}"
+    cd "${STAGE}"
 
     $CURL "https://registry.npmjs.org/${PKG_NAME}/-/${PKG_NAME}-${PKG_VERSION}.tgz" -o src.tgz
     echo "20ace3104335d69cf18f6a029bedb811c54aa60fd6e4237b437d46d45cb70666  src.tgz" | sha256sum -c -
@@ -56,7 +60,7 @@ do_fetch() {
 # ===== build =====
 do_build() {
     echo "=== build: 打 patch + grep marker + 交叉编译 napi-zig binding ==="
-    cd "${BUILD_DIR}/src"
+    cd "${STAGE}/src"
 
     # do_test 拿它断言 patch 只改了 package.json
     find . -type f -exec sha256sum {} + | sed 's|\./||' | sort > "${WORK_DIR}/before.sha256"
@@ -67,25 +71,25 @@ do_build() {
     grep -q "\"version\": \"${PORTS_VERSION}\"" package.json
     grep -q "\"${SLOT}\"" package.json
 
-    cd "${BUILD_DIR}/yuku"
-    "${BUILD_DIR}/zig-aarch64-linux-${ZIG_VERSION}/zig" build \
+    cd "${STAGE}/yuku"
+    "${STAGE}/zig-aarch64-linux-${ZIG_VERSION}/zig" build \
         -Dtarget=aarch64-linux-musl -Doptimize=ReleaseFast
     test -f "zig-out/lib/${PKG_NAME}.node"
-    cp "zig-out/lib/${PKG_NAME}.node" "${BUILD_DIR}/${PKG_NAME}.node"
+    cp "zig-out/lib/${PKG_NAME}.node" "${STAGE}/${PKG_NAME}.node"
 }
 
 # ===== package =====
 do_package() {
     echo "=== package: 组装发布目录 + 嵌入签名 binding + manifest 断言 ==="
-    rm -rf "${BUILD_DIR}/pkg"
-    cp -a "${BUILD_DIR}/src" "${BUILD_DIR}/pkg"
+    rm -rf "${OUT}"
+    cp -a "${STAGE}/src" "${OUT}"
 
-    mkdir -p "${BUILD_DIR}/pkg/${SLOT}"
+    mkdir -p "${OUT}/${SLOT}"
     binary-sign-tool sign -selfSign 1 \
-        -inFile "${BUILD_DIR}/${PKG_NAME}.node" \
-        -outFile "${BUILD_DIR}/pkg/${SLOT}/${PKG_NAME}.node"
+        -inFile "${STAGE}/${PKG_NAME}.node" \
+        -outFile "${OUT}/${SLOT}/${PKG_NAME}.node"
 
-    cd "${BUILD_DIR}/pkg"
+    cd "${OUT}"
     node -e '
       const p = require("./package.json");
       if (p.name !== "@ohos-npm-ports/yuku-parser") { console.error("bad name: " + p.name); process.exit(1); }
@@ -97,7 +101,7 @@ do_package() {
 # ===== test =====
 do_test() {
     echo "=== test: 哈希不变量 + ELF + 签名 + 真实 loader 冒烟 ==="
-    cd "${BUILD_DIR}/pkg"
+    cd "${OUT}"
 
     # 剔除 patch 允许改写的 package.json 与组装新增的 binding，其余须逐字节一致
     find . -type f -exec sha256sum {} + | sed 's|\./||' | sort > "${WORK_DIR}/after.sha256"
@@ -114,9 +118,10 @@ do_test() {
     node -e "const b = require('./binding.js'); console.log('loader smoke:', typeof b)"
 
     cd "${WORK_DIR}"
-    rm -rf "${BUILD_DIR}"
+    rm -rf "${STAGE}"
     rm -f "${WORK_DIR}"/before.sha256 "${WORK_DIR}"/after.sha256 \
-          "${WORK_DIR}"/before.filtered "${WORK_DIR}"/after.filtered
+          "${WORK_DIR}"/before.filtered "${WORK_DIR}/after.filtered"
+    test -d "${OUT}"
 }
 
 do_fetch
