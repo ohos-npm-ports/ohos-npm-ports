@@ -1,0 +1,18 @@
+--- a/crates/fspy_preload_unix/src/lib.rs
++++ b/crates/fspy_preload_unix/src/lib.rs
+@@ -1,11 +1,11 @@
+ // Compile as an empty crate on non-unix targets and on musl (where seccomp
+ // alone handles access tracking).
+ 
+-#[cfg(all(unix, not(target_env = "musl")))]
++#[cfg(all(unix, not(target_env = "musl"), not(target_env = "ohos")))]
+ mod client;
+-#[cfg(all(unix, not(target_env = "musl")))]
++#[cfg(all(unix, not(target_env = "musl"), not(target_env = "ohos")))]
+ mod interceptions;
+-#[cfg(all(unix, not(target_env = "musl")))]
++#[cfg(all(unix, not(target_env = "musl"), not(target_env = "ohos")))]
+ mod libc;
+-#[cfg(all(unix, not(target_env = "musl")))]
++#[cfg(all(unix, not(target_env = "musl"), not(target_env = "ohos")))]
+ mod macros;
