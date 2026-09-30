@@ -1,0 +1,10 @@
+--- a/package.json
++++ b/package.json
+@@ -38,6 +38,5 @@
+   },
+   "engines": {
+     "node": ">=22.18.0"
+-  },
+-  "packageManager": "pnpm@11.24.0"
++  }
+ }
