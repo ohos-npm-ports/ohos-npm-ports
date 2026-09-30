@@ -1,0 +1,27 @@
+--- a/pnpm-workspace.yaml
++++ b/pnpm-workspace.yaml
+@@ -150,6 +150,7 @@
+   - '@babel/*'
+   - '@devframes/*'
+   - '@napi-rs/*'
++  - '@ohos-npm-ports/*'
+   - '@nkzw/*'
+   - '@oxc-node/*'
+   - '@oxc-minify/*'
+@@ -207,6 +208,16 @@
+   - '@vitejs/devtools'
+   - '@vitejs/devtools-*'
+ overrides:
++  'yuku-codegen@0.8.7': npm:@ohos-npm-ports/yuku-codegen@0.8.7-1
++  'yuku-codegen@0.9.3': npm:@ohos-npm-ports/yuku-codegen@0.9.3-1
++  'yuku-codegen@0.10.2': npm:@ohos-npm-ports/yuku-codegen@0.10.2-1
++  'yuku-parser@0.8.7': npm:@ohos-npm-ports/yuku-parser@0.8.7-1
++  'yuku-parser@0.9.3': npm:@ohos-npm-ports/yuku-parser@0.9.3-1
++  'yuku-parser@0.10.2': npm:@ohos-npm-ports/yuku-parser@0.10.2-1
++  '@ast-grep/napi@0.43.0': npm:@ohos-npm-ports/ast-grep-napi@0.43.0-1
++  lightningcss: npm:@ohos-npm-ports/lightningcss@1.33.0-1
++  oxlint-tsgolint: npm:@ohos-npm-ports/oxlint-tsgolint@7.0.2003-1
++  '@parcel/watcher': npm:@ohos-npm-ports/parcel-watcher@2.5.1-2
+   rolldown: workspace:rolldown@*
+   vite: workspace:@voidzero-dev/vite-plus-core@*
+   vite-plus: workspace:vite-plus@*
