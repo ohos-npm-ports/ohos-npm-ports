@@ -1,0 +1,10 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -264,6 +264,7 @@ mockito = { version = "1.7.2" }
+ # (February 2025); drop this once it does.
+ [patch.crates-io]
+ node-semver = { git = "https://github.com/pnpm/node-semver-rs", rev = "3d74d6b7f4de1de2006cf2f7663aac09de65b1f6" }
++iana-time-zone = { path = "vendor/iana-time-zone" }
+ 
+ [workspace.metadata.workspaces]
+ allow_branch = "main"

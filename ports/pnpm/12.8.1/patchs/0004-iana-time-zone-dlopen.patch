@@ -1,0 +1,65 @@
+--- a/vendor/iana-time-zone/src/tz_ohos.rs
++++ b/vendor/iana-time-zone/src/tz_ohos.rs
+@@ -4,7 +4,8 @@
+ 
+ use crate::ffi_utils::buffer::{tzname_buf, MAX_LEN};
+ use crate::GetTimezoneError;
+-use std::ffi::{c_char, CStr};
++use core::ffi::{c_char, c_int, c_void};
++use std::ffi::CStr;
+ 
+ #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+ #[repr(C)]
+@@ -16,9 +17,32 @@ enum TimeService_ErrCode {
+     TIMESERVICE_ERR_INVALID_PARAMETER = 13000002,
+ }
+ 
+-#[link(name = "time_service_ndk", kind = "dylib")]
++type GetTimeZoneFn = unsafe extern "C" fn(*mut c_char, u32) -> TimeService_ErrCode;
++
+ extern "C" {
+-    fn OH_TimeService_GetTimeZone(timeZone: *mut c_char, len: u32) -> TimeService_ErrCode;
++    fn dlopen(filename: *const c_char, flag: c_int) -> *mut c_void;
++    fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
++}
++
++// Older system images ship a libtime_service_ndk.so without
++// OH_TimeService_GetTimeZone, and a load-time link against it refuses to
++// start the process there. Resolve the symbol at runtime instead so the
++// fallback (UTC) applies when the API is absent.
++fn get_timezone_fn() -> Option<GetTimeZoneFn> {
++    const RTLD_NOW: c_int = 2;
++    const LIB: &[u8] = b"libtime_service_ndk.so\0";
++    const SYMBOL: &[u8] = b"OH_TimeService_GetTimeZone\0";
++    unsafe {
++        let lib = dlopen(LIB.as_ptr().cast(), RTLD_NOW);
++        if lib.is_null() {
++            return None;
++        }
++        let symbol = dlsym(lib, SYMBOL.as_ptr().cast());
++        if symbol.is_null() {
++            return None;
++        }
++        Some(core::mem::transmute::<*mut c_void, GetTimeZoneFn>(symbol))
++    }
+ }
+ 
+ /// TODO: Change this `CStr::from_bytes_until_nul` once MSRV was bumped above 1.69.0
+@@ -31,12 +55,14 @@ fn from_bytes_until_nul(bytes: &[u8]) -> Option<&CStr> {
+ }
+ 
+ pub(crate) fn get_timezone_inner() -> Result<String, GetTimezoneError> {
++    let get_timezone = match get_timezone_fn() {
++        Some(get_timezone) => get_timezone,
++        None => return Err(GetTimezoneError::OsError),
++    };
+     let mut time_zone = tzname_buf();
+     // SAFETY:
+     // `time_zone` is a valid buffer with a length of 40 bytes.
+-    let ret = unsafe {
+-        OH_TimeService_GetTimeZone(time_zone.as_mut_ptr().cast::<c_char>(), MAX_LEN as u32 - 1)
+-    };
++    let ret = unsafe { get_timezone(time_zone.as_mut_ptr().cast::<c_char>(), MAX_LEN as u32 - 1) };
+     if ret != TimeService_ErrCode::TIMESERVICE_ERR_OK {
+         return Err(GetTimezoneError::OsError);
+     }
