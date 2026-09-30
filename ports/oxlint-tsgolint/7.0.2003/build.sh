@@ -15,6 +15,9 @@ set -e
 #
 # 上游 loader 直接按 process.platform 拼槽位包名，没有 openharmony 分支；
 # 槽位包名因此固定为 @oxlint-tsgolint/openharmony-arm64。
+#
+# 发布目录名由 publish.sh 约定为 <pkg>-<version>，必须留在 port 目录根下，
+# 所以中间件放 STAGE，成品由 do_package 落到 OUT，do_test 不删 OUT。
 # ============================================================
 
 PKG_NAME="oxlint-tsgolint"
@@ -22,7 +25,8 @@ PKG_VERSION="7.0.2003"
 PORTS_VERSION="7.0.2003-1"
 SLOT="@oxlint-tsgolint/openharmony-arm64"
 WORK_DIR="$(pwd)"
-BUILD_DIR="${WORK_DIR}/build"
+STAGE="${WORK_DIR}/build"
+OUT="${WORK_DIR}/${PKG_NAME}-${PKG_VERSION}"
 
 CURL="curl -fsSL --retry 8 --retry-all-errors --connect-timeout 30 --speed-limit 10240 --speed-time 30"
 
@@ -31,9 +35,9 @@ brew install -y go git
 # ===== fetch =====
 do_fetch() {
     echo "=== fetch: tsgolint v${PKG_VERSION} 源码 + 官方 npm tarball ==="
-    rm -rf "${BUILD_DIR}"
-    mkdir -p "${BUILD_DIR}"
-    cd "${BUILD_DIR}"
+    rm -rf "${STAGE}"
+    mkdir -p "${STAGE}"
+    cd "${STAGE}"
 
     git clone --depth 1 --branch "v${PKG_VERSION}" \
         https://github.com/oxc-project/tsgolint.git tsgolint-src
@@ -55,7 +59,7 @@ do_fetch() {
 # ===== build =====
 do_build() {
     echo "=== build: typescript-go 补丁 + go build + 签名 ==="
-    cd "${BUILD_DIR}/tsgolint-src"
+    cd "${STAGE}/tsgolint-src"
 
     cd typescript-go
     git am --3way --no-gpg-sign ../patches/0*.patch
@@ -80,7 +84,7 @@ do_build() {
         echo "ERROR: not static" >&2; exit 1;
     } || true
 
-    cd "${BUILD_DIR}/src"
+    cd "${STAGE}/src"
     # do_test 拿它断言 patch 只改了 manifest 与 loader
     find . -type f -exec sha256sum {} + | sed 's|\./||' | sort > "${WORK_DIR}/before.sha256"
 }
@@ -88,7 +92,7 @@ do_build() {
 # ===== package =====
 do_package() {
     echo "=== package: 打 patch + grep marker + 嵌入签名二进制与槽位 manifest ==="
-    cd "${BUILD_DIR}/src"
+    cd "${STAGE}/src"
 
     patch -p1 < "${WORK_DIR}/patchs/0001-update-package-json.patch"
     patch -p1 < "${WORK_DIR}/patchs/0002-openharmony-loader.patch"
@@ -98,10 +102,13 @@ do_package() {
     grep -q "openharmony" bin/tsgolint.js
     node --check bin/tsgolint.js
 
-    mkdir -p "${SLOT}"
-    cp ../tsgolint-src/tsgolint.signed "${SLOT}/tsgolint"
-    chmod +x "${SLOT}/tsgolint"
-    cat > "${SLOT}/package.json" <<EOF
+    rm -rf "${OUT}"
+    cp -a "${STAGE}/src" "${OUT}"
+
+    mkdir -p "${OUT}/${SLOT}"
+    cp "${STAGE}/tsgolint-src/tsgolint.signed" "${OUT}/${SLOT}/tsgolint"
+    chmod +x "${OUT}/${SLOT}/tsgolint"
+    cat > "${OUT}/${SLOT}/package.json" <<EOF
 {
   "name": "${SLOT}",
   "version": "${PORTS_VERSION}",
@@ -124,7 +131,7 @@ EOF
 # ===== test =====
 do_test() {
     echo "=== test: 哈希不变量 + ELF/签名 + 真实入口 lint 冒烟 ==="
-    cd "${BUILD_DIR}/src"
+    cd "${OUT}"
 
     # 剔除 patch 允许改写的两个文件与组装新增的槽位文件，其余须逐字节一致
     find . -type f -exec sha256sum {} + | sed 's|\./||' | sort > "${WORK_DIR}/after.sha256"
@@ -139,18 +146,19 @@ do_test() {
     readelf -S "${SLOT}/tsgolint" | grep -q '\.codesign'
 
     # oxlint 走的就是这条入口：lint 一个故意写错类型的文件，期望对应诊断
-    SMOKE="${BUILD_DIR}/smoke"
+    SMOKE="${STAGE}/smoke"
     mkdir -p "${SMOKE}"
     cd "${SMOKE}"
     printf '{"compilerOptions":{"strict":true}}' > tsconfig.json
     printf 'const n = 1 as unknown as string | undefined;\n' > bad.ts
-    "${BUILD_DIR}/src/bin/tsgolint.js" -tsconfig tsconfig.json bad.ts > out.txt 2>&1 || true
+    "${OUT}/bin/tsgolint.js" -tsconfig tsconfig.json bad.ts > out.txt 2>&1 || true
     grep -q 'no-unsafe-type-assertion' out.txt || { cat out.txt >&2; exit 1; }
 
     cd "${WORK_DIR}"
-    rm -rf "${BUILD_DIR}"
+    rm -rf "${STAGE}"
     rm -f "${WORK_DIR}"/before.sha256 "${WORK_DIR}"/after.sha256 \
-          "${WORK_DIR}"/before.filtered "${WORK_DIR}"/after.filtered
+          "${WORK_DIR}"/before.filtered "${WORK_DIR}/after.filtered"
+    test -d "${OUT}"
 }
 
 do_fetch
