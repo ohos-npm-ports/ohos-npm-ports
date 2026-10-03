@@ -2,21 +2,21 @@
 set -e
 
 # ============================================================
-# ohos-npm-ports: @ohos-npm-ports/pnpm 12.8.1-1
+# ohos-npm-ports: @ohos-npm-ports/pnpm 12.8.1-2
 #
 # 构建方式：
 #   1. 下载 pnpm v12.8.1 源码 tag + pnpm@12.8.1 npm 包
 #   2. 源码打补丁：host 平台上报 openharmony、iana-time-zone 改运行时 dlopen
 #   3. cargo 构建 pnpm-cli，strip + 签名
-#   4. 槽位包 @ohos-npm-ports/pnpm-openharmony-arm64 携带二进制
+#   4. 槽位包 @ohos-npm-ports/pnpm-exe.openharmony-arm64 携带二进制
 #   5. 主包 = 上游 npm wrapper 重打包：改名 + native-binary.mjs
 #      增加 openharmony 平台分支
 # ============================================================
 
 PKG_NAME="pnpm"
 PKG_VERSION="12.8.1"
-PORTS_VERSION="12.8.1-1"
-SLOT_NAME="pnpm-openharmony-arm64"
+PORTS_VERSION="12.8.1-2"
+SLOT_NAME="pnpm-exe.openharmony-arm64"
 WORK_DIR="$(pwd)"
 BUILD_DIR="${WORK_DIR}/build"
 
@@ -141,7 +141,7 @@ EOF
     (cd "${MAIN_DIR}" && patch -p1 < "${WORK_DIR}/patchs/0005-update-package-json.patch")
     (cd "${MAIN_DIR}" && patch -p1 < "${WORK_DIR}/patchs/0006-native-binary-openharmony.patch")
     grep -q '@ohos-npm-ports/pnpm' "${MAIN_DIR}/package.json"
-    grep -qF '@ohos-npm-ports/pnpm-openharmony-arm64/pnpm' "${MAIN_DIR}/native-binary.mjs"
+    grep -qF '@ohos-npm-ports/pnpm-exe.openharmony-arm64/pnpm' "${MAIN_DIR}/native-binary.mjs"
 
     # pristine-diff 不变量：组装产物与上游解包逐字节一致，
     # 唯一允许改写的文件是两个 patch 的载体
@@ -191,7 +191,7 @@ do_test() {
         Object.defineProperty(process, "platform", { value: "openharmony" });
         const m = await import("./native-binary.mjs");
         const c = m.getBinCandidates();
-        if (c.length !== 1 || c[0] !== "@ohos-npm-ports/pnpm-openharmony-arm64/pnpm") throw new Error("openharmony: " + JSON.stringify(c));
+        if (c.length !== 1 || c[0] !== "@ohos-npm-ports/pnpm-exe.openharmony-arm64/pnpm") throw new Error("openharmony: " + JSON.stringify(c));
     ')
     for plat in linux darwin win32; do
         (cd "${MAIN_DIR}" && node --input-type=module -e '
