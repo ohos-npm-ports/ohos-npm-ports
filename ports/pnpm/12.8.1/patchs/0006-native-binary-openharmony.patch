@@ -5,7 +5,7 @@
    // Android is bionic, which is neither of the two libcs the linux entries
    // above are keyed on, so it takes a bare specifier of its own.
 +  openharmony: {
-+    arm64: '@ohos-npm-ports/pnpm-openharmony-arm64/pnpm',
++    arm64: '@ohos-npm-ports/pnpm-exe.openharmony-arm64/pnpm',
 +  },
  }
  
