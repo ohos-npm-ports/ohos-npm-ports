@@ -1,0 +1,54 @@
+--- a/install.js
++++ b/install.js
+@@ -342,6 +342,17 @@
+     exe: "bin/bun"
+   },
+   {
++    // Node reports process.platform "openharmony" on OpenHarmony. The package
++    // lives in this repo's scope and carries the port revision, so it names
++    // both explicitly instead of taking the default @oven scope and bun version.
++    os: "openharmony",
++    arch: "arm64",
++    bin: "oven-bun-openharmony-arm64",
++    scope: "@ohos-npm-ports",
++    version: "1.4.2-1",
++    exe: "bin/bun"
++  },
++  {
+     os: "freebsd",
+     arch: "arm64",
+     bin: "bun-freebsd-aarch64",
+@@ -430,7 +441,7 @@
+ __name(importBun, "importBun");
+ function requireBun(platform) {
+   return __async(this, null, function* () {
+-    let module2 = `@oven/${platform.bin}`;
++    let module2 = `${platform.scope || "@oven"}/${platform.bin}`;
+     function resolveBun() {
+       let exe = require.resolve(join(module2, platform.exe)), { exitCode, stderr, stdout } = spawn(exe, ["--version"]);
+       if (exitCode === 0)
+@@ -462,7 +473,7 @@
+ }
+ __name(requireBun, "requireBun");
+ function installBun(platform, dst) {
+-  let module2 = `@oven/${platform.bin}`, cwd = tmp();
++  let module2 = `${platform.scope || "@oven"}/${platform.bin}`, cwd = tmp();
+   try {
+     write(join(cwd, "package.json"), "{}");
+     let { exitCode } = spawn(
+@@ -469,5 +480,5 @@
+       "npm",
+-      ["install", "--loglevel=error", "--prefer-offline", "--no-audit", "--progress=false", `${module2}@1.4.2`],
++      ["install", "--loglevel=error", "--prefer-offline", "--no-audit", "--progress=false", `${module2}@${platform.version || "1.4.2"}`],
+       {
+         cwd,
+         stdio: "pipe",
+@@ -488,7 +499,7 @@
+ __name(installBun, "installBun");
+ function downloadBun(platform, dst) {
+   return __async(this, null, function* () {
+-    let tgz = yield (yield fetch(`https://registry.npmjs.org/@oven/${platform.bin}/-/${platform.bin}-1.4.2.tgz`)).arrayBuffer(), buffer;
++    let tgz = yield (yield fetch(`https://registry.npmjs.org/${platform.scope || "@oven"}/${platform.bin}/-/${platform.bin}-${platform.version || "1.4.2"}.tgz`)).arrayBuffer(), buffer;
+     try {
+       buffer = (0, import_zlib.unzipSync)(tgz);
+     } catch (cause) {
