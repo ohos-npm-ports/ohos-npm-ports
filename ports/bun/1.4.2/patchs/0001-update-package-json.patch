@@ -1,0 +1,43 @@
+--- a/package.json
++++ b/package.json
+@@ -1,7 +1,7 @@
+ {
+-  "name": "bun",
++  "name": "@ohos-npm-ports/bun",
+   "description": "Bun is a fast all-in-one JavaScript runtime.",
+-  "version": "1.4.2",
++  "version": "1.4.2-1",
+   "scripts": {
+     "postinstall": "node install.js"
+   },
+@@ -17,7 +17,8 @@
+     "@oven/bun-freebsd-aarch64": "1.4.2",
+     "@oven/bun-freebsd-x64": "1.4.2",
+     "@oven/bun-windows-x64": "1.4.2",
+-    "@oven/bun-windows-aarch64": "1.4.2"
++    "@oven/bun-windows-aarch64": "1.4.2",
++    "@ohos-npm-ports/oven-bun-openharmony-arm64": "1.4.2-1"
+   },
+   "bin": {
+     "bun": "bin/bun.exe",
+@@ -28,7 +29,8 @@
+     "linux",
+     "android",
+     "freebsd",
+-    "win32"
++    "win32",
++    "openharmony"
+   ],
+   "cpu": [
+     "arm64",
+@@ -47,5 +49,9 @@
+   "homepage": "https://bun.com",
+   "bugs": "https://github.com/oven-sh/issues",
+   "license": "MIT",
+-  "repository": "https://github.com/oven-sh/bun"
++  "repository": {
++    "type": "git",
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports",
++    "directory": "ports/bun/1.4.2"
++  }
+ }
