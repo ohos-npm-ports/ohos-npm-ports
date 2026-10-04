@@ -1,0 +1,13 @@
+--- a/scripts/utils.mjs
++++ b/scripts/utils.mjs
+@@ -1422,7 +1422,9 @@
+   if (/darwin|apple|mac/i.test(string)) {
+     return "darwin";
+   }
+-  if (/linux|android/i.test(string)) {
++  // OpenHarmony runs the Linux kernel and syscalls; a bun built for it reports
++  // process.platform "openharmony", so building with that bun reaches here.
++  if (/linux|android|openharmony/i.test(string)) {
+     return "linux";
+   }
+   if (/freebsd/i.test(string)) {
