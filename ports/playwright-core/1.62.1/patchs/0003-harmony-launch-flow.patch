@@ -1,5 +1,5 @@
 diff --git a/packages/playwright-core/src/server/chromium/chromium.ts b/packages/playwright-core/src/server/chromium/chromium.ts
-index 68d0a90..ad7da08 100644
+index 68d0a90..5d2d1d9 100644
 --- a/packages/playwright-core/src/server/chromium/chromium.ts
 +++ b/packages/playwright-core/src/server/chromium/chromium.ts
 @@ -38,6 +38,8 @@ import { helper } from '../helper';
@@ -7,7 +7,7 @@ index 68d0a90..ad7da08 100644
  import { WebSocketTransport } from '../transport';
  import { CRDevTools } from './crDevTools';
 +import { launchViaHdc } from '../../ohos/launcher';
-+import { isOpenHarmony } from '../../ohos/utils';
++import { isOpenHarmony, ohosExecutablePath } from '../../ohos/utils';
  import { Browser } from '../browser';
  import { Worker } from '../page';
  import { CRExecutionContext, createHandle } from './crExecutionContext';
@@ -19,9 +19,17 @@ index 68d0a90..ad7da08 100644
  import type { ConnectionTransport, ProtocolRequest } from '../transport';
  import type { BrowserContext } from '../browserContext';
  import type * as types from '../types';
-@@ -70,12 +73,21 @@ export class Chromium extends BrowserType {
+@@ -69,13 +72,29 @@ export class Chromium extends BrowserType {
+       this._devtools = this._createDevTools();
    }
  
++  override executablePath(): string {
++    // Device browsers have no local executable; report the host-side hdc binary so callers get a usable path.
++    if (isOpenHarmony())
++      return ohosExecutablePath();
++    return super.executablePath();
++  }
++
    override launch(progress: Progress, options: types.LaunchOptions, protocolLogger?: types.ProtocolLogger): Promise<Browser> {
 +    // On openharmony, chromium.launch() delegates to the HDC launcher, which
 +    // starts an on-device browser and connects over CDP.
@@ -41,7 +49,7 @@ index 68d0a90..ad7da08 100644
      if (options.channel?.startsWith('bidi-'))
        return this._bidiChromium.launchPersistentContext(progress, userDataDir, options);
      return super.launchPersistentContext(progress, userDataDir, options);
-@@ -115,7 +127,7 @@ export class Chromium extends BrowserType {
+@@ -115,7 +134,7 @@ export class Chromium extends BrowserType {
      return this._connectOverCDPImpl(progress, chromeTransport, closeAndWait, options, onClose);
    }
  
@@ -50,7 +58,7 @@ index 68d0a90..ad7da08 100644
      let artifactsDir: string;
      const tempDirectories: string[] = [];
      if (options.artifactsDir) {
-@@ -138,7 +150,10 @@ export class Chromium extends BrowserType {
+@@ -138,7 +157,10 @@ export class Chromium extends BrowserType {
  
      try {
        const browserProcess: BrowserProcess = { close: doClose, kill: doClose };
@@ -62,7 +70,7 @@ index 68d0a90..ad7da08 100644
          noDefaultViewport: true,
          ...(options.noDefaults ? { acceptDownloads: 'internal-browser-default' as const } : {}),
        };
-@@ -155,8 +170,12 @@ export class Chromium extends BrowserType {
+@@ -155,8 +177,12 @@ export class Chromium extends BrowserType {
          tracesDir: options.tracesDir || artifactsDir,
          originalLaunchOptions: {},
          noDefaults: options.noDefaults,
