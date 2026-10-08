@@ -1,0 +1,11 @@
+--- a/node/index.js
++++ b/node/index.js
+@@ -1,5 +1,7 @@
+ let parts = [process.platform, process.arch];
+-if (process.platform === 'linux') {
++if (process.platform === 'openharmony') {
++  parts = ['linux', process.arch, 'ohos'];
++} else if (process.platform === 'linux') {
+   const { MUSL, familySync } = require('detect-libc');
+   const family = familySync();
+   if (family === MUSL) {
