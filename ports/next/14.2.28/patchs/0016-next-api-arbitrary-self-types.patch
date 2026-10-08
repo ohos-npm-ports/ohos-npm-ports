@@ -1,0 +1,7 @@
+--- a/packages/next-swc/crates/next-api/src/lib.rs
++++ b/packages/next-swc/crates/next-api/src/lib.rs
+@@ -1,3 +1,4 @@
++#![feature(arbitrary_self_types_pointers)]
+ #![feature(future_join)]
+ #![feature(arbitrary_self_types)]
+ 

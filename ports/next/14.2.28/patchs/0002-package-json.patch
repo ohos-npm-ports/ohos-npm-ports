@@ -1,0 +1,27 @@
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+-  "name": "next",
+-  "version": "14.2.28",
++  "name": "@ohos-npm-ports/next",
++  "version": "14.2.28-1",
+   "description": "The React Framework",
+   "main": "./dist/server/next.js",
+   "license": "MIT",
+@@ -7,4 +7,4 @@
+-  "repository": "vercel/next.js",
++  "repository": "https://github.com/ohos-npm-ports/ohos-npm-ports",
+   "bugs": "https://github.com/vercel/next.js/issues",
+   "homepage": "https://nextjs.org",
+   "types": "index.d.ts",
+@@ -332,6 +332,7 @@
+     "@next/swc-linux-x64-musl": "14.2.28",
+     "@next/swc-win32-arm64-msvc": "14.2.28",
+     "@next/swc-win32-ia32-msvc": "14.2.28",
+-    "@next/swc-win32-x64-msvc": "14.2.28"
++    "@next/swc-win32-x64-msvc": "14.2.28",
++    "@ohos-npm-ports/next-swc-openharmony-arm64": "14.2.28-1"
+   }
+ }
+\ No newline at end of file

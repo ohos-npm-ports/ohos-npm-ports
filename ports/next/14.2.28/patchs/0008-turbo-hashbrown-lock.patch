@@ -1,0 +1,10 @@
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -323,6 +323,7 @@
+ version = "0.1.0"
+ source = "git+https://github.com/vercel/turbo.git?tag=turbopack-240605-14.x-hotfix.1#385f2704dc6819cf803d7c0a5bc8b7afe5279952"
+ dependencies = [
++ "hashbrown 0.14.3",
+  "serde",
+  "smallvec",
+ ]

@@ -1,0 +1,148 @@
+--- a/crates/turbo-tasks-auto-hash-map/Cargo.toml
++++ b/crates/turbo-tasks-auto-hash-map/Cargo.toml
+@@ -9,5 +9,6 @@
+ workspace = true
+ 
+ [dependencies]
++hashbrown = { version = "0.14.3", features = ["serde"] }
+ serde = { workspace = true, features = ["derive"] }
+ smallvec = { workspace = true }
+--- a/crates/turbo-tasks-auto-hash-map/src/map.rs
++++ b/crates/turbo-tasks-auto-hash-map/src/map.rs
+@@ -1,11 +1,12 @@
+ use std::{
+     borrow::Borrow,
+-    collections::{hash_map::RandomState, HashMap},
++    collections::hash_map::RandomState,
+     fmt::{Debug, Formatter},
+     hash::{BuildHasher, Hash},
+     marker::PhantomData,
+ };
+ 
++use hashbrown::HashMap;
+ use serde::{
+     de::{MapAccess, Visitor},
+     ser::SerializeMap,
+@@ -181,10 +182,10 @@
+                 None => Entry::Vacant(VacantEntry::List { this, list, key }),
+             },
+             AutoMap::Map(map) => match map.entry(key) {
+-                std::collections::hash_map::Entry::Occupied(entry) => {
++                hashbrown::hash_map::Entry::Occupied(entry) => {
+                     Entry::Occupied(OccupiedEntry::Map { this, entry })
+                 }
+-                std::collections::hash_map::Entry::Vacant(entry) => {
++                hashbrown::hash_map::Entry::Vacant(entry) => {
+                     Entry::Vacant(VacantEntry::Map(entry))
+                 }
+             },
+@@ -203,10 +204,10 @@
+                 None => RawEntry::Vacant(VacantRawEntry::List { this, list }),
+             },
+             AutoMap::Map(map) => match map.raw_entry_mut().from_key(key) {
+-                std::collections::hash_map::RawEntryMut::Occupied(entry) => {
++                hashbrown::hash_map::RawEntryMut::Occupied(entry) => {
+                     RawEntry::Occupied(OccupiedRawEntry::Map { this, entry })
+                 }
+-                std::collections::hash_map::RawEntryMut::Vacant(entry) => {
++                hashbrown::hash_map::RawEntryMut::Vacant(entry) => {
+                     RawEntry::Vacant(VacantRawEntry::Map(entry))
+                 }
+             },
+@@ -346,7 +347,7 @@
+ 
+ pub enum Iter<'a, K, V> {
+     List(std::slice::Iter<'a, (K, V)>),
+-    Map(std::collections::hash_map::Iter<'a, K, V>),
++    Map(hashbrown::hash_map::Iter<'a, K, V>),
+ }
+ 
+ impl<'a, K, V> Iterator for Iter<'a, K, V> {
+@@ -380,7 +381,7 @@
+ 
+ pub enum IterMut<'a, K, V> {
+     List(std::slice::IterMut<'a, (K, V)>),
+-    Map(std::collections::hash_map::IterMut<'a, K, V>),
++    Map(hashbrown::hash_map::IterMut<'a, K, V>),
+ }
+ 
+ impl<'a, K, V> Iterator for IterMut<'a, K, V> {
+@@ -403,7 +404,7 @@
+ 
+ pub enum IntoIter<K, V, const I: usize> {
+     List(smallvec::IntoIter<[(K, V); I]>),
+-    Map(std::collections::hash_map::IntoIter<K, V>),
++    Map(hashbrown::hash_map::IntoIter<K, V>),
+ }
+ 
+ impl<K, V, const I: usize> Iterator for IntoIter<K, V, I> {
+@@ -426,7 +427,7 @@
+ 
+ pub enum Values<'a, K, V> {
+     List(std::slice::Iter<'a, (K, V)>),
+-    Map(std::collections::hash_map::Values<'a, K, V>),
++    Map(hashbrown::hash_map::Values<'a, K, V>),
+ }
+ 
+ impl<'a, K, V> Iterator for Values<'a, K, V> {
+@@ -449,7 +450,7 @@
+ 
+ pub enum ValuesMut<'a, K, V> {
+     List(std::slice::IterMut<'a, (K, V)>),
+-    Map(std::collections::hash_map::ValuesMut<'a, K, V>),
++    Map(hashbrown::hash_map::ValuesMut<'a, K, V>),
+ }
+ 
+ impl<'a, K, V> Iterator for ValuesMut<'a, K, V> {
+@@ -472,7 +473,7 @@
+ 
+ pub enum IntoValues<K, V, const I: usize> {
+     List(smallvec::IntoIter<[(K, V); I]>),
+-    Map(std::collections::hash_map::IntoValues<K, V>),
++    Map(hashbrown::hash_map::IntoValues<K, V>),
+ }
+ 
+ impl<K, V, const I: usize> Iterator for IntoValues<K, V, I> {
+@@ -527,7 +528,7 @@
+     },
+     Map {
+         this: *mut AutoMap<K, V, H, I>,
+-        entry: std::collections::hash_map::OccupiedEntry<'a, K, V>,
++        entry: hashbrown::hash_map::OccupiedEntry<'a, K, V, H>,
+     },
+ }
+ 
+@@ -572,7 +573,7 @@
+         list: &'a mut SmallVec<[(K, V); I]>,
+         key: K,
+     },
+-    Map(std::collections::hash_map::VacantEntry<'a, K, V>),
++    Map(hashbrown::hash_map::VacantEntry<'a, K, V, H>),
+ }
+ 
+ impl<'a, K: Eq + Hash, V, H: BuildHasher + Default + 'a, const I: usize>
+@@ -607,7 +608,7 @@
+     },
+     Map {
+         this: *mut AutoMap<K, V, H, I>,
+-        entry: std::collections::hash_map::RawOccupiedEntryMut<'a, K, V, H>,
++        entry: hashbrown::hash_map::RawOccupiedEntryMut<'a, K, V, H>,
+     },
+ }
+ 
+@@ -653,7 +654,7 @@
+         this: *mut AutoMap<K, V, H, I>,
+         list: &'a mut SmallVec<[(K, V); I]>,
+     },
+-    Map(std::collections::hash_map::RawVacantEntryMut<'a, K, V, H>),
++    Map(hashbrown::hash_map::RawVacantEntryMut<'a, K, V, H>),
+ }
+ 
+ impl<'a, K: Eq + Hash, V, H: BuildHasher + Default + 'a, const I: usize>
+--- a/crates/turbo-tasks-auto-hash-map/src/lib.rs
++++ b/crates/turbo-tasks-auto-hash-map/src/lib.rs
+@@ -1,4 +1,3 @@
+-#![feature(hash_raw_entry)]
+ 
+ pub mod map;
+ pub mod set;

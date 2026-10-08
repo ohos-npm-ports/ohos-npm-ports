@@ -1,0 +1,9 @@
+--- a/crates/turbopack-dev-server/src/lib.rs
++++ b/crates/turbopack-dev-server/src/lib.rs
+@@ -1,6 +1,5 @@
+ #![feature(min_specialization)]
+ #![feature(trait_alias)]
+-#![feature(array_chunks)]
+ #![feature(iter_intersperse)]
+ #![feature(str_split_remainder)]
+ #![feature(arbitrary_self_types)]

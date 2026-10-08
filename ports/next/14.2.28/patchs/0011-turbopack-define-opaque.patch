@@ -1,0 +1,10 @@
+--- a/crates/turbopack-core/src/chunk/mod.rs
++++ b/crates/turbopack-core/src/chunk/mod.rs
+@@ -547,6 +547,7 @@
+         VisitControlFlow::Continue(node)
+     }
+ 
++    #[define_opaque(ChunkItemToGraphNodesEdges, ChunkItemToGraphNodesFuture)]
+     fn edges(&mut self, node: &ChunkContentGraphNode) -> Self::EdgesFuture {
+         let node = node.clone();
+ 

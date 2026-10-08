@@ -1,0 +1,14 @@
+--- a/src/format_description/parse/mod.rs
++++ b/src/format_description/parse/mod.rs
+@@ -80,9 +80,9 @@
+     let mut lexed = lexer::lex::<VERSION>(s.as_bytes());
+     let ast = ast::parse::<_, VERSION>(&mut lexed);
+     let format_items = format_item::parse(ast);
+-    let items = format_items
++    let items: Box<[format_item::Item<'_>]> = format_items
+         .map(|res| res.map(Into::into))
+-        .collect::<Result<Box<_>, _>>()?;
++        .collect::<Result<_, _>>()?;
+     Ok(items.into())
+ }
+ 
