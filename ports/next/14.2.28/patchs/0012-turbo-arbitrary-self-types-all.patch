@@ -1,0 +1,209 @@
+--- a/crates/turbopack-dev-server/src/lib.rs
++++ b/crates/turbopack-dev-server/src/lib.rs
+@@ -4,6 +4,7 @@
+ #![feature(iter_intersperse)]
+ #![feature(str_split_remainder)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub mod html;
+ mod http;
+--- a/crates/turbopack-wasm/src/lib.rs
++++ b/crates/turbopack-wasm/src/lib.rs
+@@ -7,6 +7,7 @@
+ 
+ #![feature(min_specialization)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub(crate) mod analysis;
+ pub(crate) mod loader;
+--- a/crates/turbopack/src/lib.rs
++++ b/crates/turbopack/src/lib.rs
+@@ -6,6 +6,7 @@
+ #![feature(hash_set_entry)]
+ #![recursion_limit = "256"]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub mod evaluate_context;
+ mod graph;
+--- a/crates/turbopack-ecmascript-runtime/src/lib.rs
++++ b/crates/turbopack-ecmascript-runtime/src/lib.rs
+@@ -1,4 +1,5 @@
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub(crate) mod asset_context;
+ pub(crate) mod build_runtime;
+--- a/crates/turbopack-css/src/lib.rs
++++ b/crates/turbopack-css/src/lib.rs
+@@ -3,6 +3,7 @@
+ #![feature(iter_intersperse)]
+ #![feature(int_roundings)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ mod asset;
+ pub mod chunk;
+--- a/crates/turbopack-core/src/lib.rs
++++ b/crates/turbopack-core/src/lib.rs
+@@ -5,6 +5,7 @@
+ #![feature(assert_matches)]
+ #![feature(lint_reasons)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ #![feature(iter_intersperse)]
+ 
+ pub mod asset;
+--- a/crates/turbopack-env/src/lib.rs
++++ b/crates/turbopack-env/src/lib.rs
+@@ -12,6 +12,7 @@
+ #![feature(async_closure)]
+ #![feature(min_specialization)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ mod asset;
+ pub mod dotenv;
+--- a/crates/turbopack-cli-utils/src/lib.rs
++++ b/crates/turbopack-cli-utils/src/lib.rs
+@@ -3,6 +3,7 @@
+ #![feature(round_char_boundary)]
+ #![feature(thread_id_value)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub mod issue;
+ pub mod runtime_entry;
+--- a/crates/turbopack-resolve/src/lib.rs
++++ b/crates/turbopack-resolve/src/lib.rs
+@@ -1,4 +1,5 @@
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub mod ecmascript;
+ pub mod node_native_binding;
+--- a/crates/node-file-trace/src/lib.rs
++++ b/crates/node-file-trace/src/lib.rs
+@@ -1,5 +1,6 @@
+ #![feature(min_specialization)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ mod nft_json;
+ 
+--- a/crates/turbopack-mdx/src/lib.rs
++++ b/crates/turbopack-mdx/src/lib.rs
+@@ -1,5 +1,6 @@
+ #![feature(min_specialization)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ use anyhow::{anyhow, Context, Result};
+ use mdxjs::{compile, Options};
+--- a/crates/turbopack-cli/src/lib.rs
++++ b/crates/turbopack-cli/src/lib.rs
+@@ -1,6 +1,7 @@
+ #![feature(future_join)]
+ #![feature(min_specialization)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub mod arguments;
+ pub mod build;
+--- a/crates/turbopack-browser/src/lib.rs
++++ b/crates/turbopack-browser/src/lib.rs
+@@ -2,6 +2,7 @@
+ #![feature(iter_intersperse)]
+ #![feature(int_roundings)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub(crate) mod chunking_context;
+ pub mod ecmascript;
+--- a/crates/turbopack-image/src/lib.rs
++++ b/crates/turbopack-image/src/lib.rs
+@@ -1,4 +1,5 @@
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub mod process;
+ 
+--- a/crates/turbopack-json/src/lib.rs
++++ b/crates/turbopack-json/src/lib.rs
+@@ -7,6 +7,7 @@
+ 
+ #![feature(min_specialization)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ use std::fmt::Write;
+ 
+--- a/crates/turbopack-ecmascript/src/lib.rs
++++ b/crates/turbopack-ecmascript/src/lib.rs
+@@ -5,6 +5,7 @@
+ #![feature(iter_intersperse)]
+ #![feature(int_roundings)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ #![recursion_limit = "256"]
+ 
+ pub mod analyzer;
+--- a/crates/turbopack-trace-utils/src/lib.rs
++++ b/crates/turbopack-trace-utils/src/lib.rs
+@@ -3,6 +3,7 @@
+ #![feature(round_char_boundary)]
+ #![feature(thread_id_value)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub mod exit;
+ mod flavor;
+--- a/crates/turbopack-static/src/lib.rs
++++ b/crates/turbopack-static/src/lib.rs
+@@ -10,6 +10,7 @@
+ 
+ #![feature(min_specialization)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub mod fixed;
+ pub mod output_asset;
+--- a/crates/turbopack-test-utils/src/lib.rs
++++ b/crates/turbopack-test-utils/src/lib.rs
+@@ -1,5 +1,6 @@
+ #![feature(min_specialization)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub mod jest;
+ pub mod snapshot;
+--- a/crates/turbopack-node/src/lib.rs
++++ b/crates/turbopack-node/src/lib.rs
+@@ -2,6 +2,7 @@
+ #![feature(min_specialization)]
+ #![feature(lint_reasons)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ #![feature(extract_if)]
+ 
+ use std::{collections::HashMap, iter::once, thread::available_parallelism};
+--- a/crates/turbopack-nodejs/src/lib.rs
++++ b/crates/turbopack-nodejs/src/lib.rs
+@@ -1,6 +1,7 @@
+ #![feature(lint_reasons)]
+ #![feature(iter_intersperse)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub(crate) mod chunking_context;
+ pub(crate) mod ecmascript;
+--- a/crates/turbopack-ecmascript-plugins/src/lib.rs
++++ b/crates/turbopack-ecmascript-plugins/src/lib.rs
+@@ -1,4 +1,5 @@
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub mod transform;
+ 

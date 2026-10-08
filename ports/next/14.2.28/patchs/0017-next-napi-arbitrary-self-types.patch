@@ -1,0 +1,10 @@
+--- a/packages/next-swc/crates/napi/src/lib.rs
++++ b/packages/next-swc/crates/napi/src/lib.rs
+@@ -29,6 +29,7 @@
+ #![recursion_limit = "2048"]
+ //#![deny(clippy::all)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ #[macro_use]
+ extern crate napi_derive;

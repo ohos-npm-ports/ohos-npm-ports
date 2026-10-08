@@ -1,0 +1,35 @@
+--- a/crates/turbo-tasks-bytes/src/lib.rs
++++ b/crates/turbo-tasks-bytes/src/lib.rs
+@@ -1,4 +1,5 @@
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ pub mod bytes;
+ pub mod stream;
+--- a/crates/turbo-tasks-env/src/lib.rs
++++ b/crates/turbo-tasks-env/src/lib.rs
+@@ -1,4 +1,5 @@
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ mod command_line;
+ mod custom;
+--- a/crates/turbo-tasks-fetch/src/lib.rs
++++ b/crates/turbo-tasks-fetch/src/lib.rs
+@@ -1,5 +1,6 @@
+ #![feature(min_specialization)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ 
+ use anyhow::Result;
+ use turbo_tasks::Vc;
+--- a/crates/turbo-tasks-fs/src/lib.rs
++++ b/crates/turbo-tasks-fs/src/lib.rs
+@@ -5,6 +5,7 @@
+ #![feature(io_error_more)]
+ #![feature(round_char_boundary)]
+ #![feature(arbitrary_self_types)]
++#![feature(arbitrary_self_types_pointers)]
+ #![feature(lint_reasons)]
+ 
+ pub mod attach;
