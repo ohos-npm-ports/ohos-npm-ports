@@ -1,0 +1,53 @@
+--- a/src/native/native-bindings.js
++++ b/src/native/native-bindings.js
+@@ -57,6 +57,13 @@
+ }
+ 
+ function requireNative() {
++  if (process.platform === 'openharmony' && process.arch === 'arm64') {
++    try {
++      return require('./nx.openharmony-arm64.node')
++    } catch (e) {
++      loadErrors.push(e)
++    }
++  }
+   if (process.platform === 'android') {
+     if (process.arch === 'arm64') {
+       try {
+--- a/src/native/assert-supported-platform.js
++++ b/src/native/assert-supported-platform.js
+@@ -12,6 +12,7 @@
+         if (process.platform == 'win32' ||
+             process.platform == 'darwin' ||
+             process.platform == 'linux' ||
++            process.platform == 'openharmony' ||
+             process.platform == 'freebsd') {
+             title = 'Missing Platform Dependency';
+             bodyLines = [
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+-  "name": "nx",
+-  "version": "22.0.3",
++  "name": "@ohos-npm-ports/nx",
++  "version": "22.0.3-1",
+   "private": false,
+   "description": "The core Nx plugin contains the core functionality of Nx like the project graph, nx commands and task orchestration.",
+   "repository": {
+@@ -7,6 +7,6 @@
+     "type": "git",
+-    "url": "https://github.com/nrwl/nx.git",
+-    "directory": "packages/nx"
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git",
++    "directory": "ports/nx/22.0.3"
+   },
+   "keywords": [
+     "Monorepo",
+@@ -174,4 +174,4 @@
+   "scripts": {
+     "postinstall": "node ./bin/post-install || exit 0"
+   }
+-}
+\ No newline at end of file
++}

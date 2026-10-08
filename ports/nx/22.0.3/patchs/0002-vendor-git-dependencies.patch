@@ -1,0 +1,19 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -7,3 +7,16 @@
+ 
+ [profile.release]
+ lto = true
++
++[patch."https://github.com/JamesHenry/tui-term"]
++tui-term = { path = "../gitdeps/tui-term" }
++
++[patch."https://github.com/JamesHenry/vt100-rust"]
++vt100-ctt = { path = "../gitdeps/vt100-rust" }
++
++[patch."https://github.com/cammisuli/wezterm"]
++portable-pty = { path = "../gitdeps/wezterm/pty" }
++filedescriptor = { path = "../gitdeps/wezterm/filedescriptor" }
++
++[patch.crates-io]
++nix = { path = "../gitdeps/nix-0.27.1" }
