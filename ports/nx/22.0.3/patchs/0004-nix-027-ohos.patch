@@ -1,0 +1,32 @@
+--- a/src/sys/mod.rs
++++ b/src/sys/mod.rs
+@@ -166,6 +166,7 @@
+ ))]
+ feature! {
+     #![feature = "fs"]
++    #[cfg(not(target_env = "ohos"))]
+     pub mod statfs;
+ }
+ 
+--- a/src/fcntl.rs
++++ b/src/fcntl.rs
+@@ -115,7 +115,7 @@
+         #[cfg(any(target_os = "dragonfly",
+                   target_os = "freebsd",
+                   target_os = "ios",
+-                  all(target_os = "linux", not(target_env = "musl")),
++                  all(target_os = "linux", not(any(target_env = "musl", target_env = "ohos"))),
+                   target_os = "macos",
+                   target_os = "netbsd",
+                   target_os = "openbsd",
+--- a/src/sys/statvfs.rs
++++ b/src/sys/statvfs.rs
+@@ -57,7 +57,7 @@
+         #[cfg_attr(docsrs, doc(cfg(all())))]
+         ST_NODIRATIME;
+         /// Update access time relative to modify/change time
+-        #[cfg(any(target_os = "android", all(target_os = "linux", not(target_env = "musl"))))]
++        #[cfg(any(target_os = "android", all(target_os = "linux", not(any(target_env = "musl", target_env = "ohos")))))]
+         #[cfg_attr(docsrs, doc(cfg(all())))]
+         ST_RELATIME;
+     }
