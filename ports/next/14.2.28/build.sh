@@ -2,13 +2,16 @@
 set -e
 
 VERSION=14.2.28
-PORT_VERSION=14.2.28-1
+PORT_VERSION=14.2.28-2
 PKG=next
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd -- "$ROOT/../../.." && pwd)
 
 do_deps() {
-  brew install -y rust
+  if ! command -v rustc >/dev/null || ! command -v cargo >/dev/null || \
+    [ "$(rustc -vV 2>/dev/null | sed -n 's/^host: //p')" != "aarch64-unknown-linux-ohos" ]; then
+    brew install -y rust
+  fi
   command -v curl >/dev/null
   command -v cargo >/dev/null
   command -v binary-sign-tool >/dev/null
@@ -177,6 +180,7 @@ do_package() {
   cd "$ROOT/next-$VERSION"
   patch -p1 < "$ROOT/patchs/0001-openharmony-loader.patch"
   patch -p1 < "$ROOT/patchs/0002-package-json.patch"
+  patch -p1 < "$ROOT/patchs/0003-remove-monorepo-publish-hook.patch"
   cd "$ROOT"
 
   cat > next-swc-openharmony-arm64/package.json <<EOF
@@ -204,8 +208,9 @@ do_test() {
   node -e '
     const main = require("./next-14.2.28/package.json");
     const sub = require("./next-swc-openharmony-arm64/package.json");
-    if (main.name !== "@ohos-npm-ports/next" || main.version !== sub.version) process.exit(1);
+    if (main.name !== "@ohos-npm-ports/next" || main.version !== "14.2.28-2" || main.version !== sub.version) process.exit(1);
     if (main.optionalDependencies[sub.name] !== sub.version) process.exit(1);
+    if (main.scripts.prepublishOnly) process.exit(1);
   '
   grep -q "openharmony-arm64" next-14.2.28/dist/build/swc/index.js
   grep -q "@ohos-npm-ports/next-swc-openharmony-arm64" next-14.2.28/dist/build/swc/index.js

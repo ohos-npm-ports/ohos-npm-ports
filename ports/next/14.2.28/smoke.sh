@@ -35,7 +35,7 @@ node <<'NODE'
 const assert = require("node:assert/strict");
 assert.equal(process.platform, "openharmony");
 const mainPackage = require("next/package.json");
-assert.equal(mainPackage.version, "14.2.28-1");
+assert.equal(mainPackage.version, "14.2.28-2");
 const slot = require("@ohos-npm-ports/next-swc-openharmony-arm64");
 assert.equal(typeof slot.transformSync, "function");
 const swc = require("next/dist/build/swc");
