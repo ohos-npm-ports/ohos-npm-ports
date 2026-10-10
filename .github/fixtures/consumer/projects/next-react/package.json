@@ -1,0 +1,14 @@
+{
+  "name": "web-overrides-consumer",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node start.mjs"
+  },
+  "dependencies": {
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "consumer-deps": "file:./consumer-deps-1.0.0.tgz"
+  }
+}
