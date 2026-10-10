@@ -1,0 +1,7 @@
+{
+  "htmlIncludes": ["Overrides frontend", "registry-overrides-ready"],
+  "htmlAssets": [
+    { "pattern": "href=\"([^\" ]+\\.css(?:\\?[^\" ]*)?)\"", "includes": ".app{" },
+    { "pattern": "src=\"([^\" ]+\\.js(?:\\?[^\" ]*)?)\"", "minBytes": 1 }
+  ]
+}
