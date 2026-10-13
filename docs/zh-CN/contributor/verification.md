@@ -29,3 +29,15 @@
 - 真实业务负载下的性能/稳定性
 
 容器验证不能替代真机验证。
+
+## 3. 发布前校验
+
+每个 port 构建成功后，CI 会在临时 Verdaccio 里执行该 port 的 `publish.sh`，再用 `npm install` 安装刚发布的包，检查三件事：
+
+- 先 dry-run、再真正发布到临时 registry，两次得到的包清单一致。
+- 从临时 registry 下载的 tarball，其 sha512 与 registry 记录的 integrity 一致。
+- 安装（含 install 脚本）可以完成。
+
+这一步在 PR 和 push 上都会执行，不会发布到 npm。
+
+它只验证「发布出去的包能装上」，不验证装上之后的功能。
