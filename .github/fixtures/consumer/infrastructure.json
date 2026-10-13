@@ -1,0 +1,16 @@
+[
+  ".github/workflows/ci.yml",
+  ".github/actions/consumer-job/action.yml",
+  ".github/scripts/ci-time-service-compat.sh",
+  ".github/scripts/consumer-browser.mjs",
+  ".github/scripts/consumer-coverage.mjs",
+  ".github/scripts/consumer-plan.mjs",
+  ".github/scripts/consumer-plan.test.mjs",
+  ".github/scripts/installed-package.mjs",
+  ".github/scripts/run-port-consumer.mjs",
+  ".github/scripts/setup-ci-runner.sh",
+  ".github/scripts/validate-local-publish.sh",
+  ".github/scripts/tool-versions.json",
+  ".github/scripts/ci-workflow.test.mjs",
+  ".github/fixtures/consumer/"
+]

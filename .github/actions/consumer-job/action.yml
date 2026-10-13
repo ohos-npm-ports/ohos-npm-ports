@@ -1,0 +1,73 @@
+name: Port consumer job
+description: Run one primary port's baseline and override consumer tests on the current runner. Requires a prior checkout.
+
+inputs:
+  port:
+    description: Primary port directory, e.g. ports/name/1.2.3
+    required: true
+  platform:
+    description: Expected process.platform
+    required: true
+  arch:
+    description: Expected process.arch
+    required: true
+  replay:
+    description: 'true when reusing artifacts from an earlier run'
+    required: true
+  artifact-run-id:
+    description: Run id that produced the artifacts; empty means the current run
+    required: false
+    default: ''
+  token:
+    description: Token used to download artifacts
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v5
+      with:
+        node-version: '24'
+    - name: Select closure artifacts
+      id: closure-artifacts
+      env:
+        CONSUMER_PORT: ${{ inputs.port }}
+      shell: bash
+      run: |
+        echo "pattern=$(node .github/scripts/consumer-plan.mjs artifact-pattern "$CONSUMER_PORT")" >> "$GITHUB_OUTPUT"
+        echo "log-name=consumer-logs-$(echo "$CONSUMER_PORT" | tr '/' '-')-${{ inputs.platform }}-${{ inputs.arch }}" >> "$GITHUB_OUTPUT"
+    - uses: actions/download-artifact@v8
+      with:
+        pattern: ${{ steps.closure-artifacts.outputs.pattern }}
+        path: .port-artifacts
+        run-id: ${{ inputs.artifact-run-id || github.run_id }}
+        github-token: ${{ inputs.token }}
+    - name: Prepare optional browser service
+      env:
+        CONSUMER_PORT: ${{ inputs.port }}
+      shell: bash
+      run: node .github/scripts/consumer-browser.mjs "$CONSUMER_PORT"
+    - name: Baseline and override port tests
+      env:
+        CONSUMER_PORT: ${{ inputs.port }}
+        REPLAY_ARTIFACTS: ${{ inputs.replay }}
+        EXPECTED_PLATFORM: ${{ inputs.platform }}
+        EXPECTED_ARCH: ${{ inputs.arch }}
+      shell: bash
+      run: node .github/scripts/run-port-consumer.mjs .port-artifacts
+    - name: Upload diagnostic logs
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ steps.closure-artifacts.outputs.log-name }}
+        path: |
+          .consumer-logs/
+          .consumer-browser.log
+        include-hidden-files: true
+        if-no-files-found: ignore
+        retention-days: 3
+    - name: Stop optional browser service
+      if: always()
+      shell: bash
+      run: |
+        node -e "const fs=require('node:fs');if(fs.existsSync('.consumer-browser.pid')){try{process.kill(Number(fs.readFileSync('.consumer-browser.pid','utf8')))}catch{}}"

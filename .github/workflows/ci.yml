@@ -1,7 +1,19 @@
 name: CI
 
 on:
+  workflow_dispatch:
+    inputs:
+      artifact-run-id:
+        description: 'Existing artifact run to replay; empty builds the selected ports'
+        required: false
+        type: string
+      consumer-ports:
+        description: 'Optional JSON array of primary port directories for debugging; empty selects all'
+        required: false
+        type: string
   push:
+    branches:
+      - main
     paths:
       - "ports/**"
   pull_request:
@@ -11,13 +23,24 @@ on:
       - ".github/scripts/validate-local-publish.sh"
       - ".github/scripts/tool-versions.json"
       - ".github/scripts/ci-workflow.test.mjs"
+      - ".github/scripts/run-port-consumer.mjs"
+      - ".github/scripts/consumer-plan.mjs"
+      - ".github/scripts/consumer-plan.test.mjs"
+      - ".github/scripts/installed-package.mjs"
+      - ".github/scripts/consumer-coverage.mjs"
+      - ".github/scripts/consumer-browser.mjs"
+      - ".github/scripts/setup-ci-runner.sh"
+      - ".github/actions/consumer-job/action.yml"
+      - ".github/scripts/ci-time-service-compat.sh"
+      - ".github/fixtures/consumer/**"
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  # Only pull_request runs share a group (superseded runs are cancelled). Push runs get a unique group:
-  # sharing one would let a burst of merges cancel each other's queued main runs.
+  # Only pull_request runs share a group (superseded runs are cancelled). Push and manual runs get a
+  # unique group: sharing one would let a burst of merges cancel each other's queued main runs.
   group: ${{ github.event_name == 'pull_request' && format('ci-pr-{0}', github.event.pull_request.number) || format('ci-run-{0}', github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -27,17 +50,31 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      publish: ${{ steps.set-matrix.outputs.publish }}
+      consumer-enabled: ${{ steps.set-matrix.outputs.consumer-enabled }}
+      consumer-ports: ${{ steps.set-matrix.outputs.consumer-ports }}
+      replay: ${{ steps.set-matrix.outputs.replay }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Test workflow constraints
-        run: node --test .github/scripts/ci-workflow.test.mjs
-
       - name: Find changed port versions
         id: set-matrix
+        env:
+          CONSUMER_SELECTION: ${{ github.event_name == 'workflow_dispatch' && inputs.consumer-ports || '' }}
+          ARTIFACT_RUN_ID: ${{ inputs.artifact-run-id }}
         run: |
+          if [ "${{ github.event_name }}" = workflow_dispatch ]; then
+            printf '.github/scripts/run-port-consumer.mjs\n' | node .github/scripts/consumer-plan.mjs >> "$GITHUB_OUTPUT"
+            if [ -n "$ARTIFACT_RUN_ID" ]; then
+              echo 'matrix=[]' >> "$GITHUB_OUTPUT"
+              echo 'replay=true' >> "$GITHUB_OUTPUT"
+            else
+              echo 'replay=false' >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
           BASE=${{ github.event.before }}
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE=${{ github.event.pull_request.base.sha }}
@@ -47,23 +84,29 @@ jobs:
             BASE=$(git rev-parse HEAD^)
           fi
 
-          dirs=$(git diff --name-only --diff-filter=d "$BASE" HEAD \
-                 | grep '^ports/' \
-                 | sed -E 's|^(ports/[^/]+/[^/]+)/.*|\1|' \
-                 | sort -u \
-                 | jq -R -s -c 'split("\n")[:-1]')
+          changed=$(git diff --name-only --diff-filter=d "$BASE" HEAD)
+          printf '%s\n' "$changed" | node .github/scripts/consumer-plan.mjs >> "$GITHUB_OUTPUT"
 
-          echo "matrix=$dirs" >> $GITHUB_OUTPUT
+      - name: Test workflow constraints
+        run: node --test .github/scripts/ci-workflow.test.mjs
+
+      - name: Test consumer planning
+        run: node --test .github/scripts/consumer-plan.test.mjs
+
+      - name: Report consumer coverage
+        run: node .github/scripts/consumer-coverage.mjs >> "$GITHUB_STEP_SUMMARY"
 
   # 对于发生变化的目录，进去执行里面的 build.sh 和 publish.sh
   build-and-publish:
     needs: detect-changes
     if: needs.detect-changes.outputs.matrix != '[]'
     strategy:
+      max-parallel: 4
       matrix:
         dir: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
       fail-fast: false
     runs-on: ubuntu-24.04-arm
+    timeout-minutes: 360
     container:
       image: ghcr.io/ohos-npm-ports/ci-runner:latest
       volumes:
@@ -99,12 +142,179 @@ jobs:
         id: registry
         run: sh .github/scripts/validate-local-publish.sh "${{ matrix.dir }}"
 
+      - name: Upload exact pre-release packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.registry.outputs.artifact-name }}
+          path: ${{ matrix.dir }}/artifacts/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
       # 只有直接 push 或 PR 被合入时才会进行发布
       - name: Publish
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'ohos-npm-ports/ohos-npm-ports'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'ohos-npm-ports/ohos-npm-ports' && contains(fromJson(needs.detect-changes.outputs.publish), matrix.dir)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
           cd "${{ matrix.dir }}"
           ./publish.sh
+
+  consumer-tests-windows-x64:
+    needs: [detect-changes, build-and-publish]
+    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build-and-publish.result == 'success' || needs.build-and-publish.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        port: ${{ fromJson(needs.detect-changes.outputs.consumer-ports) }}
+    name: consumer (${{ matrix.port }}, win32-x64)
+    runs-on: windows-2025
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/consumer-job
+        with:
+          port: ${{ matrix.port }}
+          platform: win32
+          arch: x64
+          replay: ${{ needs.detect-changes.outputs.replay }}
+          artifact-run-id: ${{ inputs.artifact-run-id }}
+          token: ${{ github.token }}
+
+  consumer-tests-linux-arm64:
+    needs: [detect-changes, build-and-publish]
+    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build-and-publish.result == 'success' || needs.build-and-publish.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        port: ${{ fromJson(needs.detect-changes.outputs.consumer-ports) }}
+    name: consumer (${{ matrix.port }}, linux-arm64)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/consumer-job
+        with:
+          port: ${{ matrix.port }}
+          platform: linux
+          arch: arm64
+          replay: ${{ needs.detect-changes.outputs.replay }}
+          artifact-run-id: ${{ inputs.artifact-run-id }}
+          token: ${{ github.token }}
+
+  consumer-tests-linux-x64:
+    needs: [detect-changes, build-and-publish]
+    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build-and-publish.result == 'success' || needs.build-and-publish.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        port: ${{ fromJson(needs.detect-changes.outputs.consumer-ports) }}
+    name: consumer (${{ matrix.port }}, linux-x64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/consumer-job
+        with:
+          port: ${{ matrix.port }}
+          platform: linux
+          arch: x64
+          replay: ${{ needs.detect-changes.outputs.replay }}
+          artifact-run-id: ${{ inputs.artifact-run-id }}
+          token: ${{ github.token }}
+
+  consumer-tests-darwin-arm64:
+    needs: [detect-changes, build-and-publish]
+    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build-and-publish.result == 'success' || needs.build-and-publish.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        port: ${{ fromJson(needs.detect-changes.outputs.consumer-ports) }}
+    name: consumer (${{ matrix.port }}, darwin-arm64)
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/consumer-job
+        with:
+          port: ${{ matrix.port }}
+          platform: darwin
+          arch: arm64
+          replay: ${{ needs.detect-changes.outputs.replay }}
+          artifact-run-id: ${{ inputs.artifact-run-id }}
+          token: ${{ github.token }}
+
+  consumer-tests-openharmony:
+    needs: [detect-changes, build-and-publish]
+    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build-and-publish.result == 'success' || needs.build-and-publish.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    name: consumer (${{ matrix.port }}, openharmony-arm64)
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        port: ${{ fromJson(needs.detect-changes.outputs.consumer-ports) }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+      - name: Select closure artifacts
+        id: closure-artifacts
+        env:
+          CONSUMER_PORT: ${{ matrix.port }}
+        shell: bash
+        run: echo "pattern=$(node .github/scripts/consumer-plan.mjs artifact-pattern "$CONSUMER_PORT")" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: ${{ steps.closure-artifacts.outputs.pattern }}
+          path: .port-artifacts
+          run-id: ${{ inputs.artifact-run-id || github.run_id }}
+          github-token: ${{ github.token }}
+      - name: Prepare optional browser service
+        env:
+          CONSUMER_PORT: ${{ matrix.port }}
+        run: node .github/scripts/consumer-browser.mjs "$CONSUMER_PORT" container
+      - name: Override port test on OpenHarmony
+        env:
+          CONSUMER_PORT: ${{ matrix.port }}
+          REPLAY_ARTIFACTS: ${{ needs.detect-changes.outputs.replay }}
+          EXPECTED_PLATFORM: openharmony
+          EXPECTED_ARCH: arm64
+        run: |
+          docker run --rm --add-host=host.docker.internal:host-gateway \
+            -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+            -w "$GITHUB_WORKSPACE" \
+            -e CONSUMER_PORT -e REPLAY_ARTIFACTS -e EXPECTED_PLATFORM -e EXPECTED_ARCH \
+            -e GITHUB_SHA -e GITHUB_STEP_SUMMARY -e PORT_TEST_BROWSER_ENDPOINT \
+            -e HOMEBREW_NO_AUTO_UPDATE=1 -e HOMEBREW_NO_INSTALL_UPGRADE=1 \
+            ghcr.io/ohos-npm-ports/ci-runner:latest \
+            sh -ec '. .github/scripts/setup-ci-runner.sh; exec node .github/scripts/run-port-consumer.mjs .port-artifacts'
+
+      - name: Upload diagnostic logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: consumer-logs-${{ strategy.job-index }}-openharmony-arm64
+          path: |
+            .consumer-logs/
+            .consumer-browser.log
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Stop optional browser service
+        if: always()
+        shell: bash
+        run: |
+          node -e "const fs=require('node:fs');if(fs.existsSync('.consumer-browser.pid')){try{process.kill(Number(fs.readFileSync('.consumer-browser.pid','utf8')))}catch{}}"
+      - name: Restore workspace ownership
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"

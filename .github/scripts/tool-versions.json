@@ -1,3 +1,5 @@
 {
-  "verdaccio": "6.10.5"
+  "npm": "11.21.0",
+  "verdaccio": "6.10.5",
+  "playwright-core": "1.62.1"
 }
