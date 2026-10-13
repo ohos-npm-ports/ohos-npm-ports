@@ -1,0 +1,18 @@
+{
+  "name": "react-assets-consumer",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node start.mjs"
+  },
+  "dependencies": {
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "webpack": "5.101.3",
+    "babel-loader": "10.0.0",
+    "@babel/core": "7.28.4",
+    "@babel/preset-react": "7.27.1",
+    "consumer-deps": "file:./consumer-deps-1.0.0.tgz"
+  }
+}

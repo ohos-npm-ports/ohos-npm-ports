@@ -10,8 +10,10 @@ const step = (name) => {
   return workflow.slice(start, end > 0 ? end : undefined);
 };
 
-test('the publish validation applies to every build event', () => {
-  assert.doesNotMatch(step('Validate publish through temporary Verdaccio'), /if: github.event_name/);
+test('temporary publishing and artifact upload apply to every build event', () => {
+  for (const name of ['Validate publish through temporary Verdaccio', 'Upload exact pre-release packages']) {
+    assert.doesNotMatch(step(name), /if: github.event_name/);
+  }
 });
 
 test('build step runs ./build.sh after brew update with the brew rust first on PATH', () => {

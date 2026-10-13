@@ -38,6 +38,6 @@
 - 从临时 registry 下载的 tarball，其 sha512 与 registry 记录的 integrity 一致。
 - 安装（含 install 脚本）可以完成。
 
-这一步在 PR 和 push 上都会执行，不会发布到 npm。
+这一步在 PR 和 push 上都会执行，不会发布到 npm。通过后，精确的 tarball 会上传为 artifact，名称是 `port-<名称>-<版本>`，保留 7 天。
 
 它只验证「发布出去的包能装上」，不验证装上之后的功能。

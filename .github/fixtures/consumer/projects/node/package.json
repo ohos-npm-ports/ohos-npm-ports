@@ -1,0 +1,8 @@
+{
+  "name": "port-consumer",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "consumer-deps": "file:./consumer-deps-1.0.0.tgz"
+  }
+}
