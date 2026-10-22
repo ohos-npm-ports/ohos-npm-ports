@@ -1,0 +1,19 @@
+--- a/packages/native/build.zig
++++ b/packages/native/build.zig
+@@ -23,6 +23,7 @@
+     .{ .zig_target = "aarch64-linux-gnu.2.17", .output_name = "aarch64-linux", .description = "Linux aarch64" },
+     .{ .zig_target = "x86_64-linux-musl", .output_name = "x86_64-linux-musl", .description = "Linux x86_64 (musl)" },
+     .{ .zig_target = "aarch64-linux-musl", .output_name = "aarch64-linux-musl", .description = "Linux aarch64 (musl)" },
++    .{ .zig_target = "aarch64-linux-ohos", .output_name = "aarch64-linux-ohos", .description = "OpenHarmony aarch64" },
+     .{ .zig_target = "x86_64-macos.13.0", .output_name = "x86_64-macos", .description = "macOS x86_64 (Intel)" },
+     .{ .zig_target = "aarch64-macos.13.0", .output_name = "aarch64-macos", .description = "macOS aarch64 (Apple Silicon)" },
+     .{ .zig_target = "x86_64-windows-gnu", .output_name = "x86_64-windows", .description = "Windows x86_64" },
+@@ -397,7 +398,7 @@
+         else => return false,
+     }
+     return switch (target.result.os.tag) {
+-        .linux => target.result.abi.isMusl() or target.result.abi == .gnu,
++        .linux => target.result.abi.isMusl() or target.result.abi == .gnu or target.result.abi == .ohos,
+         .macos => true,
+         .windows => target.result.abi == .gnu,
+         else => false,
