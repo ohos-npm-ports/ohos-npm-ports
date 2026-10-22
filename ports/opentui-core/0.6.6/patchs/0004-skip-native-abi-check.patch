@@ -1,0 +1,11 @@
+--- a/packages/core/scripts/build.ts
++++ b/packages/core/scripts/build.ts
+@@ -318,7 +318,7 @@
+ }
+ 
+ if (buildLib) {
+-  if (!buildNative)
++  if (!buildNative && process.env.OPENTUI_SKIP_NATIVE_ABI_CHECK !== "1")
+     runCommand("bun", ["scripts/native-abi.ts", "--check"], rootDir, "Error: Native ABI metadata is stale")
+   console.log("Building library...")
+ 

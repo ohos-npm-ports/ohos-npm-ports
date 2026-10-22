@@ -1,0 +1,38 @@
+--- a/package.json
++++ b/package.json
+@@ -1,5 +1,5 @@
+ {
+-  "name": "@opentui/core",
++  "name": "@ohos-npm-ports/opentui-core",
+   "module": "index.node.js",
+   "main": "index.node.js",
+   "types": "index.d.ts",
+@@ -6,6 +6,6 @@
+   "type": "module",
+-  "version": "0.6.6",
+-  "description": "OpenTUI is a TypeScript library on a native Zig core for building terminal user interfaces (TUIs)",
++  "version": "0.6.6-1",
++  "description": "OpenTUI is a TypeScript library on a native Zig core for building terminal user interfaces (TUIs) — OpenHarmony (OHOS) port: JS bundle rebuilt from upstream v0.6.6 source; the openharmony-arm64 native core is provided by the @opentui/core-openharmony-arm64 optional platform package.",
+   "license": "MIT",
+   "repository": {
+     "type": "git",
+@@ -12,5 +12,5 @@
+-    "url": "https://github.com/anomalyco/opentui",
+-    "directory": "packages/core"
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports",
++    "directory": "ports/opentui-core/0.6.6"
+   },
+   "exports": {
+     ".": {
+@@ -82,6 +82,10 @@
+     "@opentui/core-win32-x64": "0.6.6",
+     "@opentui/core-win32-arm64": "0.6.6",
+     "@opentui/core-linux-x64-musl": "0.6.6",
+-    "@opentui/core-linux-arm64-musl": "0.6.6"
++    "@opentui/core-linux-arm64-musl": "0.6.6",
++    "@opentui/core-openharmony-arm64": "npm:@ohos-npm-ports/opentui-core-openharmony-arm64@0.6.6-1"
++  },
++  "imports": {
++    "#opentui/parser-worker": "./parser.worker.js"
+   }
+ }
