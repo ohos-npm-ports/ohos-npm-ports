@@ -15,30 +15,37 @@ cd "${PKG}-${VERSION}"
 find . -type f -exec sha256sum {} + | sort > /tmp/lightningcss-1.32.0-before.sha256
 patch -p1 < ../patchs/0001-update-package-json.patch
 patch -p1 < ../patchs/0002-openharmony-loader.patch
-python3 - <<'PY'
-import hashlib
-from pathlib import Path
-
-before = {}
-for line in Path('/tmp/lightningcss-1.32.0-before.sha256').read_text().splitlines():
-    digest, path = line.split('  ', 1)
-    before[path.removeprefix('./')] = digest
-allowed = {'package.json', 'node/index.js'}
-after = {}
-for path in Path('.').rglob('*'):
-    if path.is_file():
-        key = str(path)
-        after[key] = hashlib.sha256(path.read_bytes()).hexdigest()
-changed = {path for path in before.keys() | after.keys() if before.get(path) != after.get(path)}
-if not changed <= allowed:
-    raise SystemExit(f'patches changed unexpected files: {sorted(changed - allowed)}')
-if changed != allowed:
-    raise SystemExit(f'expected package.json and node/index.js changes, got: {sorted(changed)}')
-PY
+node - <<'JS'
+const assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
+const { readFileSync, readdirSync } = require('node:fs');
+const before = new Map(readFileSync('/tmp/lightningcss-1.32.0-before.sha256', 'utf8')
+  .trimEnd().split('\n').map(line => [line.slice(66).replace(/^\.\//, ''), line.slice(0, 64)]));
+const after = new Map();
+function scan(directory) {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) scan(path);
+    else if (entry.isFile()) after.set(path.replace(/^\.\//, ''),
+      createHash('sha256').update(readFileSync(path)).digest('hex'));
+  }
+}
+scan('.');
+const changed = [...new Set([...before.keys(), ...after.keys()])]
+  .filter(path => before.get(path) !== after.get(path)).sort();
+assert.deepEqual(changed, ['node/index.js', 'package.json']);
+JS
 
 grep -q "process.platform === 'openharmony'" node/index.js
-brew install -y rust
-export PATH="$(brew --prefix rust)/bin:$PATH"
+RUST_PREFIX=$(brew --prefix rust)
+if ! "$RUST_PREFIX/bin/rustc" -vV 2>/dev/null |
+    grep -q '^host: aarch64-unknown-linux-ohos$'; then
+  HOMEBREW_NO_AUTO_UPDATE=1 brew install -y rust
+fi
+export PATH="$RUST_PREFIX/bin:$PATH"
+rustc -vV
+cargo --version
+rustc -vV | grep -q '^host: aarch64-unknown-linux-ohos$'
 npm install --ignore-scripts --no-package-lock --no-audit --no-fund
 export PATH="$(pwd)/node_modules/.bin:$PATH"
 export CARGO_TARGET_DIR=/root/.cache/lightningcss-1.32.0-target
