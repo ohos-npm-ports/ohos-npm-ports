@@ -2,7 +2,7 @@
 set -e
 
 # ============================================================
-# ohos-npm-ports: @ohos-npm-ports/vite-plus 1.0.0-1
+# ohos-npm-ports: @ohos-npm-ports/vite-plus 1.0.0-2
 #
 # 构建方式：
 #   1. 下载官方 vite-plus@1.0.0 tgz 与 v1.0.0 源树（各钉 sha256），
@@ -33,7 +33,7 @@ set -e
 
 PKG_NAME="vite-plus"
 PKG_VERSION="1.0.0"
-PORTS_VERSION="1.0.0-1"
+PORTS_VERSION="1.0.0-2"
 VITE_TASK_REV="7d69d6577ecf6bd83deee32186de59918a712873"
 BINDING="binding/${PKG_NAME}.openharmony-arm64.node"
 
@@ -177,6 +177,9 @@ do_package() {
     cd "${OUT}"
     patch -p1 < "${WORK_DIR}/patchs/0001-update-package-json.patch"
 
+    patch -p1 < "${WORK_DIR}/patchs/0006-fix-core-version.patch"
+    node "${WORK_DIR}/test.js" "${OUT}"
+
     binary-sign-tool sign -selfSign 1 \
         -inFile "${STAGE}/src/packages/cli/${BINDING}" \
         -outFile "${BINDING}"
@@ -184,7 +187,7 @@ do_package() {
     node -e '
       const p = require("./package.json");
       if (p.name !== "@ohos-npm-ports/vite-plus") { console.error("bad name: " + p.name); process.exit(1); }
-      if (p.version !== "1.0.0-1") { console.error("bad version: " + p.version); process.exit(1); }
+      if (p.version !== "1.0.0-2") { console.error("bad version: " + p.version); process.exit(1); }
       console.log("OK: manifest");
     '
 }
