@@ -1,0 +1,6 @@
+--- a/dist/bin.js
++++ b/dist/bin.js
+@@ -1689 +1689,2 @@
+-	const { version: expectedVersion } = JSON.parse(readFileSync(cliRequire.resolve("vite-plus/package.json"), "utf8"));
++	const { name, version } = JSON.parse(readFileSync(cliRequire.resolve("vite-plus/package.json"), "utf8"));
++	const expectedVersion = name === "@ohos-npm-ports/vite-plus" ? version.replace(/-\d+$/, "") : version;
