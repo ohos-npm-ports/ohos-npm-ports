@@ -55,7 +55,7 @@ jobs:
       consumer-ports: ${{ steps.set-matrix.outputs.consumer-ports }}
       replay: ${{ steps.set-matrix.outputs.replay }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -122,7 +122,7 @@ jobs:
           rm -rf node-v24.2.0-openharmony-arm64*
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Build
         # Three things keep the brew toolchain usable on an image that lags behind the brew formulas:
@@ -173,7 +173,7 @@ jobs:
     runs-on: windows-2025
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/consumer-job
         with:
           port: ${{ matrix.port }}
@@ -195,7 +195,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/consumer-job
         with:
           port: ${{ matrix.port }}
@@ -217,7 +217,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/consumer-job
         with:
           port: ${{ matrix.port }}
@@ -239,7 +239,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/consumer-job
         with:
           port: ${{ matrix.port }}
@@ -261,10 +261,10 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     steps:
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
       - name: Select closure artifacts
