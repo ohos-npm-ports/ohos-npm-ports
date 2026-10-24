@@ -1,0 +1,28 @@
+{
+  "name": "ohos-npm-ports-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "check": "vp check",
+    "test": "vp test",
+    "sync-data": "node scripts/sync.mjs",
+    "build": "vp build",
+    "preview": "vp preview --port 4173 --strictPort --host 0.0.0.0",
+    "test:e2e": "playwright test",
+    "postinstall": "ohos-signpost"
+  },
+  "dependencies": {
+    "vue": "3.6.0-rc.13"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@vitejs/plugin-vue": "6.0.10",
+    "ohos-signpost": "1.1.2",
+    "vite-plus": "npm:@ohos-npm-ports/vite-plus@1.0.0-1"
+  },
+  "optionalDependencies": {
+    "@rolldown/binding-openharmony-arm64": "1.2.11"
+  },
+  "packageManager": "pnpm@12.15.0"
+}

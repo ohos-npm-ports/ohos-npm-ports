@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>ohos-npm-ports</title>
+  <defs>
+    <mask id="ports">
+      <rect x="32" y="21" width="24" height="16" fill="#fff"/>
+      <path d="M37 25h4v8h-4Zm10 0h4v8h-4Z" fill="#000"/>
+    </mask>
+  </defs>
+  <path d="M43 13a20 20 0 1 0 0 30" fill="none" stroke="#82acff" stroke-width="5.5" stroke-linecap="round"/>
+  <path d="M32 21h24v16H32Z" fill="#f1716c" mask="url(#ports)"/>
+  <path d="M12 60h39" fill="none" stroke="#82acff" stroke-width="3" stroke-linecap="round"/>
+</svg>
