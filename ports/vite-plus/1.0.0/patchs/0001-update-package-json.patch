@@ -5,7 +5,7 @@
 -  "name": "vite-plus",
 -  "version": "1.0.0",
 +  "name": "@ohos-npm-ports/vite-plus",
-+  "version": "1.0.0-1",
++  "version": "1.0.0-2",
    "description": "The Unified Toolchain for the Web",
    "homepage": "https://viteplus.dev/guide",
    "bugs": {
