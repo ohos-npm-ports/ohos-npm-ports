@@ -1,0 +1,14 @@
+--- a/crates/fspy_preload_unix/src/lib.rs
++++ b/crates/fspy_preload_unix/src/lib.rs
+@@ -4 +4 @@
+-#[cfg(all(unix, not(target_env = "musl")))]
++#[cfg(all(unix, not(target_env = "musl"), not(target_env = "ohos")))]
+@@ -6 +6 @@
+-#[cfg(all(unix, not(target_env = "musl")))]
++#[cfg(all(unix, not(target_env = "musl"), not(target_env = "ohos")))]
+@@ -8 +8 @@
+-#[cfg(all(unix, not(target_env = "musl")))]
++#[cfg(all(unix, not(target_env = "musl"), not(target_env = "ohos")))]
+@@ -10 +10 @@
+-#[cfg(all(unix, not(target_env = "musl")))]
++#[cfg(all(unix, not(target_env = "musl"), not(target_env = "ohos")))]

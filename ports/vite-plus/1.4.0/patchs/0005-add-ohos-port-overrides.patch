@@ -1,0 +1,13 @@
+--- a/pnpm-workspace.yaml
++++ b/pnpm-workspace.yaml
+@@ -147,0 +148 @@
++  - '@ohos-npm-ports/*'
+@@ -205,0 +207,8 @@
++  'yuku-codegen': npm:@ohos-npm-ports/yuku-codegen@0.10.2-1
++  'yuku-parser': npm:@ohos-npm-ports/yuku-parser@0.10.2-1
++  '@ast-grep/napi': npm:@ohos-npm-ports/ast-grep-napi@0.43.0-1
++  lightningcss: npm:@ohos-npm-ports/lightningcss@1.33.0-1
++  oxlint-tsgolint: npm:@ohos-npm-ports/oxlint-tsgolint@7.0.2003-1
++  '@parcel/watcher': npm:@ohos-npm-ports/parcel-watcher@2.5.1-2
++  typescript: npm:@ohos-npm-ports/typescript@7.0.2-3
++  '@napi-rs/cli>typescript': 6.0.3
