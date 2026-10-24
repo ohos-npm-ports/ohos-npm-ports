@@ -1,0 +1,18 @@
+--- a/vite/packages/vite/package.json
++++ b/vite/packages/vite/package.json
+@@ -78,2 +78,3 @@
+   "devDependencies": {
++    "typescript": "catalog:",
+     "@babel/parser": "^7.29.9",
+--- a/packages/prompts/package.json
++++ b/packages/prompts/package.json
+@@ -34,2 +34,3 @@
+   "devDependencies": {
++    "typescript": "catalog:",
+     "fast-string-width": "^3.0.0",
+--- a/packages/cli/package.json
++++ b/packages/cli/package.json
+@@ -365,2 +365,3 @@
+   "devDependencies": {
++    "typescript": "catalog:",
+     "@emnapi/core": "catalog:",

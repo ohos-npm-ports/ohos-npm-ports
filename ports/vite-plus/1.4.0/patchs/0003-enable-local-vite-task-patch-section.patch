@@ -1,0 +1,8 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -426,3 +426,4 @@
+ # =============================================================================
+-# [patch."https://github.com/voidzero-dev/vite-task.git"]
++[patch."https://github.com/voidzero-dev/vite-task.git"]
++fspy_preload_unix = { path = "../vite-task/crates/fspy_preload_unix" }
+ # fspy = { path = "../vite-task/crates/fspy" }
