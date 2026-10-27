@@ -4,6 +4,8 @@
 
 ohos-npm-ports 项目，是一个把 npm 三方库移植到 OpenHarmony 平台的项目。
 
+项目网站：[ohos-npm-ports 包目录](https://ohos-npm-ports.github.io/)，可查询已发布的移植包、版本和接入配置。
+
 ports 这个词一语双关，既表示移植软件，也表示本项目采用 ports 模式维护软件包（只存储构建脚本，不存储完整源码） 。
 
 ## 本项目解决什么问题
@@ -20,20 +22,7 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 
 ## 已收录的包
 
-| 原始包名   | 鸿蒙适配后的包名           | 最新版本  |
-| ---------- | -------------------------- | --------- |
-| bufferutil | @ohos-npm-ports/bufferutil | 4.0.9-7   |
-| sqlite3    | @ohos-npm-ports/sqlite3    | 5.1.7-8   |
-| typescript | @ohos-npm-ports/typescript | 7.0.2-2   |
-| nx         | @ohos-npm-ports/nx         | 23.1.1-1  |
-| turbo      | @ohos-npm-ports/turbo      | 2.10.10-1 |
-| opentui-core | @ohos-npm-ports/opentui-core | 0.6.6-1 |
-| playwright-mcp | @ohos-npm-ports/playwright-mcp | 0.0.78-1 |
-| @prisma/engines | @ohos-npm-ports/prisma-engines | 5.1.1-3 |
-| prisma | @ohos-npm-ports/prisma | 5.1.1-1 |
-| @prisma/client | @ohos-npm-ports/prisma-client | 5.8.0-1 |
-| bun-plugin-tailwind | @ohos-npm-ports/bun-plugin-tailwind | 0.1.2-1 |
-| @typescript/native-preview | @ohos-npm-ports/typescript-native-preview | 7.0.0-dev.20260707.2-1 |
+已发布的移植包、版本和接入配置请查看[网站包目录](https://ohos-npm-ports.github.io/)，构建脚本和补丁见 [ports/](ports/)。
 
 ## 使用方法
 
