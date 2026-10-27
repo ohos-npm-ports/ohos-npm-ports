@@ -70,3 +70,9 @@ PS：如果需要指定版本号，可以写成这种形式：npm:@ohos-npm-port
 若有问题咨询求助，可联系以下维护者：
 
 - [hqzing](https://github.com/hqzing)：hqzing@outlook.com
+
+## 许可证
+
+本项目自身编写的代码及自研补丁采用 BSD Zero Clause License。
+
+本项目所修改并分发的第三方 npm 包，其版权仍归属于各自的原始作者，并遵循其各自原有的许可证。
