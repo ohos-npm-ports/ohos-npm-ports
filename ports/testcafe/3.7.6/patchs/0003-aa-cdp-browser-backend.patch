@@ -1,0 +1,366 @@
+--- a/lib/ohos/provider.cjs
++++ b/lib/ohos/provider.cjs
+@@ -0,0 +1,123 @@
++const log=require('./log.cjs');
++const CDPDefault=require('chrome-remote-interface');
++const {PNG}=require('pngjs');
++const {writeFile,mkdir}=require('node:fs/promises');
++const path=require('node:path');
++const {createWindowController}=require('./window-controller.cjs');
++const {installDownloads}=require('./download.cjs');
++function createProvider(dependencies={}) {
++    const sessions=new Map();
++    const CDP=dependencies.CDP||CDPDefault;
++    async function activeClient(session){
++        if(!session.activeWindowId || session.activeWindowId===session.rootWindowId)return session.client;
++        for(let attempt=0;attempt<30;attempt++){
++            const {targetInfos}=await session.browser.Target.getTargets();
++            const target=targetInfos.find(info=>info.browserContextId===session.contextId && info.type==='page' && info.title.includes(session.activeWindowId));
++            if(target){
++                if(!session.clients.has(target.targetId)){
++                    const client=await CDP({...session.options,target:target.targetId});
++                    await client.Page.enable();
++                    if(process.env.TESTCAFE_DOWNLOAD_DIR)session.downloadStops.push(await (dependencies.downloads||installDownloads)(client,path.resolve(process.env.TESTCAFE_DOWNLOAD_DIR)));
++                    client.ohosTargetId=target.targetId;session.clients.set(target.targetId,client);
++                }
++                return session.clients.get(target.targetId);
++            }
++            await new Promise(resolve=>setTimeout(resolve,100));
++        }
++        throw new Error(`Cannot resolve owned window ${session.activeWindowId}`);
++    }
++    async function activeWindow(session){
++        const client=await activeClient(session),target=client.ohosTargetId;
++        if(!session.windows.has(target))session.windows.set(target,createWindowController({browser:session.browser,target,readViewport:async()=>{
++            const response=await client.Runtime.evaluate({expression:'({width:innerWidth,height:innerHeight,availWidth:screen.availWidth,availHeight:screen.availHeight})',returnByValue:true});return response.result.value;
++        }}));
++        return session.windows.get(target);
++    }
++    return {
++        supportMultipleWindows:true,
++        getActiveWindowId(id){return sessions.get(id)?.activeWindowId;},
++        setActiveWindowId(id,value){sessions.get(id).activeWindowId=value;log('ACTIVE_WINDOW',id,value);},
++        resetActiveWindowId(id){if(sessions.has(id))sessions.get(id).activeWindowId=undefined;},
++        getNewActiveWindowId(){return this.calculateWindowId();},
++        async closeBrowserChildWindow(){},
++        async isValidBrowserName(name){return name===''||name==='default';},
++        async hasCustomActionForBrowser(){return {hasCloseBrowser:true,hasTakeScreenshot:true,hasChromelessScreenshots:true,hasResizeWindow:true,hasMaximizeWindow:true,hasCanResizeWindowToDimensions:true};},
++        async canResizeWindowToDimensions(id,width,height){return (await activeWindow(sessions.get(id))).canResize(width,height);},
++        async resizeWindow(id,width,height){await (await activeWindow(sessions.get(id))).resize(width,height);},
++        async maximizeWindow(id){await (await activeWindow(sessions.get(id))).maximize();},
++        async openBrowser(id,pageUrl){
++            const launch=dependencies.launch||(await import('./aa-launcher.mjs')).launchHaitai;
++            const {ensureForeground,keepForeground}=await import('./foreground.mjs');
++            const endpoint=new URL(await launch({port:process.env.HARMONY_DEBUG_PORT?Number(process.env.HARMONY_DEBUG_PORT):undefined}));
++            const options={host:endpoint.hostname,port:Number(endpoint.port)};
++            const browser=await CDP({...options,target:(await CDP.Version(options)).webSocketDebuggerUrl});
++            let target,contextId;
++            try{
++                contextId=(await browser.Target.createBrowserContext()).browserContextId;
++                if(process.env.TESTCAFE_DOWNLOAD_DIR){
++                    await mkdir(path.resolve(process.env.TESTCAFE_DOWNLOAD_DIR),{recursive:true});
++                    await browser.Browser.setDownloadBehavior({behavior:'deny',downloadPath:path.resolve(process.env.TESTCAFE_DOWNLOAD_DIR),browserContextId:contextId,eventsEnabled:true});
++                }
++                target=(await browser.Target.createTarget({url:'about:blank',browserContextId:contextId})).targetId;
++            }catch(error){if(contextId)await browser.Target.disposeBrowserContext({browserContextId:contextId});await browser.close();throw error;}
++            const session={target,options,browser,contextId,clients:new Map(),windows:new Map(),downloadStops:[]};
++            sessions.set(id,session);
++            try{
++                session.client=await CDP({...options,target});
++                if(process.env.TESTCAFE_DOWNLOAD_DIR)session.downloadStops.push(await (dependencies.downloads||installDownloads)(session.client,path.resolve(process.env.TESTCAFE_DOWNLOAD_DIR)));
++                session.client.ohosTargetId=target;
++                session.clients.set(target,session.client);
++                await session.client.Page.enable();
++                await session.client.Page.navigate({url:pageUrl});
++                const guard={
++                    Page:{bringToFront:async()=> (await activeClient(session)).Page.bringToFront()},
++                    Runtime:{evaluate:async options=>(await activeClient(session)).Runtime.evaluate(options)},
++                };
++                session.stop=(dependencies.keepForeground||keepForeground)(guard);
++                await this.waitForConnectionReady(id);
++                await (dependencies.foreground||ensureForeground)(session.client);
++                session.activeWindowId=this.calculateWindowId?.() || require('node:crypto').randomBytes(8).toString('hex');
++                session.rootWindowId=session.activeWindowId;
++                log('PROVIDER_READY',id);
++            }catch(error){await this.closeBrowser(id);throw error;}
++        },
++        async closeBrowser(id){
++            const session=sessions.get(id);
++            if(!session)return;
++            sessions.delete(id);
++            await session.stop?.();
++            let restoreError;
++            try{for(const stop of session.downloadStops)await stop();}catch(error){restoreError=error;}
++            try{
++                if(session.windows.size){
++                    const {targetInfos}=await session.browser.Target.getTargets();
++                    for(const [target,controller] of session.windows)if(targetInfos.some(info=>info.targetId===target))await controller.restore();
++                }
++            }catch(error){restoreError=error;}
++            try{for(const client of session.clients.values())await client.close();}finally{try{await session.browser.Target.disposeBrowserContext({browserContextId:session.contextId});}finally{await session.browser.close();}}
++            log('PROVIDER_TARGET_CLOSED',id);
++            if(restoreError){console.error('PROVIDER_CLEANUP_ERROR',restoreError.message);throw restoreError;}
++        },
++        async takeScreenshot(id,filePath,pageWidth,pageHeight,fullPage){
++            const session=sessions.get(id);
++            if(!session)throw new Error('No active browser session');
++            const client=await activeClient(session);
++            const options={format:'png',fromSurface:true,captureBeyondViewport:!!fullPage};
++            if(fullPage){
++                const metrics=await client.Page.getLayoutMetrics();
++                const size=metrics.cssContentSize||metrics.contentSize;
++                options.clip={x:0,y:0,width:size.width,height:size.height,scale:1};
++            }
++            const {data}=await client.Page.captureScreenshot(options);
++            const bytes=Buffer.from(data||'','base64');
++            let image;
++            try{image=PNG.sync.read(bytes);}catch{throw new Error('CDP did not return a valid PNG');}
++            if(!image.width||!image.height)throw new Error('CDP returned an empty PNG');
++            await mkdir(path.dirname(filePath),{recursive:true});
++            await writeFile(filePath,bytes);
++            log('PROVIDER_SCREENSHOT',JSON.stringify({filePath,width:image.width,height:image.height,fullPage:!!fullPage}));
++        },
++        async dispose(){for(const id of sessions.keys())await this.closeBrowser(id);},
++    };
++}
++module.exports={createProvider};
+--- a/lib/ohos/aa-launcher.mjs
++++ b/lib/ohos/aa-launcher.mjs
+@@ -0,0 +1,67 @@
++import log from './log.cjs';
++import { execFile } from 'node:child_process';
++import { promisify } from 'node:util';
++import net from 'node:net';
++import { readFileSync, writeFileSync } from 'node:fs';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++const statePath=join(tmpdir(),'testcafe-haitai-endpoint.json');
++function readState(){try{return JSON.parse(readFileSync(statePath,'utf8'));}catch{return null;}}
++function writeState(state){writeFileSync(statePath,JSON.stringify(state));}
++async function tryProbe(url){try{const r=await fetch(url,{signal:AbortSignal.timeout(500)});if(!r.ok)return null;return await r.json();}catch{return null;}}
++function validatePort(port){if(!Number.isInteger(port)||port<1||port>65535)throw new Error('Invalid CDP port');}
++function assertHaitai(version,port){
++    if(!version.Browser || !version.webSocketDebuggerUrl)throw new Error('Endpoint is not a CDP browser');
++    const ws=new URL(version.webSocketDebuggerUrl);
++    if(!/htbrowser\//i.test(version['User-Agent']||'') || ws.hostname!=='127.0.0.1' || Number(ws.port)!==port)throw new Error('CDP endpoint is not Haitai on the expected loopback port');
++}
++const execAsync = promisify(execFile);
++async function freePort() {
++    const server = net.createServer();
++    await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
++    const port=server.address().port;
++    await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
++    return port;
++}
++async function waitForCdp(url) {
++    const deadline=Date.now()+30000;
++    let lastError;
++    while(Date.now()<deadline) {
++        try {
++            const response=await fetch(url,{signal:AbortSignal.timeout(1000)});
++            if(!response.ok) throw new Error(`HTTP ${response.status}`);
++            return await response.json();
++        } catch(error) {lastError=error;await new Promise(resolve=>setTimeout(resolve,200));}
++    }
++    throw new Error(`CDP endpoint unavailable: ${url}; ${lastError?.message}. Close an existing Haitai instance manually before retrying.`);
++}
++export async function launchHaitai({port,exec=execAsync,probe=waitForCdp,readState:read=readState,writeState:write=writeState,tryProbe:quick=tryProbe}={}) {
++    if(port!==undefined)validatePort(port);
++    const cached=port===undefined?read():null;
++    const candidate=port ?? cached?.port;
++    if(candidate!==undefined && Number.isInteger(candidate) && candidate>0 && candidate<=65535){
++        const version=await quick(`http://127.0.0.1:${candidate}/json/version`);
++        if(version){
++            assertHaitai(version,candidate);
++            write({port:candidate});
++            log('AA_REUSE_CDP',`http://127.0.0.1:${candidate}`);
++            return `http://127.0.0.1:${candidate}`;
++        }
++    }
++    port ??= await freePort();
++    const args=['start','-b','com.haitai.htbrowser','-a','EntryAbility','--ps','cmdArgs',`--no-first-run --enable-automation --disable-popup-blocking --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-extensions --disable-sync --no-default-browser-check --remote-debugging-port=${port}`];
++    let result;
++    try {result=await exec('/usr/bin/aa',args,{timeout:5000});}
++    catch(error) {
++        if(error.code!=='ENOEXEC') throw error;
++        result=await exec('sh',['/usr/bin/aa',...args],{timeout:5000});
++    }
++    log('AA_START',result.stdout?.trim());
++    if(!result.stdout?.includes('start ability successfully')) throw new Error(`aa start failed: ${result.stdout || result.stderr}`);
++    const endpoint=`http://127.0.0.1:${port}`;
++    const version=await probe(`${endpoint}/json/version`);
++    assertHaitai(version,port);
++    write({port});
++    log('AA_DIRECT_CDP',endpoint);
++    return endpoint;
++}
+--- a/lib/ohos/foreground.mjs
++++ b/lib/ohos/foreground.mjs
+@@ -0,0 +1,27 @@
++import log from './log.cjs';
++export async function ensureForeground(client,{timeoutMs=10000,intervalMs=200}={}) {
++    const deadline=Date.now()+timeoutMs;
++    let state;
++    do {
++        await client.Page.bringToFront();
++        const response=await client.Runtime.evaluate({expression:'({visibility:document.visibilityState,focus:document.hasFocus()})',returnByValue:true});
++        state=response.result.value;
++        if(state?.visibility==='visible' && state?.focus){log('FOREGROUND_CONFIRMED',JSON.stringify(state));return;}
++        await new Promise(resolve=>setTimeout(resolve,intervalMs));
++    }while(Date.now()<deadline);
++    throw new Error(`Test target is not foreground: ${JSON.stringify(state)}`);
++}
++export function keepForeground(client,{intervalMs=500}={}) {
++    let pending=null;
++    const timer=setInterval(()=>{
++        if(pending)return;
++        pending=(async()=>{
++            const response=await client.Runtime.evaluate({expression:'({visibility:document.visibilityState,focus:document.hasFocus()})',returnByValue:true});
++            if(response.result.value?.visibility!=='visible' || !response.result.value?.focus){
++                await client.Page.bringToFront();
++                log('FOREGROUND_REACTIVATED');
++            }
++        })().catch(error=>log('FOREGROUND_PROBE',error.message)).finally(()=>{pending=null;});
++    },intervalMs);
++    return async()=>{clearInterval(timer);await pending;};
++}
+--- a/lib/ohos/window-controller.cjs
++++ b/lib/ohos/window-controller.cjs
+@@ -0,0 +1,44 @@
++const log=require('./log.cjs');
++function createWindowController({browser,target,readViewport,pause=ms=>new Promise(resolve=>setTimeout(resolve,ms))}){
++    let initial,windowId,dirty=false;
++    async function initialize(){if(initial)return;const info=await browser.Browser.getWindowForTarget({targetId:target});windowId=info.windowId;initial={...info.bounds};}
++    async function bounds(){await initialize();return (await browser.Browser.getWindowBounds({windowId})).bounds;}
++    async function set(change){dirty=true;await browser.Browser.setWindowBounds({windowId,bounds:change});await pause(150);}
++    return {
++        async canResize(width,height){
++            if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1)return false;
++            const outer=await bounds(),viewport=await readViewport();
++            return width+Math.max(0,outer.width-viewport.width)<=viewport.availWidth && height+Math.max(0,outer.height-viewport.height)<=viewport.availHeight;
++        },
++        async resize(width,height){
++            if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1)throw new Error('Invalid window dimensions');
++            await initialize();
++            if((await bounds()).windowState!=='normal')await set({windowState:'normal'});
++            let last;
++            for(let attempt=0;attempt<5;attempt++){
++                const outer=await bounds(),viewport=await readViewport();
++                await set({width:Math.round(width+Math.max(0,outer.width-viewport.width)),height:Math.round(height+Math.max(0,outer.height-viewport.height))});
++                last=await readViewport();
++                if(last.width===width&&last.height===height){log('PROVIDER_RESIZE',JSON.stringify({width,height}));return;}
++            }
++            throw new Error(`Window did not reach ${width}x${height}: ${JSON.stringify(last)}`);
++        },
++        async maximize(){
++            await initialize();
++            await set({windowState:'maximized'});
++            for(let attempt=0;attempt<5;attempt++){if((await bounds()).windowState==='maximized'){log('PROVIDER_MAXIMIZE_OK');return;}await pause(150);}
++            throw new Error('Window is not maximized after CDP request');
++        },
++        async restore(){
++            if(!initial||!dirty)return;
++            await set({windowState:'normal'});
++            const {left,top,width,height,windowState}=initial;
++            await set({left,top,width,height});
++            if(windowState!=='normal')await set({windowState});
++            const actual=await bounds();
++            if(actual.windowState!==windowState || (windowState==='normal'&&['left','top','width','height'].some(key=>actual[key]!==initial[key])))throw new Error(`Failed to restore window bounds: ${JSON.stringify(actual)}`);
++            dirty=false;log('PROVIDER_WINDOW_RESTORED',JSON.stringify(actual));
++        },
++    };
++}
++module.exports={createWindowController};
+--- a/lib/ohos/thumbnail.cjs
++++ b/lib/ohos/thumbnail.cjs
+@@ -0,0 +1,17 @@
++const {PNG}=require('pngjs');
++const {readFile,writeFile,mkdir}=require('node:fs/promises');
++const path=require('node:path');
++async function generateThumbnail(sourcePath,thumbnailPath,width=240,height=130){
++    if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1)throw new Error('Invalid thumbnail dimensions');
++    const source=PNG.sync.read(await readFile(sourcePath));
++    const scale=Math.min(width/source.width,height/source.height);
++    const output=new PNG({width:Math.max(1,Math.round(source.width*scale)),height:Math.max(1,Math.round(source.height*scale))});
++    for(let y=0;y<output.height;y++)for(let x=0;x<output.width;x++){
++        const sourceX=Math.min(source.width-1,Math.floor(x*source.width/output.width));
++        const sourceY=Math.min(source.height-1,Math.floor(y*source.height/output.height));
++        source.data.copy(output.data,(y*output.width+x)*4,(sourceY*source.width+sourceX)*4,(sourceY*source.width+sourceX)*4+4);
++    }
++    await mkdir(path.dirname(thumbnailPath),{recursive:true});
++    await writeFile(thumbnailPath,PNG.sync.write(output));
++}
++module.exports={generateThumbnail};
+--- a/lib/ohos/download.cjs
++++ b/lib/ohos/download.cjs
+@@ -0,0 +1,64 @@
++const log=require('./log.cjs');
++const fs=require('node:fs/promises');
++const path=require('node:path');
++const {randomUUID}=require('node:crypto');
++function filename(disposition){
++    const encoded=/filename\*=UTF-8''([^;]+)/i.exec(disposition);
++    const plain=/filename=(?:"([^"]*)"|([^;]+))/i.exec(disposition);
++    let name=plain?.[1]||plain?.[2]||'download.bin';
++    if(encoded){try{name=decodeURIComponent(encoded[1]);}catch{}}
++    name=path.basename(name.replace(/\\/g,'/')).replace(/[\x00-\x1f<>:"|?*]/g,'_').trim();
++    return !name||name==='.'||name==='..'?'download.bin':name.slice(0,180);
++}
++async function installDownloads(client,directory){
++    await fs.mkdir(directory,{recursive:true});
++    let queue=Promise.resolve();
++    const pending=new Set(),errors=[];
++    let stopping=false,closed=false;
++    const onDisconnect=()=>{closed=true;};
++    client.on?.('disconnect',onDisconnect);
++    async function capture(event,disposition){
++        const temporary=path.join(directory,`.download-${randomUUID()}.part`);
++        let stream,file;
++        try{
++            stream=(await client.Fetch.takeResponseBodyAsStream({requestId:event.requestId})).stream;
++            file=await fs.open(temporary,'wx');
++            let bytes=0;
++            while(true){
++                const chunk=await client.IO.read({handle:stream,size:65536});
++                const buffer=Buffer.from(chunk.data,chunk.base64Encoded?'base64':'utf8');
++                await file.writeFile(buffer);bytes+=buffer.length;
++                if(chunk.eof)break;
++            }
++            await file.close();file=null;
++            const name=filename(disposition),extension=path.extname(name),stem=name.slice(0,name.length-extension.length);
++            let destination=path.join(directory,name),index=0;
++            while(true){try{await fs.stat(destination);destination=path.join(directory,`${stem} (${++index})${extension}`);}catch(error){if(error.code==='ENOENT')break;throw error;}}
++            await client.Fetch.fulfillRequest({requestId:event.requestId,responseCode:204,responseHeaders:[],body:''});
++            await fs.rename(temporary,destination);
++            log('PROVIDER_DOWNLOAD',JSON.stringify({path:destination,bytes,resourceType:event.resourceType}));
++        }finally{
++            await file?.close();
++            if(stream)await client.IO.close({handle:stream}).catch(()=>{});
++            await fs.rm(temporary,{force:true});
++        }
++    }
++    client.Fetch.requestPaused(event=>{
++        const task=(async()=>{
++            const disposition=event.responseHeaders?.find(header=>header.name.toLowerCase()==='content-disposition')?.value||'';
++            if(stopping){await client.Fetch.continueRequest({requestId:event.requestId});return;}
++            if(!['Document','Other'].includes(event.resourceType)||!/^attachment\b/i.test(disposition)||event.responseStatusCode<200||event.responseStatusCode>=300){await client.Fetch.continueRequest({requestId:event.requestId});return;}
++            const previous=queue;
++            queue=previous.then(()=>capture(event,disposition));
++            await queue;
++        })().catch(async error=>{
++            if(stopping)return;
++            errors.push(error);console.error('PROVIDER_DOWNLOAD_ERROR',error.message);
++            await client.Fetch.failRequest({requestId:event.requestId,errorReason:'Aborted'}).catch(()=>{});
++        }).finally(()=>pending.delete(task));
++        pending.add(task);
++    });
++    await client.Fetch.enable({patterns:[{urlPattern:'*',requestStage:'Response'}]});
++    return async()=>{await Promise.all([...pending]);stopping=true;if(!closed)await client.Fetch.disable().catch(error=>{if(!closed)throw error;});await Promise.all([...pending]);client.removeListener?.('disconnect',onDisconnect);if(errors.length)throw errors[0];};
++}
++module.exports={installDownloads};
+--- a/lib/ohos/log.cjs
++++ b/lib/ohos/log.cjs
+@@ -0,0 +1,3 @@
++module.exports=function log(...args){
++    if(process.env.TESTCAFE_OHOS_DEBUG==='1')console.error(...args);
++};
