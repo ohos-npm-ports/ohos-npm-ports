@@ -10,7 +10,7 @@ set -e
 # revision can still be published without bumping the upstream version.
 
 UPSTREAM_VERSION=1.62.1
-VERSION="$UPSTREAM_VERSION-3"
+VERSION="$UPSTREAM_VERSION-4"
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SCRIPT_DIR"
@@ -45,6 +45,7 @@ grep -q 'harmonyBundleName' packages/protocol/spec/mixins.yml
 grep -q "isOpenHarmony() ? resolveCommandPath('ffmpeg')" packages/playwright-core/src/server/registry/index.ts
 grep -q 'ohosExecutablePath' packages/playwright-core/src/server/chromium/chromium.ts
 grep -q 'closeReported' packages/playwright-core/src/ohos/launcher.ts
+grep -q 'startBrowserViaAa' packages/playwright-core/src/ohos/launcher.ts
 grep -q 'findHarmonybrewHdc' packages/playwright-core/src/ohos/hdc.ts
 grep -q 'hdcEnvironment' packages/playwright-core/src/ohos/hdc.ts
 grep -q 'hdcFailureMessage' packages/playwright-core/src/ohos/launcher.ts
@@ -121,6 +122,7 @@ node -e "
   cd "$ARTIFACT"
 
   node --check index.js
+  node "$SCRIPT_DIR/tests/aa-first.cjs" "$PWD/lib/ohos/launcher.js"
   # ohos 入口的自包含相对 require 未被 esbuild 内联；exports 暴露 ./lib/ohos；
   # 版本号为 <上游版本>-1 修订号，与仓库其余 port 的版本约定一致
   grep -q 'require("../../index.js")' lib/ohos/index.js
@@ -161,6 +163,8 @@ node -e "
   # 设备浏览器相关的修改（executablePath、launchServer 关闭、hdc 查找与 HOME、报错）必须真的进了打包产物（coreBundle 由 esbuild 生成，标记写在源码里不代表产物里有）
   grep -q 'ohosExecutablePath' lib/coreBundle.js
   grep -q 'closeReported' lib/coreBundle.js
+  grep -q 'startBrowserViaAa' lib/coreBundle.js
+  grep -q '__ohosDeviceBrowser' lib/coreBundle.js
   grep -q 'findHarmonybrewHdc' lib/coreBundle.js
   grep -q 'hdcEnvironment' lib/coreBundle.js
   grep -q 'hdcFailureMessage' lib/coreBundle.js
