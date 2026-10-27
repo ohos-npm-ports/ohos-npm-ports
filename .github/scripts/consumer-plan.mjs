@@ -96,8 +96,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const expanded = closure(selected);
   const tests = selected.filter((dir) => testSpec(dir)?.role === 'primary');
   console.log(`matrix=${JSON.stringify([...new Set([...dirs, ...expanded])].sort())}`);
-  // Publish only directories that changed; the build matrix also holds dependents and prerequisites.
-  console.log(`publish=${JSON.stringify([...dirs].sort())}`);
+  // Consumer-only edits do not change the published package.
+  const publish = dirs.filter((dir) => changed.some((file) => file.startsWith(`${dir}/`) && file !== `${dir}/test.js`));
+  console.log(`publish=${JSON.stringify(publish.sort())}`);
   console.log(`consumer-enabled=${tests.length > 0}`);
   console.log(`consumer-ports=${JSON.stringify(tests)}`);
 }

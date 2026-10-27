@@ -82,7 +82,7 @@ test('publish list holds only changed directories, never dependents or prerequis
 });
 
 test('changing a prerequisite builds its dependents but does not publish them', { skip: !has('ports/bun/1.4.2') || !has('ports/bun-pty/0.4.10') }, () => {
-  const value = plan('ports/bun/1.4.2/test.js');
+  const value = plan('ports/bun/1.4.2/build.sh');
   assert.ok(JSON.parse(value.matrix).includes('ports/bun-pty/0.4.10'));
   assert.deepEqual(JSON.parse(value.publish), ['ports/bun/1.4.2']);
 });
@@ -104,4 +104,17 @@ test('runner setup, including the time service compatibility library, is used on
     assert.match(job, /^consumer-tests/, `setup-ci-runner.sh used by ${job}`);
   }
   assert.match(readFileSync('.github/scripts/setup-ci-runner.sh', 'utf8'), /ci-time-service-compat\.sh/);
+});
+
+test('test-only edits run consumers without republishing the port', () => {
+  const value = plan('ports/lightningcss/1.32.0/test.js');
+  assert.equal(value['consumer-enabled'], 'true');
+  assert.ok(JSON.parse(value['consumer-ports']).includes('ports/lightningcss/1.32.0'));
+  assert.ok(JSON.parse(value.matrix).includes('ports/lightningcss/1.32.0'));
+  assert.deepEqual(JSON.parse(value.publish), []);
+});
+
+test('test and build edits still publish the changed port once', () => {
+  const value = plan('ports/lightningcss/1.32.0/test.js\nports/lightningcss/1.32.0/build.sh');
+  assert.deepEqual(JSON.parse(value.publish), ['ports/lightningcss/1.32.0']);
 });
