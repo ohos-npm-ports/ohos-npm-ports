@@ -1,0 +1,743 @@
+diff --git a/packages/playwright-core/src/ohos/hdc.ts b/packages/playwright-core/src/ohos/hdc.ts
+deleted file mode 100644
+index 8d9ee1b..0000000
+--- a/packages/playwright-core/src/ohos/hdc.ts
++++ /dev/null
+@@ -1,122 +0,0 @@
+-// HDC (HarmonyOS Device Connector) backend used to launch and control
+-// on-device browsers.
+-import fs from 'fs';
+-import os from 'os';
+-import path from 'path';
+-
+-import { execFileAsync, findHarmonybrewHdc, hdcEnvironment, resolveCommandPath } from './utils';
+-
+-export class HdcBackend {
+-  readonly binary: string;
+-  private readonly _env: NodeJS.ProcessEnv | undefined;
+-  private readonly _forwards: string[] = [];
+-
+-  constructor() {
+-    // Aliased hdc commands are invisible to execFile, so resolve the real
+-    // path of the binary once per process.
+-    this.binary = process.env.HDC_BINARY || findHarmonybrewHdc() || resolveCommandPath('hdc') || 'hdc';
+-    // hdc keeps its server and authorization under HOME; run it with the real user home even when the
+-    // caller isolated HOME, otherwise it starts a second server without the device connection.
+-    this._env = hdcEnvironment();
+-  }
+-
+-  private _run(args: string[], timeoutMs = 30000) {
+-    return execFileAsync(this.binary, args, timeoutMs, this._env);
+-  }
+-
+-  exec(args: string[], timeoutMs = 30000) {
+-    return this._run(args, timeoutMs);
+-  }
+-
+-  /** Runs a command on the device shell. */
+-  shell(command: string, timeoutMs = 30000) {
+-    return this._run(['shell', command], timeoutMs);
+-  }
+-
+-  /** Forwards a device socket to a local TCP port and tracks it for cleanup. */
+-  async fport(local: string, remote: string): Promise<void> {
+-    const result = await this._run(['fport', local, remote]);
+-    if (!result.stdout.includes('OK'))
+-      throw new Error(`hdc fport failed: ${result.stdout || result.stderr}`);
+-    this._forwards.push(`${local} ${remote}`);
+-  }
+-
+-  /** Copies a file from the device to the local filesystem. */
+-  async fileRecv(remotePath: string, localPath: string): Promise<void> {
+-    await this._run(['file', 'recv', remotePath, localPath], 60000);
+-  }
+-
+-  /** Takes a screenshot of the device display and returns it as a PNG buffer. */
+-  async screenshot(): Promise<Buffer> {
+-    const stamp = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+-    const remotePath = `/data/local/tmp/pw-ohos-${stamp}.png`;
+-    const localPath = path.join(os.tmpdir(), `pw-ohos-${stamp}.png`);
+-    try {
+-      await this.shell(`snapshot_display -f ${remotePath} -t png`);
+-      await this.fileRecv(remotePath, localPath);
+-      return await fs.promises.readFile(localPath);
+-    } finally {
+-      await this.shell(`rm -f ${remotePath}`).catch(() => {});
+-      await fs.promises.unlink(localPath).catch(() => {});
+-    }
+-  }
+-
+-  /** Stops the browser app and removes tracked port forwards. */
+-  async close(bundleName: string, fallbackStop?: (bundle: string) => Promise<void>): Promise<void> {
+-    try {
+-      await this.shell(`aa force-stop ${bundleName}`);
+-    } catch {
+-      if (fallbackStop)
+-        await fallbackStop(bundleName).catch(() => {});
+-    }
+-    for (const forward of this._forwards) {
+-      const [local, remote] = forward.split(' ');
+-      await this._run(['fport', 'rm', local, remote]).catch(() => {});
+-    }
+-    this._forwards.length = 0;
+-  }
+-
+-  /**
+-   * Removes stale device-socket forwards left behind by crashed runs, so
+-   * repeated launches do not accumulate forwards. Only rules targeting
+-   * webview devtools sockets are touched; the live browser is force-stopped
+-   * before this runs, so all of them are stale by construction.
+-   */
+-  async cleanupStaleForwards(): Promise<void> {
+-    const result = await this._run(['fport', 'ls']).catch(() => ({ stdout: '', stderr: '', code: 1 }));
+-    for (const line of result.stdout.split('\n')) {
+-      const match = line.match(/\s+(tcp:\d+)\s+(localabstract:\S+|tcp:\d+)/);
+-      if (!match || match[2].startsWith('localabstract:') && !match[2].includes('webview_devtools_remote'))
+-        continue;
+-      await this._run(['fport', 'rm', match[1], match[2]]).catch(() => {});
+-    }
+-  }
+-
+-  /**
+-   * Connects the local wireless-debugging target when no device is
+-   * connected: the port is read from `param get persist.hdc.port` and the
+-   * localhost target is connected with `hdc tconn`. On HarmonyOS 7.1+ the
+-   * ohos-aa path does not need a device connection, so the caller only
+-   * invokes this for the HDC path.
+-   */
+-  async ensureDeviceConnected(): Promise<void> {
+-    const isDeviceLine = (line: string): boolean => {
+-      const t = line.trim();
+-      return t !== '' && t !== '[Empty]';
+-    };
+-    const targets = await this._run(['list', 'targets']).catch(() => ({ stdout: '', stderr: '', code: 1 }));
+-    if (targets.stdout.split('\n').some(isDeviceLine))
+-      return;
+-    const portResult = await execFileAsync('param', ['get', 'persist.hdc.port'], 5000).catch(() => ({ stdout: '', stderr: '', code: 1 }));
+-    const port = portResult.stdout.trim();
+-    if (!/^\d+$/.test(port))
+-      throw new Error(`cannot determine the wireless debugging port (param get persist.hdc.port returned: ${JSON.stringify(port)})`);
+-    await this._run(['tconn', `127.0.0.1:${port}`]);
+-    const after = await this._run(['list', 'targets']);
+-    if (!after.stdout.split('\n').some(isDeviceLine))
+-      throw new Error(`hdc tconn 127.0.0.1:${port} did not connect; enable wireless debugging on the device first`);
+-  }
+-}
+-
+-/** Takes a screenshot through the HDC backend (used by the CDP screenshot fallback). */
+-export const hdcScreenshot = async (hdc: HdcBackend): Promise<Buffer> => hdc.screenshot();
+diff --git a/packages/playwright-core/src/ohos/index.ts b/packages/playwright-core/src/ohos/index.ts
+index b800850..9c2caa0 100644
+--- a/packages/playwright-core/src/ohos/index.ts
++++ b/packages/playwright-core/src/ohos/index.ts
+@@ -1,7 +0,0 @@
+-// HarmonyOS entry point of playwright-core: re-exports the main entry and
+-// adds the launcher helpers. This is a relative import, not the bare
+-// `playwright-core` specifier: this file is compiled without bundling (see
+-// utils/build/build.js), so esbuild leaves import specifiers untouched, and
+-// a relative path resolves to this package's own index.js under any install
+-// layout (npm alias override or direct @ohos-npm-ports install) without
+-// depending on `playwright-core` being resolvable as a package name.
+@@ -10,2 +2,0 @@ import * as playwrightCore from '../../index.js';
+-import { HdcBackend, hdcScreenshot } from './hdc';
+-
+@@ -14,4 +5 @@ export default playwrightCore;
+-
+-export { HdcBackend, hdcScreenshot };
+-export { launchViaHdc, ohosInitScript, resolveLaunchConfig, ARK_WEB_BUNDLE_NAME } from './launcher';
+-export { resolveOhosAa } from './ohos-aa';
++export { launchViaAa, ohosInitScript, resolveLaunchConfig, ARK_WEB_BUNDLE_NAME } from './launcher';
+@@ -20,15 +8 @@ export { waitForEndpoint, httpGetJson } from './utils';
+-/**
+- * Public screenshot API: uses the native page screenshot (which supports
+- * clip/format/quality on the device browsers) and falls back to the HDC
+- * display capture when it fails.
+- */
+-export const takeScreenshot = async (page: any, options: any = {}): Promise<Buffer> => {
+-  try {
+-    return await page.screenshot(options);
+-  } catch (error) {
+-    const hdcBackend = page.context?.().browser?.()._hdcBackend;
+-    if (!hdcBackend || (options.type && options.type !== 'png'))
+-      throw error;
+-    return await hdcScreenshot(hdcBackend);
+-  }
+-};
++export const takeScreenshot = async (page: any, options: any = {}): Promise<Buffer> => page.screenshot(options);
+diff --git a/packages/playwright-core/src/ohos/launcher.ts b/packages/playwright-core/src/ohos/launcher.ts
+index 1f5e604..1a4ee18 100644
+--- a/packages/playwright-core/src/ohos/launcher.ts
++++ b/packages/playwright-core/src/ohos/launcher.ts
+@@ -1,7 +1 @@
+-// Launches on-device browsers through HDC or ohos-aa and wires them into
+-// playwright-core's Chromium implementation.
+-
+-
+-import { HdcBackend } from './hdc';
+-import { execOhosAa, resolveOhosAa } from './ohos-aa';
+-import { execFileAsync, getFreePort, httpGetJson, isOpenHarmony, ohosLog, resolveCommandPath, sleep, waitForEndpoint } from './utils';
++import { execFileAsync, getFreePort, httpGetJson, isOpenHarmony, resolveCommandPath, waitForEndpoint } from './utils';
+@@ -42,2 +35,0 @@ const DEFAULT_CMDARGS_FLAGS = [
+-const DEVTOOLS_SOCKET_PATTERN = /@(webview_devtools_remote_\d+)/;
+-
+@@ -71,2 +62,0 @@ export const resolveLaunchConfig = (options: types.LaunchOptions): LaunchConfig
+-  // Default to the Haitai browser ('chrome'): its CDP support is complete. The Huawei browser stays
+-  // available through HARMONY_BROWSER=huaweiBrowser or channel: 'huaweiBrowser'.
+@@ -75 +65 @@ export const resolveLaunchConfig = (options: types.LaunchOptions): LaunchConfig
+-  const config: LaunchConfig = known ? { ...known } : { bundleName: channel, abilityName: 'MainAbility', kind: 'socket' };
++  const config: LaunchConfig = known ? { ...known } : { bundleName: channel, abilityName: 'MainAbility', kind: 'tcp', supportsCmdArgs: true };
+@@ -97,80 +87,5 @@ export const resolveLaunchConfig = (options: types.LaunchOptions): LaunchConfig
+-const findDevtoolsSocket = async (hdc: HdcBackend, timeoutMs = 30000): Promise<string> => {
+-  const deadline = Date.now() + timeoutMs;
+-  while (Date.now() < deadline) {
+-    // Run `cat /proc/net/unix` and `ps` separately: merging their output
+-    // truncates the socket list on the device.
+-    const unixResult = await hdc.shell('cat /proc/net/unix').catch(() => ({ stdout: '', stderr: '', code: 1 }));
+-    const matches = unixResult.stdout.match(new RegExp(DEVTOOLS_SOCKET_PATTERN.source, 'g')) || [];
+-    const sockets = matches.map(match => match.slice(1));
+-    if (sockets.length) {
+-      const psResult = await hdc.shell('ps -ef').catch(() => ({ stdout: '', stderr: '', code: 1 }));
+-      for (const socket of sockets) {
+-        const pid = socket.split('_').pop()!;
+-        if (psResult.stdout.includes(pid))
+-          return socket;
+-      }
+-    }
+-    await sleep(500);
+-  }
+-  throw new Error('DevTools socket was not found on the device');
+-};
+-
+-// The installed-bundle list is queried once per process: querying `bm` on
+-// every launch stalls under test load. Only definite answers are cached — a
+-// failed query means "unknown", not "missing", and is reported as hdc's own
+-// error instead of "not installed".
+-const installedBundlesCache = new Map<string, boolean>();
+-
+-// hdc reports most failures (no device, unauthorized, no connect key) on stdout
+-// with exit code 0, so a failed query looks like a normal answer that merely
+-// lacks the bundle name. Returns hdc's own message when the answer is a failure.
+-const hdcFailureMessage = (result: { stdout: string, stderr: string, code: number }): string | undefined => {
+-  const fail = /^\[Fail\].*$/m.exec(result.stdout);
+-  if (fail)
+-    return fail[0].trim();
+-  if (result.code !== 0)
+-    return (result.stderr || result.stdout).trim() || `exit code ${result.code}`;
+-  return undefined;
+-};
+-
+-const assertBrowserInstalled = async (hdc: HdcBackend, bundleName: string, connectionError?: string): Promise<void> => {
+-  if (installedBundlesCache.get(bundleName) === true)
+-    return;
+-  const { result, failure } = await hdc.shell(`bm dump -n ${bundleName}`).then(
+-      result => ({ result, failure: hdcFailureMessage(result) }),
+-      error => ({ result: { stdout: '', stderr: '', code: 1 }, failure: String(error?.message ?? error).trim() }));
+-  if (failure) {
+-    const detail = connectionError && !failure.includes(connectionError) ? ` (device connection check: ${connectionError})` : '';
+-    throw new Error(`failed to query browser ${bundleName} on the device with hdc (${hdc.binary}): ${failure}${detail}. ` +
+-        `Make sure the device is connected and authorized: \`hdc list targets\` should show Connected.`);
+-  }
+-  const installed = result.stdout.includes(bundleName);
+-  installedBundlesCache.set(bundleName, installed);
+-  if (!installed)
+-    throw new Error(`browser ${bundleName} is not installed on the device`);
+-};
+-
+-// Transient hdc failures happen under test load; critical commands get one
+-// retry, cleanup commands only warn.
+-const hdcShellWithRetry = async (hdc: HdcBackend, command: string, attempts = 2) => {
+-  for (let attempt = 0; attempt < attempts; attempt++) {
+-    try {
+-      return await hdc.shell(command);
+-    } catch (error) {
+-      if (attempt === attempts - 1)
+-        throw error;
+-      await sleep(1000);
+-    }
+-  }
+-  return { stdout: '', stderr: '', code: 1 };
+-};
+-
+-// ohos-aa force-stops the browser without a device connection, covering
+-// close and pre-launch cleanup when the HDC shell is unavailable.
+-const ohosAaForceStop = (ohosAa: string) => async (bundleName: string): Promise<void> => {
+-  await execOhosAa(ohosAa, ['force-stop', '--bundlename', bundleName]);
+-};
+-
+-const startBrowserViaAa = async (config: LaunchConfig): Promise<string | undefined> => {
+-  if (!isOpenHarmony() || config.kind !== 'tcp')
+-    return undefined;
++const startBrowserViaAa = async (config: LaunchConfig): Promise<string> => {
++  if (!isOpenHarmony())
++    throw new Error('Local aa launch requires an OpenHarmony host; use connectOverCDP for an existing TCP endpoint.');
++  if (config.kind !== 'tcp')
++    throw new Error('This browser does not expose TCP CDP; use an installed TCP CDP browser such as Haitai.');
+@@ -179 +94 @@ const startBrowserViaAa = async (config: LaunchConfig): Promise<string | undefin
+-    return undefined;
++    throw new Error('Local aa command not found; install or expose aa on PATH.');
+@@ -195,2 +110,5 @@ const startBrowserViaAa = async (config: LaunchConfig): Promise<string | undefin
+-  // aa can report success while an existing process ignores cmdArgs.
+-  await waitForEndpoint(`${endpointURL}/json/version`, 5000);
++  try {
++    await waitForEndpoint(`${endpointURL}/json/version`, 5000);
++  } catch (error) {
++    throw new Error(`Local CDP is unavailable at ${endpointURL}. Save and close an existing browser manually before retrying: ${error.message}`);
++  }
+@@ -203,76 +121 @@ const startBrowserViaAa = async (config: LaunchConfig): Promise<string | undefin
+-const startBrowserViaHdc = async (hdc: HdcBackend, config: LaunchConfig): Promise<string> => {
+-  if (process.env.PW_OHOS_DEBUG === '1')
+-    ohosLog(`launch config: ${JSON.stringify(config)}`, true);
+-  const ohosAa = resolveOhosAa();
+-  // The socket path always needs an HDC connection; the tcp path needs one
+-  // only when ohos-aa is unavailable. A failed check must not block the
+-  // launch: the device is usually already connected. The message is kept so a
+-  // later failure can report the real cause.
+-  let connectionError: string | undefined;
+-  if (!ohosAa || config.kind === 'socket') {
+-    await hdc.ensureDeviceConnected().catch(error => {
+-      connectionError = String(error.message);
+-      ohosLog(`device connection check failed: ${connectionError.slice(0, 100)}`);
+-    });
+-  }
+-  await assertBrowserInstalled(hdc, config.bundleName, connectionError);
+-  await hdc.cleanupStaleForwards();
+-  // Best-effort cleanup: a failed force-stop under load must not block the
+-  // launch, aa start brings the browser up regardless.
+-  await hdc.shell(`aa force-stop ${config.bundleName}`).catch(async error => {
+-    ohosLog(`force-stop ${config.bundleName} failed: ${String(error.message).slice(0, 100)}`);
+-    if (ohosAa)
+-      await ohosAaForceStop(ohosAa)(config.bundleName).catch(() => {});
+-  });
+-  if (config.kind === 'tcp') {
+-    // Browsers that accept cmdArgs pick a free local port so an occupied
+-    // default port never blocks the launch; fixed-port browsers use 9222.
+-    const port = config.port ?? (config.supportsCmdArgs ? await getFreePort() : 9222);
+-    const cmdArgs = config.supportsCmdArgs
+-      ? [...DEFAULT_CMDARGS_FLAGS, ...(config.extraArgs || []), `--remote-debugging-port=${port}`].join(' ')
+-      : '';
+-    // A launch URL uses the confirmed `aa start -U` path (ohos-aa --uri is
+-    // an implicit-startup URI and does not open the page).
+-    if (config.launchUrl) {
+-      await hdcShellWithRetry(hdc, `aa start -b ${config.bundleName} -a ${config.abilityName}${cmdArgs ? ` --ps cmdArgs '${cmdArgs}'` : ''} -U ${config.launchUrl}`);
+-    } else if (ohosAa) {
+-      const startArgs = ['start', '--bundlename', config.bundleName, '--abilityname', config.abilityName];
+-      if (cmdArgs)
+-        startArgs.push('--ps', JSON.stringify({ cmdArgs }));
+-      await execOhosAa(ohosAa, startArgs);
+-    } else if (cmdArgs) {
+-      await hdcShellWithRetry(hdc, `aa start -b ${config.bundleName} -a ${config.abilityName} --ps cmdArgs '${cmdArgs}'`);
+-    } else {
+-      await hdcShellWithRetry(hdc, `aa start -b ${config.bundleName} -a ${config.abilityName}`);
+-    }
+-    let endpointURL: string;
+-    for (let attempt = 0; attempt < 3; attempt++) {
+-      const localPort = await getFreePort();
+-      try {
+-        await hdc.fport(`tcp:${localPort}`, `tcp:${port}`);
+-        endpointURL = `http://127.0.0.1:${localPort}`;
+-        break;
+-      } catch (e) {
+-        await hdc.cleanupStaleForwards().catch(() => {});
+-        if (attempt === 2)
+-          throw e;
+-      }
+-    }
+-    await waitForEndpoint(`${endpointURL}/json/version`);
+-    return endpointURL;
+-  }
+-  if (config.launchUrl)
+-    await hdcShellWithRetry(hdc, `aa start -b ${config.bundleName} -a ${config.abilityName} -U ${config.launchUrl}`);
+-  else if (ohosAa)
+-    await execOhosAa(ohosAa, ['start', '--bundlename', config.bundleName, '--abilityname', config.abilityName]);
+-  else
+-    await hdcShellWithRetry(hdc, `aa start -b ${config.bundleName} -a ${config.abilityName}`);
+-  const socket = await findDevtoolsSocket(hdc);
+-  const localPort = await getFreePort();
+-  await hdc.fport(`tcp:${localPort}`, `localabstract:${socket}`);
+-  const endpointURL = `http://127.0.0.1:${localPort}`;
+-  await waitForEndpoint(`${endpointURL}/json/version`);
+-  return endpointURL;
+-};
+-
+-const patchBrowserClose = (browser: CRBrowser, hdc: HdcBackend | undefined, config: LaunchConfig): void => {
++const patchBrowserClose = (browser: CRBrowser): void => {
+@@ -281 +124,3 @@ const patchBrowserClose = (browser: CRBrowser, hdc: HdcBackend | undefined, conf
+-  const stop = async () => {
++  const originalClose = browserProcess.close.bind(browserProcess);
++  const originalKill = browserProcess.kill.bind(browserProcess);
++  const close = async (disconnect: () => Promise<void>) => {
+@@ -285,32 +129,0 @@ const patchBrowserClose = (browser: CRBrowser, hdc: HdcBackend | undefined, conf
+-    if (hdc) {
+-      const ohosAa = resolveOhosAa();
+-      await hdc.close(config.bundleName, ohosAa ? ohosAaForceStop(ohosAa) : undefined);
+-    } else {
+-      await browser._session.send('Browser.close').catch(() => {});
+-    }
+-  };
+-  // A process-based browser reports its exit through browserProcess.onclose,
+-  // which launchServer() relies on to close its WebSocket server and emit
+-  // "close". The device browser has no child process, so nothing ever called
+-  // onclose and the server kept listening after BrowserServer.close(),
+-  // keeping the host process alive. Report the close ourselves, once.
+-  let closeReported = false;
+-  const reportClosed = () => {
+-    if (closeReported)
+-      return;
+-    closeReported = true;
+-    browserProcess.onclose?.(0, null);
+-  };
+-  const originalClose = browserProcess.close.bind(browserProcess);
+-  const originalKill = browserProcess.kill.bind(browserProcess);
+-  browserProcess.close = async () => {
+-    try {
+-      if (!hdc)
+-        await stop();
+-      await originalClose();
+-    } finally {
+-      await stop();
+-      reportClosed();
+-    }
+-  };
+-  browserProcess.kill = async () => {
+@@ -318,3 +131,2 @@ const patchBrowserClose = (browser: CRBrowser, hdc: HdcBackend | undefined, conf
+-      if (!hdc)
+-        await stop();
+-      await originalKill();
++      await browser._session.send('Browser.close').catch(() => {});
++      await disconnect();
+@@ -322,2 +134 @@ const patchBrowserClose = (browser: CRBrowser, hdc: HdcBackend | undefined, conf
+-      await stop();
+-      reportClosed();
++      browserProcess.onclose?.(0, null);
+@@ -325,0 +137,2 @@ const patchBrowserClose = (browser: CRBrowser, hdc: HdcBackend | undefined, conf
++  browserProcess.close = () => close(originalClose);
++  browserProcess.kill = () => close(originalKill);
+@@ -328,38 +141 @@ const patchBrowserClose = (browser: CRBrowser, hdc: HdcBackend | undefined, conf
+-/**
+- * Polls the device process table and closes the browser connection when the
+- * device browser died, so playwright emits `disconnected` instead of
+- * hanging on a dead session. Opt-in through PW_OHOS_CRASH_WATCH=1: the
+- * periodic hdc shell calls add device traffic and overlap unless guarded,
+- * which disturbed the ArkWeb debug channel during validation, so the
+- * watcher stays off by default.
+- */
+-const startCrashWatcher = (hdc: HdcBackend, browser: CRBrowser, config: LaunchConfig): void => {
+-  if (process.env.PW_OHOS_CRASH_WATCH !== '1')
+-    return;
+-  let stopped = false;
+-  let polling = false;
+-  const timer = setInterval(async () => {
+-    if (stopped || polling)
+-      return;
+-    polling = true;
+-    try {
+-      const result = await hdc.shell(`ps -ef | grep ${config.bundleName} | grep -v grep`).catch(() => ({ stdout: '', stderr: '', code: 1 }));
+-      if (result.stdout.trim())
+-        return;
+-      stopped = true;
+-      clearInterval(timer);
+-      ohosLog(`device browser ${config.bundleName} died; closing the connection`);
+-      browser._connection.close();
+-    } catch {
+-    } finally {
+-      polling = false;
+-    }
+-  }, 10000);
+-  timer.unref?.();
+-};
+-
+-/**
+- * Launches a HarmonyOS browser over HDC and returns a connected CRBrowser.
+- * Called from the patched `Chromium.launch()` on the `openharmony` platform.
+- */
+-export const launchViaHdc = async (chromium: Chromium, progress: Progress, options: types.LaunchOptions): Promise<Browser> => {
++export const launchViaAa = async (chromium: Chromium, progress: Progress, options: types.LaunchOptions): Promise<Browser> => {
+@@ -367,19 +143,2 @@ export const launchViaHdc = async (chromium: Chromium, progress: Progress, optio
+-  let localFailure: string | undefined;
+-  let endpointURL = await progress.race(startBrowserViaAa(config).catch(error => {
+-    localFailure = String(error.message);
+-    ohosLog(`local aa launch failed: ${localFailure}. Close an existing browser before retrying; falling back to hdc.`);
+-    return undefined;
+-  }));
+-  let hdc: HdcBackend | undefined;
+-  if (!endpointURL) {
+-    hdc = new HdcBackend();
+-    try {
+-      endpointURL = await progress.race(startBrowserViaHdc(hdc, config));
+-    } catch (error) {
+-      if (localFailure)
+-        error.message += ` (local aa attempt: ${localFailure}; close the browser manually if it was already running)`;
+-      throw error;
+-    }
+-  }
+-  const isArkWeb = config.bundleName === ARK_WEB_BUNDLE_NAME;
+-  const connectOptions = {
++  const endpointURL = await progress.race(startBrowserViaAa(config));
++  const browser = await chromium._connectOverCDPInternal(progress, endpointURL, {
+@@ -387 +145,0 @@ export const launchViaHdc = async (chromium: Chromium, progress: Progress, optio
+-    __ohosHdcBackend: hdc,
+@@ -389,6 +147,3 @@ export const launchViaHdc = async (chromium: Chromium, progress: Progress, optio
+-    __ohosArkWeb: isArkWeb,
+-    __ohosNoDefaultContext: !isArkWeb,
+-  };
+-  const browser = await chromium._connectOverCDPInternal(progress, endpointURL, connectOptions);
+-  browser._hdcBackend = hdc;
+-  browser._isArkWeb = isArkWeb;
++    __ohosArkWeb: false,
++    __ohosNoDefaultContext: true,
++  });
+@@ -396,3 +151 @@ export const launchViaHdc = async (chromium: Chromium, progress: Progress, optio
+-  patchBrowserClose(browser, hdc, config);
+-  if (hdc)
+-    startCrashWatcher(hdc, browser, config);
++  patchBrowserClose(browser);
+@@ -402,5 +154,0 @@ export const launchViaHdc = async (chromium: Chromium, progress: Progress, optio
+-/**
+- * Init script injected into every page of HDC-launched browsers.
+- * Rounds touch coordinates reported by ArkWeb to avoid strict comparison
+- * failures and marks the browser as automated.
+- */
+diff --git a/packages/playwright-core/src/ohos/ohos-aa.ts b/packages/playwright-core/src/ohos/ohos-aa.ts
+deleted file mode 100644
+index cff9d5e..0000000
+--- a/packages/playwright-core/src/ohos/ohos-aa.ts
++++ /dev/null
+@@ -1,40 +0,0 @@
+-// ohos-aa support: on HarmonyOS 7.1+ the command starts abilities without
+-// developer mode. On this machine it is a shell alias, which is resolved
+-// through the shell.
+-import { execFileSync } from 'child_process';
+-
+-import { execFileAsync, resolveCommandPath } from './utils';
+-
+-const OHOS_AA_DEFAULT_PATH = '/system/bin/cli_tool/executable/ohos-aa';
+-
+-const isExecutable = (candidate: string): boolean => {
+-  try {
+-    execFileSync(candidate, ['--help'], { stdio: 'ignore', timeout: 5000 });
+-    return true;
+-  } catch {
+-    return false;
+-  }
+-};
+-
+-let cachedOhosAa: string | undefined | null = null;
+-
+-/** Resolves the ohos-aa executable, cached for the process lifetime. */
+-export const resolveOhosAa = (): string | undefined => {
+-  if (cachedOhosAa !== null)
+-    return cachedOhosAa;
+-  const candidates = [process.env.OHOS_AA_BINARY, resolveCommandPath('ohos-aa'), OHOS_AA_DEFAULT_PATH].filter((c): c is string => !!c);
+-  for (const candidate of candidates) {
+-    if (isExecutable(candidate)) {
+-      cachedOhosAa = candidate;
+-      return candidate;
+-    }
+-  }
+-  cachedOhosAa = undefined;
+-  return undefined;
+-};
+-
+-/** Runs an ohos-aa command. */
+-export const execOhosAa = async (command: string, args: string[], timeoutMs = 30000) => {
+-  const { stdout, stderr } = await execFileAsync(command, args, timeoutMs);
+-  return { stdout, stderr };
+-};
+diff --git a/packages/playwright-core/src/ohos/utils.ts b/packages/playwright-core/src/ohos/utils.ts
+index 652ee56..eafa5e9 100644
+--- a/packages/playwright-core/src/ohos/utils.ts
++++ b/packages/playwright-core/src/ohos/utils.ts
+@@ -6 +5,0 @@ import net from 'net';
+-import os from 'os';
+@@ -38 +36,0 @@ export const execFileAsync = (command: string, args: string[], timeoutMs: number
+-    stdio: ['inherit', 'pipe', 'pipe'],
+@@ -143,56 +140,0 @@ export const waitForEndpoint = async (url: string, timeoutMs = 30000): Promise<v
+-/**
+- * Harmonybrew prefixes to look in, most specific first. HOMEBREW_PREFIX is not
+- * always forwarded (test runners and task runners pass a filtered
+- * environment), HOME may point at an isolated directory, and os.userInfo()
+- * throws on openharmony without the compat shim — so try all of them, ending
+- * with the fixed per-user location HarmonyOS PC uses.
+- */
+-const harmonybrewPrefixes = (): string[] => {
+-  const prefixes: string[] = [];
+-  if (process.env.HOMEBREW_PREFIX)
+-    prefixes.push(process.env.HOMEBREW_PREFIX);
+-  try {
+-    prefixes.push(path.join(os.userInfo().homedir, '.harmonybrew'));
+-  } catch {
+-  }
+-  if (process.env.HOME)
+-    prefixes.push(path.join(process.env.HOME, '.harmonybrew'));
+-  prefixes.push('/storage/Users/currentUser/.harmonybrew');
+-  return prefixes;
+-};
+-
+-/**
+- * The hdc from the Harmonybrew ohos-sdk package, preferred over whatever hdc
+- * happens to be on PATH: it is the one the rest of the HarmonyOS PC toolchain
+- * uses and it does not depend on the caller's PATH.
+- */
+-export const findHarmonybrewHdc = (): string | undefined => {
+-  for (const prefix of harmonybrewPrefixes()) {
+-    for (const relative of ['opt/ohos-sdk/toolchains/hdc', 'opt/ohos-sdk/bin/hdc']) {
+-      const candidate = path.join(prefix, relative);
+-      try {
+-        fs.accessSync(candidate, fs.constants.X_OK);
+-        return candidate;
+-      } catch {
+-      }
+-    }
+-  }
+-  return undefined;
+-};
+-
+-/**
+- * The host-side executable that starts the device browser. Device browsers
+- * have no local binary, so `BrowserType.executablePath()` returns the `hdc`
+- * binary instead of throwing "Browser is not supported on current platform":
+- * callers (test configs, installers) only read this path and hand it back to
+- * launch()/launchServer(), which ignore it on openharmony.
+- *
+- * Order: HDC_BINARY, the Harmonybrew ohos-sdk hdc, hdc on PATH, then the bare
+- * command name (the same last resort HdcBackend uses, so a missing hdc surfaces
+- * later as hdc's own launch error instead of a misleading "Browser is not
+- * supported on current platform").
+- *
+- * The playwright server evaluates executablePath() while it is created, i.e.
+- * on every require of playwright-core, so this only touches the file system —
+- * resolveCommandPath() would spawn login shells.
+- */
+@@ -200,5 +141,0 @@ export const ohosExecutablePath = (): string => {
+-  if (process.env.HDC_BINARY)
+-    return process.env.HDC_BINARY;
+-  const harmonybrewHdc = findHarmonybrewHdc();
+-  if (harmonybrewHdc)
+-    return harmonybrewHdc;
+@@ -208 +145 @@ export const ohosExecutablePath = (): string => {
+-    const candidate = path.join(dir, 'hdc');
++    const candidate = path.join(dir, 'aa');
+@@ -215,39 +152 @@ export const ohosExecutablePath = (): string => {
+-  return 'hdc';
+-};
+-
+-/**
+- * The real home directory of the current user. hdc keeps its server state and
+- * authorization under HOME, so a caller that isolates HOME (test runners, task
+- * runners, sandboxes) makes hdc start a second server that has no device
+- * connection. os.userInfo() throws on openharmony without the compat shim, so
+- * fall back to the fixed per-user location HarmonyOS PC uses. Only an existing
+- * directory is returned.
+- */
+-export const realUserHome = (): string | undefined => {
+-  const candidates: string[] = [];
+-  try {
+-    candidates.push(os.userInfo().homedir);
+-  } catch {
+-  }
+-  candidates.push('/storage/Users/currentUser');
+-  for (const candidate of candidates) {
+-    try {
+-      if (candidate && fs.statSync(candidate).isDirectory())
+-        return candidate;
+-    } catch {
+-    }
+-  }
+-  return undefined;
+-};
+-
+-/**
+- * Environment for spawning hdc: the caller's environment with HOME pointed at
+- * the real user home, so hdc reuses the server and the authorization of the
+- * logged-in user. Returns undefined (inherit as is) when HOME is already the
+- * real home or the real home cannot be determined.
+- */
+-export const hdcEnvironment = (): NodeJS.ProcessEnv | undefined => {
+-  const home = realUserHome();
+-  if (!home || home === process.env.HOME)
+-    return undefined;
+-  return { ...process.env, HOME: home };
++  return 'aa';
+diff --git a/packages/playwright-core/src/server/browser.ts b/packages/playwright-core/src/server/browser.ts
+index 0c6aba7..d7189c0 100644
+--- a/packages/playwright-core/src/server/browser.ts
++++ b/packages/playwright-core/src/server/browser.ts
+@@ -39 +38,0 @@ import type { Progress } from './progress';
+-import type { HdcBackend } from '../ohos/hdc';
+@@ -69 +68 @@ export type BrowserOptions = {
+-  // HarmonyOS-only launch flags produced by the HDC launcher; present only
++  // HarmonyOS-only launch flags produced by the local aa launcher; present only
+@@ -71 +69,0 @@ export type BrowserOptions = {
+-  __ohosHdcBackend?: HdcBackend;
+@@ -92,2 +90 @@ export abstract class Browser extends SdkObject {
+-  // HDC; the ArkWeb flag identifies the huawei browser bundle.
+-  _hdcBackend?: HdcBackend;
++  // aa; the ArkWeb flag identifies the huawei browser bundle.
+diff --git a/packages/playwright-core/src/server/chromium/chromium.ts b/packages/playwright-core/src/server/chromium/chromium.ts
+index c4c847d..ba034b7 100644
+--- a/packages/playwright-core/src/server/chromium/chromium.ts
++++ b/packages/playwright-core/src/server/chromium/chromium.ts
+@@ -41 +41 @@ import { CRDevTools } from './crDevTools';
+-import { launchViaHdc } from '../../ohos/launcher';
++import { launchViaAa } from '../../ohos/launcher';
+@@ -53 +52,0 @@ import type { Progress } from '../progress';
+-import type { HdcBackend } from '../../ohos/hdc';
+@@ -76 +75 @@ export class Chromium extends BrowserType {
+-    // Device browsers have no local executable; report the host-side hdc binary so callers get a usable path.
++    // Device browsers have no local executable; report the local aa command so callers get a usable path.
+@@ -83 +82 @@ export class Chromium extends BrowserType {
+-    // On openharmony, chromium.launch() delegates to the HDC launcher, which
++    // On openharmony, chromium.launch() delegates to the local aa launcher, which
+@@ -86 +85 @@ export class Chromium extends BrowserType {
+-      return launchViaHdc(this, progress, options);
++      return launchViaAa(this, progress, options);
+@@ -109 +108 @@ export class Chromium extends BrowserType {
+-  async _connectOverCDPInternal(progress: Progress, endpointURL: string, options: types.LaunchOptions & { headers?: types.HeadersArray, isLocal?: boolean, noDefaults?: boolean, artifactsDir?: string }, onClose?: () => Promise<void>) {
++  async _connectOverCDPInternal(progress: Progress, endpointURL: string, options: types.LaunchOptions & { __ohosDeviceBrowser?: boolean, __ohosArkWeb?: boolean, __ohosNoDefaultContext?: boolean, headers?: types.HeadersArray, isLocal?: boolean, noDefaults?: boolean, artifactsDir?: string }, onClose?: () => Promise<void>) {
+@@ -137 +136 @@ export class Chromium extends BrowserType {
+-  private async _connectOverCDPImpl(progress: Progress, transport: ConnectionTransport, closeAndWait: () => Promise<void>, options: types.LaunchOptions & { isLocal?: boolean, noDefaults?: boolean, artifactsDir?: string, __ohosHdcBackend?: HdcBackend, __ohosDeviceBrowser?: boolean, __ohosArkWeb?: boolean, __ohosNoDefaultContext?: boolean }, onClose?: () => Promise<void>) {
++  private async _connectOverCDPImpl(progress: Progress, transport: ConnectionTransport, closeAndWait: () => Promise<void>, options: types.LaunchOptions & { isLocal?: boolean, noDefaults?: boolean, artifactsDir?: string, __ohosDeviceBrowser?: boolean, __ohosArkWeb?: boolean, __ohosNoDefaultContext?: boolean }, onClose?: () => Promise<void>) {
+@@ -162 +161 @@ export class Chromium extends BrowserType {
+-      // creates; the HDC launcher skips it through __ohosNoDefaultContext.
++      // creates; the local aa launcher skips it through __ohosNoDefaultContext.
+@@ -180 +178,0 @@ export class Chromium extends BrowserType {
+-        __ohosHdcBackend: options.__ohosHdcBackend,
+diff --git a/packages/playwright-core/src/server/chromium/crBrowser.ts b/packages/playwright-core/src/server/chromium/crBrowser.ts
+index fd31903..3314888 100644
+--- a/packages/playwright-core/src/server/chromium/crBrowser.ts
++++ b/packages/playwright-core/src/server/chromium/crBrowser.ts
+@@ -67 +67 @@ export class CRBrowser extends Browser {
+-    // Forward the HDC launcher flags so they are available before the first
++    // Forward the local aa launcher flags so they are available before the first
+@@ -69 +68,0 @@ export class CRBrowser extends Browser {
+-    browser._hdcBackend = options.__ohosHdcBackend;
+@@ -72 +71 @@ export class CRBrowser extends Browser {
+-    if (browser._hdcBackend)
++    if (browser._isHarmonyBrowser)
+diff --git a/packages/playwright-core/src/server/chromium/crPage.ts b/packages/playwright-core/src/server/chromium/crPage.ts
+index c1f401d..099d664 100644
+--- a/packages/playwright-core/src/server/chromium/crPage.ts
++++ b/packages/playwright-core/src/server/chromium/crPage.ts
+@@ -40 +39,0 @@ import { nullProgress } from '../progress';
+-import { hdcScreenshot } from '../../ohos/hdc';
+@@ -288,11 +287,2 @@ export class CRPage implements PageDelegate {
+-    try {
+-      const result = await progress.race(this._mainFrameSession._client.send('Page.captureScreenshot', { format, quality, clip, captureBeyondViewport: !fitsViewport }));
+-      return Buffer.from(result.data, 'base64');
+-    } catch (error) {
+-      // The native CDP screenshot is used when it works; only a failure
+-      // falls back to the HDC display capture (png only).
+-      const hdcBackend = this._browserContext._browser._hdcBackend;
+-      if (!hdcBackend || format !== 'png')
+-        throw error;
+-      return await progress.race(hdcScreenshot(hdcBackend));
+-    }
++    const result = await progress.race(this._mainFrameSession._client.send('Page.captureScreenshot', { format, quality, clip, captureBeyondViewport: !fitsViewport }));
++    return Buffer.from(result.data, 'base64');
+diff --git a/packages/playwright-core/src/server/page.ts b/packages/playwright-core/src/server/page.ts
+index 85ca829..69f42e2 100644
+--- a/packages/playwright-core/src/server/page.ts
++++ b/packages/playwright-core/src/server/page.ts
+@@ -972 +972 @@ export class Page extends SdkObject<PageEventMap> {
+-    // Inject the HarmonyOS init script into every page of HDC-launched
++    // Inject the HarmonyOS init script into every page of aa-launched

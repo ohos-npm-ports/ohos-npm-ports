@@ -10,7 +10,7 @@ set -e
 # revision can still be published without bumping the upstream version.
 
 UPSTREAM_VERSION=1.62.1
-VERSION="$UPSTREAM_VERSION-4"
+VERSION="$UPSTREAM_VERSION-5"
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SCRIPT_DIR"
@@ -25,6 +25,7 @@ echo "==> downloading playwright $UPSTREAM_VERSION source"
 curl -fsSL --retry 5 --retry-delay 2 \
   "https://github.com/microsoft/playwright/archive/refs/tags/v${UPSTREAM_VERSION}.tar.gz" \
   -o "$SOURCE.tar.gz"
+echo "f6b38805b0b021423bb908cd7682a455283c22742bf7d95c190927f3fb11172c  $SOURCE.tar.gz" | sha256sum -c -
 rm -rf "$SOURCE"
 tar -zxf "$SOURCE.tar.gz"
 rm "$SOURCE.tar.gz"
@@ -44,11 +45,10 @@ test -f packages/playwright-core/src/ohos/launcher.ts
 grep -q 'harmonyBundleName' packages/protocol/spec/mixins.yml
 grep -q "isOpenHarmony() ? resolveCommandPath('ffmpeg')" packages/playwright-core/src/server/registry/index.ts
 grep -q 'ohosExecutablePath' packages/playwright-core/src/server/chromium/chromium.ts
-grep -q 'closeReported' packages/playwright-core/src/ohos/launcher.ts
-grep -q 'startBrowserViaAa' packages/playwright-core/src/ohos/launcher.ts
-grep -q 'findHarmonybrewHdc' packages/playwright-core/src/ohos/hdc.ts
-grep -q 'hdcEnvironment' packages/playwright-core/src/ohos/hdc.ts
-grep -q 'hdcFailureMessage' packages/playwright-core/src/ohos/launcher.ts
+grep -q 'browserProcess.onclose' packages/playwright-core/src/ohos/launcher.ts
+grep -q 'launchViaAa' packages/playwright-core/src/ohos/launcher.ts
+test ! -e packages/playwright-core/src/ohos/hdc.ts
+test ! -e packages/playwright-core/src/ohos/ohos-aa.ts
 grep -q "options.channel ?? 'chrome'" packages/playwright-core/src/ohos/launcher.ts
 
 # --- stage 2: install dependencies and build playwright-core ---
@@ -123,6 +123,7 @@ node -e "
 
   node --check index.js
   node "$SCRIPT_DIR/tests/aa-first.cjs" "$PWD/lib/ohos/launcher.js"
+  node "$SCRIPT_DIR/tests/public-api.cjs" "$PWD"
   # ohos 入口的自包含相对 require 未被 esbuild 内联；exports 暴露 ./lib/ohos；
   # 版本号为 <上游版本>-1 修订号，与仓库其余 port 的版本约定一致
   grep -q 'require("../../index.js")' lib/ohos/index.js
@@ -150,44 +151,25 @@ node -e "
   '
   node -e '
     const ohos = require("./lib/ohos");
-    for (const name of ["HdcBackend", "launchViaHdc", "takeScreenshot", "resolveLaunchConfig"]) {
+    for (const name of ["launchViaAa", "takeScreenshot", "resolveLaunchConfig"]) {
       if (!(name in ohos)) throw new Error(`lib/ohos export missing: ${name}`);
     }
     // A leftover bare require("playwright-core") would throw here in a
     // direct (non-aliased) @ohos-npm-ports install, since there is no
     // node_modules/playwright-core in that layout.
     if (typeof ohos.chromium?.launch !== "function") throw new Error("lib/ohos re-export of playwright-core is broken");
-    console.log("lib/ohos smoke OK: HdcBackend/launchViaHdc/takeScreenshot present, playwright-core re-export resolves");
+    console.log("lib/ohos smoke OK: launchViaAa/takeScreenshot present, playwright-core re-export resolves");
   '
 
-  # 设备浏览器相关的修改（executablePath、launchServer 关闭、hdc 查找与 HOME、报错）必须真的进了打包产物（coreBundle 由 esbuild 生成，标记写在源码里不代表产物里有）
   grep -q 'ohosExecutablePath' lib/coreBundle.js
-  grep -q 'closeReported' lib/coreBundle.js
   grep -q 'startBrowserViaAa' lib/coreBundle.js
   grep -q '__ohosDeviceBrowser' lib/coreBundle.js
-  grep -q 'findHarmonybrewHdc' lib/coreBundle.js
-  grep -q 'hdcEnvironment' lib/coreBundle.js
-  grep -q 'hdcFailureMessage' lib/coreBundle.js
-  # openharmony 上 chromium.executablePath() 不能再抛 "Browser is not supported on current platform"：
-  # 指定 HDC_BINARY 时必须原样返回它（只在 openharmony 上执行，其它平台走上游逻辑）
-  node -e '
-    if (process.platform !== "openharmony") { console.log("executablePath smoke skipped (not openharmony)"); process.exit(0); }
-    process.env.HDC_BINARY = process.execPath;
-    const { chromium } = require("./index.js");
-    const p = chromium.executablePath();
-    if (p !== process.execPath) throw new Error(`executablePath() = ${JSON.stringify(p)}`);
-    console.log("executablePath smoke OK:", p);
-  '
-  # HDC_BINARY 未设、PATH 为空时：有 Harmonybrew ohos-sdk 就返回它的 hdc，没有就兜底为裸命令名 hdc
-  # （与 HdcBackend 的兜底一致），都不能是空串（空串会让客户端抛“平台不支持”）
   node -e '
     if (process.platform !== "openharmony") process.exit(0);
-    delete process.env.HDC_BINARY;
     process.env.PATH = "";
     const { chromium } = require("./index.js");
-    const p = chromium.executablePath();
-    if (p !== "hdc" && !/\/ohos-sdk\/(toolchains|bin)\/hdc$/.test(p)) throw new Error(`executablePath() fallback = ${JSON.stringify(p)}`);
-    console.log("executablePath fallback smoke OK:", p);
+    if (chromium.executablePath() !== "aa") throw new Error("executablePath must resolve local aa");
+    console.log("local aa executablePath smoke OK");
   '
   # 默认浏览器是海泰浏览器（chrome 通道，com.haitai.htbrowser）；HARMONY_BROWSER 仍可覆盖
   node -e '
@@ -200,53 +182,12 @@ node -e "
     if (huawei.bundleName !== "com.huawei.hmos.browser") throw new Error(`HARMONY_BROWSER override = ${huawei.bundleName}`);
     console.log("default browser smoke OK:", def.bundleName);
   '
-  # 调用方隔离了 HOME 时，HdcBackend 必须用真实用户目录起 hdc（hdc 的服务和授权都在 HOME 下）：
-  # 能确定真实目录时，spawn 用的 env 里的 HOME 必须是一个存在的目录且不是被隔离的那个；
-  # 确定不了（既没有 userInfo 也没有固定目录）时不覆盖，保持原样
-  node -e '
-    if (process.platform !== "openharmony") process.exit(0);
-    const os = require("os"), fs = require("fs");
-    const isolated = fs.mkdtempSync(os.tmpdir() + "/pw-isolated-home-");
-    process.env.HOME = isolated;
-    const { HdcBackend } = require("./lib/ohos");
-    const env = new HdcBackend()._env;
-    if (env === undefined) {
-      console.log("hdc HOME smoke OK: real home not determinable, HOME left as is");
-    } else {
-      if (env.HOME === isolated) throw new Error("hdc env HOME is still the isolated one");
-      if (!fs.statSync(env.HOME).isDirectory()) throw new Error(`hdc env HOME is not a directory: ${env.HOME}`);
-      console.log("hdc HOME smoke OK:", env.HOME);
-    }
-    fs.rmdirSync(isolated);
-  '
-  # hdc 连不上时 launch() 的报错必须带上 hdc 的真实错误，不能被吞成“browser ... is not installed”。
-  # 用假的 hdc 脚本模拟两种情况：hdc 报 [Fail] 但退出码为 0（它的常见失败方式）→ 报错里要有这行；
-  # hdc 正常回答但没有这个包 → 仍然是“is not installed”。只在 openharmony 上执行（launch 的 hdc 流程只在那里走）。
-  node -e '
-    if (process.platform !== "openharmony") { console.log("hdc error smoke skipped (not openharmony)"); process.exit(0); }
-    const fs = require("fs"), os = require("os"), path = require("path");
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pw-fake-hdc-"));
-    const fake = path.join(dir, "hdc");
-    fs.writeFileSync(fake, "#!/bin/sh\ncase \"$*\" in\n  \"list targets\") echo fake-device ;;\n  *) echo \"$FAKE_HDC_REPLY\" ;;\nesac\n", { mode: 0o755 });
-    process.env.HDC_BINARY = fake;
-    delete process.env.HARMONY_BROWSER;
-    const { chromium } = require("./index.js");
-    const attempt = async (reply) => {
-      process.env.FAKE_HDC_REPLY = reply;
-      try { await chromium.launch({ timeout: 20000 }); } catch (e) { return String(e.message); }
-      throw new Error("launch() unexpectedly succeeded with a fake hdc");
-    };
-    (async () => {
-      const failed = await attempt("[Fail]ExecuteCommand need connect-key? please confirm a device by help info");
-      if (!failed.includes("need connect-key")) throw new Error(`hdc error swallowed: ${failed}`);
-      if (failed.includes("is not installed")) throw new Error(`hdc failure reported as not installed: ${failed}`);
-      const missing = await attempt("error: bundle not found");
-      if (!missing.includes("is not installed on the device")) throw new Error(`missing bundle not reported: ${missing}`);
-      console.log("hdc error reporting smoke OK");
-      fs.rmSync(dir, { recursive: true, force: true });
-      process.exit(0);
-    })().catch(e => { console.error(e.message); process.exit(1); });
-  '
+  test ! -e lib/ohos/hdc.js
+  test ! -e lib/ohos/ohos-aa.js
+  if grep -RE 'HdcBackend|launchViaHdc|hdcScreenshot|hdcEnvironment|findHarmonybrewHdc' lib/ohos lib/coreBundle.js; then
+    echo "removed backend remains in the artifact" >&2
+    exit 1
+  fi
 )
 
 echo "==> done: $ARTIFACT"
