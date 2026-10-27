@@ -1,0 +1,22 @@
+--- a/package.json
++++ b/package.json
+@@ -1,8 +1,8 @@
+ {
+-  "name": "testcafe",
++  "name": "@ohos-npm-ports/testcafe",
+   "description": "Automated browser testing for the modern web development stack.",
+   "license": "MIT",
+-  "version": "3.7.6",
++  "version": "3.7.6-1",
+   "author": {
+     "name": "Developer Express Inc.",
+     "url": "https://www.devexpress.com/"
+@@ -16,7 +16,7 @@
+   "homepage": "https://testcafe.io/",
+   "repository": {
+     "type": "git",
+-    "url": "git+https://github.com/DevExpress/testcafe.git"
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports"
+   },
+   "engines": {
+     "node": ">=20.0.0"
