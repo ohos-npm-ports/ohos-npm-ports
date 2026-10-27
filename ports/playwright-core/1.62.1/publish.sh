@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
 
-cd playwright-core-1.62.1-3
+cd playwright-core-1.62.1-4
 
 npm publish --tag latest --access public

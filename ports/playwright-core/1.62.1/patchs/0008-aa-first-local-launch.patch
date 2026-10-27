@@ -1,0 +1,253 @@
+diff --git a/packages/playwright-core/src/ohos/launcher.ts b/packages/playwright-core/src/ohos/launcher.ts
+index f3606b9..1f5e604 100644
+--- a/packages/playwright-core/src/ohos/launcher.ts
++++ b/packages/playwright-core/src/ohos/launcher.ts
+@@ -4,7 +4,7 @@
+ 
+ import { HdcBackend } from './hdc';
+ import { execOhosAa, resolveOhosAa } from './ohos-aa';
+-import { getFreePort, ohosLog, sleep, waitForEndpoint } from './utils';
++import { execFileAsync, getFreePort, httpGetJson, isOpenHarmony, ohosLog, resolveCommandPath, sleep, waitForEndpoint } from './utils';
+ 
+ import type { Browser } from '../server/browser';
+ import type { Chromium } from '../server/chromium/chromium';
+@@ -171,6 +171,35 @@ const ohosAaForceStop = (ohosAa: string) => async (bundleName: string): Promise<
+   await execOhosAa(ohosAa, ['force-stop', '--bundlename', bundleName]);
+ };
+ 
++const startBrowserViaAa = async (config: LaunchConfig): Promise<string | undefined> => {
++  if (!isOpenHarmony() || config.kind !== 'tcp')
++    return undefined;
++  const aa = resolveCommandPath('aa');
++  if (!aa)
++    return undefined;
++  const port = config.port ?? (config.supportsCmdArgs ? await getFreePort() : 9222);
++  const args = ['start', '-b', config.bundleName, '-a', config.abilityName];
++  if (config.supportsCmdArgs)
++    args.push('--ps', 'cmdArgs', [...DEFAULT_CMDARGS_FLAGS, ...(config.extraArgs || []), `--remote-debugging-port=${port}`].join(' '));
++  if (config.launchUrl)
++    args.push('-U', config.launchUrl);
++  const result = await execFileAsync(aa, args, 5000).catch(error => {
++    if (error.code !== 'ENOEXEC')
++      throw error;
++    // Some system aa wrappers have a comment before their shebang.
++    return execFileAsync('sh', [aa, ...args], 5000);
++  });
++  if (!result.stdout.includes('start ability successfully'))
++    throw new Error(`aa start failed: ${result.stdout || result.stderr}`);
++  const endpointURL = `http://127.0.0.1:${port}`;
++  // aa can report success while an existing process ignores cmdArgs.
++  await waitForEndpoint(`${endpointURL}/json/version`, 5000);
++  const version = await httpGetJson(`${endpointURL}/json/version`);
++  if (!version.Browser || !version.webSocketDebuggerUrl)
++    throw new Error(`Endpoint ${endpointURL} is not a CDP browser`);
++  return endpointURL;
++};
++
+ const startBrowserViaHdc = async (hdc: HdcBackend, config: LaunchConfig): Promise<string> => {
+   if (process.env.PW_OHOS_DEBUG === '1')
+     ohosLog(`launch config: ${JSON.stringify(config)}`, true);
+@@ -246,15 +275,19 @@ const startBrowserViaHdc = async (hdc: HdcBackend, config: LaunchConfig): Promis
+   return endpointURL;
+ };
+ 
+-const patchBrowserClose = (browser: Browser, hdc: HdcBackend, config: LaunchConfig): void => {
++const patchBrowserClose = (browser: CRBrowser, hdc: HdcBackend | undefined, config: LaunchConfig): void => {
+   const browserProcess = browser.options.browserProcess;
+   let closed = false;
+   const stop = async () => {
+     if (closed)
+       return;
+     closed = true;
+-    const ohosAa = resolveOhosAa();
+-    await hdc.close(config.bundleName, ohosAa ? ohosAaForceStop(ohosAa) : undefined);
++    if (hdc) {
++      const ohosAa = resolveOhosAa();
++      await hdc.close(config.bundleName, ohosAa ? ohosAaForceStop(ohosAa) : undefined);
++    } else {
++      await browser._session.send('Browser.close').catch(() => {});
++    }
+   };
+   // A process-based browser reports its exit through browserProcess.onclose,
+   // which launchServer() relies on to close its WebSocket server and emit
+@@ -272,6 +305,8 @@ const patchBrowserClose = (browser: Browser, hdc: HdcBackend, config: LaunchConf
+   const originalKill = browserProcess.kill.bind(browserProcess);
+   browserProcess.close = async () => {
+     try {
++      if (!hdc)
++        await stop();
+       await originalClose();
+     } finally {
+       await stop();
+@@ -280,6 +315,8 @@ const patchBrowserClose = (browser: Browser, hdc: HdcBackend, config: LaunchConf
+   };
+   browserProcess.kill = async () => {
+     try {
++      if (!hdc)
++        await stop();
+       await originalKill();
+     } finally {
+       await stop();
+@@ -327,12 +364,28 @@ const startCrashWatcher = (hdc: HdcBackend, browser: CRBrowser, config: LaunchCo
+  */
+ export const launchViaHdc = async (chromium: Chromium, progress: Progress, options: types.LaunchOptions): Promise<Browser> => {
+   const config = resolveLaunchConfig(options);
+-  const hdc = new HdcBackend();
+-  const endpointURL = await startBrowserViaHdc(hdc, config);
++  let localFailure: string | undefined;
++  let endpointURL = await progress.race(startBrowserViaAa(config).catch(error => {
++    localFailure = String(error.message);
++    ohosLog(`local aa launch failed: ${localFailure}. Close an existing browser before retrying; falling back to hdc.`);
++    return undefined;
++  }));
++  let hdc: HdcBackend | undefined;
++  if (!endpointURL) {
++    hdc = new HdcBackend();
++    try {
++      endpointURL = await progress.race(startBrowserViaHdc(hdc, config));
++    } catch (error) {
++      if (localFailure)
++        error.message += ` (local aa attempt: ${localFailure}; close the browser manually if it was already running)`;
++      throw error;
++    }
++  }
+   const isArkWeb = config.bundleName === ARK_WEB_BUNDLE_NAME;
+   const connectOptions = {
+     ...options,
+     __ohosHdcBackend: hdc,
++    __ohosDeviceBrowser: true,
+     __ohosArkWeb: isArkWeb,
+     __ohosNoDefaultContext: !isArkWeb,
+   };
+@@ -341,7 +394,8 @@ export const launchViaHdc = async (chromium: Chromium, progress: Progress, optio
+   browser._isArkWeb = isArkWeb;
+   browser._isBrowserCollocatedWithServer = false;
+   patchBrowserClose(browser, hdc, config);
+-  startCrashWatcher(hdc, browser, config);
++  if (hdc)
++    startCrashWatcher(hdc, browser, config);
+   return browser;
+ };
+ 
+diff --git a/packages/playwright-core/src/server/browser.ts b/packages/playwright-core/src/server/browser.ts
+index f78c6c3..0c6aba7 100644
+--- a/packages/playwright-core/src/server/browser.ts
++++ b/packages/playwright-core/src/server/browser.ts
+@@ -69,6 +69,7 @@ export type BrowserOptions = {
+   // HarmonyOS-only launch flags produced by the HDC launcher; present only
+   // for browsers connected to a device.
+   __ohosHdcBackend?: HdcBackend;
++  __ohosDeviceBrowser?: boolean;
+   __ohosArkWeb?: boolean;
+   __ohosNoDefaultContext?: boolean;
+ };
+@@ -90,6 +91,7 @@ export abstract class Browser extends SdkObject {
+   // HarmonyOS launcher state. Present only for browsers launched through
+   // HDC; the ArkWeb flag identifies the huawei browser bundle.
+   _hdcBackend?: HdcBackend;
++  _isHarmonyBrowser = false;
+   _isArkWeb: boolean = false;
+   private _server: BrowserServer;
+ 
+diff --git a/packages/playwright-core/src/server/chromium/chromium.ts b/packages/playwright-core/src/server/chromium/chromium.ts
+index 5d2d1d9..c4c847d 100644
+--- a/packages/playwright-core/src/server/chromium/chromium.ts
++++ b/packages/playwright-core/src/server/chromium/chromium.ts
+@@ -134,7 +134,7 @@ export class Chromium extends BrowserType {
+     return this._connectOverCDPImpl(progress, chromeTransport, closeAndWait, options, onClose);
+   }
+ 
+-  private async _connectOverCDPImpl(progress: Progress, transport: ConnectionTransport, closeAndWait: () => Promise<void>, options: types.LaunchOptions & { isLocal?: boolean, noDefaults?: boolean, artifactsDir?: string, __ohosHdcBackend?: HdcBackend, __ohosArkWeb?: boolean, __ohosNoDefaultContext?: boolean }, onClose?: () => Promise<void>) {
++  private async _connectOverCDPImpl(progress: Progress, transport: ConnectionTransport, closeAndWait: () => Promise<void>, options: types.LaunchOptions & { isLocal?: boolean, noDefaults?: boolean, artifactsDir?: string, __ohosHdcBackend?: HdcBackend, __ohosDeviceBrowser?: boolean, __ohosArkWeb?: boolean, __ohosNoDefaultContext?: boolean }, onClose?: () => Promise<void>) {
+     let artifactsDir: string;
+     const tempDirectories: string[] = [];
+     if (options.artifactsDir) {
+@@ -178,6 +178,7 @@ export class Chromium extends BrowserType {
+         originalLaunchOptions: {},
+         noDefaults: options.noDefaults,
+         __ohosHdcBackend: options.__ohosHdcBackend,
++        __ohosDeviceBrowser: options.__ohosDeviceBrowser,
+         __ohosArkWeb: !!options.__ohosArkWeb,
+         __ohosNoDefaultContext: !!options.__ohosNoDefaultContext,
+       };
+diff --git a/packages/playwright-core/src/server/chromium/crBrowser.ts b/packages/playwright-core/src/server/chromium/crBrowser.ts
+index 5355d80..fd31903 100644
+--- a/packages/playwright-core/src/server/chromium/crBrowser.ts
++++ b/packages/playwright-core/src/server/chromium/crBrowser.ts
+@@ -67,6 +67,7 @@ export class CRBrowser extends Browser {
+     // Forward the HDC launcher flags so they are available before the first
+     // page initializes.
+     browser._hdcBackend = options.__ohosHdcBackend;
++    browser._isHarmonyBrowser = !!options.__ohosDeviceBrowser;
+     browser._isArkWeb = !!options.__ohosArkWeb;
+     if (browser._hdcBackend)
+       browser._isBrowserCollocatedWithServer = false;
+diff --git a/packages/playwright-core/src/server/chromium/crPage.ts b/packages/playwright-core/src/server/chromium/crPage.ts
+index 4653f28..c1f401d 100644
+--- a/packages/playwright-core/src/server/chromium/crPage.ts
++++ b/packages/playwright-core/src/server/chromium/crPage.ts
+@@ -213,7 +213,7 @@ export class CRPage implements PageDelegate {
+     // The device browsers report no CDP events for history navigations;
+     // wait until the URL actually changes so goBack/goForward complete, and
+     // report the URL so the caller can skip the event-based wait.
+-    if (this._browserContext._browser._hdcBackend) {
++    if (this._browserContext._browser._isHarmonyBrowser) {
+       const deadline = Date.now() + 30000;
+       while (Date.now() < deadline) {
+         await new Promise(resolve => setTimeout(resolve, 200));
+@@ -922,12 +922,12 @@ class FrameSession {
+     // emulated viewport in the screencast frame metadata; report the last
+     // emulated viewport like desktop Chrome, falling back to the rounded
+     // device size when no viewport was ever applied.
+-    const hdcBackend = this._crPage._browserContext._browser._hdcBackend;
++    const isHarmonyBrowser = this._crPage._browserContext._browser._isHarmonyBrowser;
+     void this._page.screencast.onScreencastFrame({
+       buffer,
+       frameSwapWallTime: payload.metadata.timestamp ? payload.metadata.timestamp * 1000 : Date.now(),
+-      viewportWidth: hdcBackend ? (this._metricsOverride?.width ?? Math.round(payload.metadata.deviceWidth)) : payload.metadata.deviceWidth,
+-      viewportHeight: hdcBackend ? (this._metricsOverride?.height ?? Math.round(payload.metadata.deviceHeight)) : payload.metadata.deviceHeight,
++      viewportWidth: isHarmonyBrowser ? (this._metricsOverride?.width ?? Math.round(payload.metadata.deviceWidth)) : payload.metadata.deviceWidth,
++      viewportHeight: isHarmonyBrowser ? (this._metricsOverride?.height ?? Math.round(payload.metadata.deviceHeight)) : payload.metadata.deviceHeight,
+     }).then(() => {
+       this._client._sendMayFail('Page.screencastFrameAck', { sessionId: payload.sessionId });
+     });
+@@ -1113,7 +1113,7 @@ class FrameSession {
+       return null;
+     // Round bounding boxes reported by the device to fix sub-pixel
+     // precision differences.
+-    if (this._crPage._browserContext._browser._hdcBackend) {
++    if (this._crPage._browserContext._browser._isHarmonyBrowser) {
+       return {
+         x: Math.round(x + position.x),
+         y: Math.round(y + position.y),
+diff --git a/packages/playwright-core/src/server/page.ts b/packages/playwright-core/src/server/page.ts
+index e9164df..85ca829 100644
+--- a/packages/playwright-core/src/server/page.ts
++++ b/packages/playwright-core/src/server/page.ts
+@@ -512,7 +512,7 @@ export class Page extends SdkObject<PageEventMap> {
+       // The device browsers fire no navigation events, so the event-based
+       // wait (which they never satisfy) is skipped; _go already waited for
+       // the URL change and reports it.
+-      if (this.browserContext._browser._hdcBackend) {
++      if (this.browserContext._browser._isHarmonyBrowser) {
+         const url = await progress.race(this.delegate.goBack()) as string;
+         if (!url)
+           return null;
+@@ -542,7 +542,7 @@ export class Page extends SdkObject<PageEventMap> {
+       // The device browsers fire no navigation events, so the event-based
+       // wait (which they never satisfy) is skipped; _go already waited for
+       // the URL change and reports it.
+-      if (this.browserContext._browser._hdcBackend) {
++      if (this.browserContext._browser._isHarmonyBrowser) {
+         const url = await progress.race(this.delegate.goForward()) as string;
+         if (!url)
+           return null;
+@@ -971,7 +971,7 @@ export class Page extends SdkObject<PageEventMap> {
+     const scripts = [...bindings, ...this.browserContext.initScripts, ...this.initScripts];
+     // Inject the HarmonyOS init script into every page of HDC-launched
+     // browsers (navigator.webdriver and rounded touch coordinates).
+-    if (this.browserContext._browser._hdcBackend)
++    if (this.browserContext._browser._isHarmonyBrowser)
+       scripts.push(new InitScript(this.browserContext, ohosInitScript));
+     return scripts;
+   }
