@@ -1,0 +1,1031 @@
+--- a/packages/playwright-core/package.json
++++ b/packages/playwright-core/package.json
+@@ -4,7 +4,8 @@
+   "description": "A high-level API to automate web browsers",
+   "repository": {
+     "type": "git",
+-    "url": "git+https://github.com/microsoft/playwright.git"
++    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
++    "directory": "ports/playwright-core/1.64.1"
+   },
+   "homepage": "https://playwright.dev",
+   "engines": {
+@@ -25,6 +26,7 @@
+     "./lib/bootstrap": "./lib/bootstrap.js",
+     "./lib/coreBundle": "./lib/coreBundle.js",
+     "./lib/utilsBundle": "./lib/utilsBundle.js",
++    "./lib/ohos": "./lib/ohos/index.js",
+     "./lib/tools/cli-client/program": "./lib/tools/cli-client/program.js"
+   },
+   "bin": {
+--- a/packages/playwright-core/src/DEPS.list
++++ b/packages/playwright-core/src/DEPS.list
+@@ -22,6 +22,9 @@
+ client/
+ @isomorphic/**
+ @utils/**
++
++[ohos/utils.ts]
++"strict"
+ 
+ [utilsBundle.ts]
+ node_modules/chokidar
+@@ -57,5 +60,6 @@
+ 
+ [serverRegistry.ts]
+ "strict"
++ohos/utils.ts
+ package.ts
+ node_modules/chokidar
+--- a/packages/playwright-core/src/serverRegistry.ts
++++ b/packages/playwright-core/src/serverRegistry.ts
+@@ -22,6 +22,7 @@
+ import chokidar from 'chokidar';
+ 
+ import { packageJSON, packageRoot } from './package';
++import { isOpenHarmony } from './ohos/utils';
+ 
+ import type { FSWatcher } from 'chokidar';
+ // Only client depenencies with backward compatibility guarantees should be imported here.
+@@ -244,7 +245,7 @@
+ }
+ 
+ function computeDefaultCacheDirectory(): string {
+-  if (process.platform === 'linux')
++  if (process.platform === 'linux' || isOpenHarmony())
+     return process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
+   if (process.platform === 'darwin')
+     return path.join(os.homedir(), 'Library', 'Caches');
+--- a/packages/playwright-core/src/server/DEPS.list
++++ b/packages/playwright-core/src/server/DEPS.list
+@@ -3,6 +3,7 @@
+ @protocol/**
+ @utils/**
+ ../generated/
++../ohos/
+ ../package.ts
+ ./
+ ./har/
+--- a/packages/playwright-core/src/server/browser.ts
++++ b/packages/playwright-core/src/server/browser.ts
+@@ -68,6 +68,11 @@
+   isWebView?: boolean;
+   // Do not send Inspector.enable to detect pages without a renderer while connecting.
+   noInspectorEnableOnConnect?: boolean;
++  // HarmonyOS-only launch flags produced by the local aa launcher; present only
++  // for browsers connected to a device.
++  __ohosDeviceBrowser?: boolean;
++  __ohosArkWeb?: boolean;
++  __ohosNoDefaultContext?: boolean;
+ };
+ 
+ export abstract class Browser extends SdkObject {
+@@ -84,6 +89,10 @@
+   private _contextForReuse: { context: BrowserContext, hash: string } | undefined;
+   _closeReason: string | undefined;
+   _isBrowserCollocatedWithServer: boolean = true;
++  // HarmonyOS launcher state. Present only for browsers launched through
++  // aa; the ArkWeb flag identifies the huawei browser bundle.
++  _isHarmonyBrowser = false;
++  _isArkWeb: boolean = false;
+   private _server: BrowserServer;
+ 
+   constructor(parent: SdkObject, options: BrowserOptions) {
+--- a/packages/playwright-core/src/server/browserContext.ts
++++ b/packages/playwright-core/src/server/browserContext.ts
+@@ -566,8 +566,11 @@
+       promises.push(this._deleteAllTempDirs());
+       await progress.race(Promise.all(promises));
+ 
+-      // Custom handler should trigger didCloseInternal itself.
+-      if (!this._customCloseHandler)
++      // Custom handler should trigger didCloseInternal itself. The reused
++      // ArkWeb context is already "closing" when tests close it a second
++      // time, and the regular close path skips emitting Close; emit it so
++      // the dispatcher of this close call notifies the client.
++      if (!this._customCloseHandler || this._browser._isArkWeb)
+         this._didCloseInternal();
+     }
+     await this._closePromise;
+@@ -588,7 +591,9 @@
+       }
+       throw pageOrError;
+     } catch (error) {
+-      await page?.close(progress, { reason: 'Failed to create page' }).catch(() => {});
++      // Do not close the reused page when page creation fails on ArkWeb.
++      if (!this._browser._isArkWeb)
++        await page?.close(progress, { reason: 'Failed to create page' }).catch(() => {});
+       throw error;
+     } finally {
+       this._creatingStorageStatePage = false;
+@@ -718,10 +723,16 @@
+       rewriteErrorMessage(error, `Error setting storage state:\n` + error.message);
+       throw error;
+     } finally {
+-      if (mode !== 'resetForReuse')
++      // On ArkWeb the storage state page doubles as the reused page, so it
++      // must stay alive; the interceptor is removed instead.
++      if (this._browser._isArkWeb) {
++        if (interceptor)
++          await page?.removeRequestInterceptor(interceptor);
++      } else if (mode !== 'resetForReuse') {
+         await page?.close(progress);
+-      else if (interceptor)
++      } else if (interceptor) {
+         await page?.removeRequestInterceptor(interceptor);
++      }
+     }
+   }
+ 
+--- a/packages/playwright-core/src/server/page.ts
++++ b/packages/playwright-core/src/server/page.ts
+@@ -42,6 +42,7 @@
+ import { NonRecoverableDOMError } from './dom';
+ import { Screencast } from './screencast';
+ import { saveGlobalsSnapshotSource } from './javascript';
++import { ohosInitScript } from '../ohos/launcher';
+ 
+ import type { Artifact } from './artifact';
+ import type { BrowserContextEventMap } from './browserContext';
+@@ -62,8 +63,10 @@
+   readonly rawTouchscreen: input.RawTouchscreen;
+ 
+   reload(): Promise<void>;
+-  goBack(): Promise<boolean>;
+-  goForward(): Promise<boolean>;
++  // goBack/goForward resolve to the navigated URL on HarmonyOS device
++  // browsers (which report no navigation events), and to a boolean otherwise.
++  goBack(): Promise<boolean | string>;
++  goForward(): Promise<boolean | string>;
+   requestGC(): Promise<void>;
+   addInitScript(initScript: InitScript): Promise<void>;
+   removeInitScripts(initScripts: InitScript[]): Promise<void>;
+@@ -162,6 +165,37 @@
+   error: Error,
+   location: types.ConsoleMessageLocation,
+ };
++
++// The device browsers fire no navigation events for history navigations, so
++// goBack/goForward cannot wait for one. A synthetic response object is
++// returned instead; the dispatcher only reads the fields below eagerly.
++function ohosHistoryResponse(mainFrame: frames.Frame, url: string): network.Response {
++  const response = {
++    guid: 'ohos-history-response-' + Date.now() + '-' + Math.random(),
++    url: () => url,
++    status: () => 200,
++    statusText: () => '',
++    headers: () => [],
++    timing: () => ({ startTime: 0, domainLookupStart: -1, domainLookupEnd: -1, connectStart: -1, secureConnectionStart: -1, connectEnd: -1, requestStart: 0, responseStart: 0 }),
++    fromServiceWorker: () => false,
++    request: () => ({
++      guid: 'ohos-history-request-' + Date.now() + '-' + Math.random(),
++      url: () => url,
++      method: () => 'GET',
++      postDataBuffer: () => null,
++      headers: () => [],
++      resourceType: () => 'document',
++      isNavigationRequest: () => true,
++      _existingResponse: () => null,
++      redirectedFrom: () => null,
++      serviceWorker: () => null,
++      frame: () => mainFrame,
++      timing: () => ({ startTime: 0, domainLookupStart: -1, domainLookupEnd: -1, connectStart: -1, secureConnectionStart: -1, connectEnd: -1, requestStart: 0, responseStart: 0 }),
++      sizes: () => ({ requestBodySize: 0, responseBodySize: 0, transferSize: 0 }),
++    }),
++  };
++  return response as unknown as network.Response;
++}
+ 
+ export class Page extends SdkObject<PageEventMap> {
+   static Events = PageEvent;
+@@ -479,6 +513,15 @@
+ 
+   async goBack(progress: Progress, options: types.NavigateOptions): Promise<network.Response | null> {
+     return this.mainFrame().raceNavigationAction(progress, async () => {
++      // The device browsers fire no navigation events, so the event-based
++      // wait (which they never satisfy) is skipped; _go already waited for
++      // the URL change and reports it.
++      if (this.browserContext._browser._isHarmonyBrowser) {
++        const url = await progress.race(this.delegate.goBack()) as string;
++        if (!url)
++          return null;
++        return ohosHistoryResponse(this.mainFrame(), url);
++      }
+       // Note: waitForNavigation may fail before we get response to goBack,
+       // so we should catch it immediately.
+       let error: Error | undefined;
+@@ -500,6 +543,15 @@
+ 
+   async goForward(progress: Progress, options: types.NavigateOptions): Promise<network.Response | null> {
+     return this.mainFrame().raceNavigationAction(progress, async () => {
++      // The device browsers fire no navigation events, so the event-based
++      // wait (which they never satisfy) is skipped; _go already waited for
++      // the URL change and reports it.
++      if (this.browserContext._browser._isHarmonyBrowser) {
++        const url = await progress.race(this.delegate.goForward()) as string;
++        if (!url)
++          return null;
++        return ohosHistoryResponse(this.mainFrame(), url);
++      }
+       // Note: waitForNavigation may fail before we get response to goForward,
+       // so we should catch it immediately.
+       let error: Error | undefined;
+@@ -923,7 +975,12 @@
+     const bindings = [...this.browserContext._pageBindings.values(), ...this._pageBindings.values()].map(binding => binding.initScript);
+     if (this.browserContext.bindingsInitScript)
+       bindings.unshift(this.browserContext.bindingsInitScript);
+-    return [...bindings, ...this.browserContext.initScripts, ...this.initScripts];
++    const scripts = [...bindings, ...this.browserContext.initScripts, ...this.initScripts];
++    // Inject the HarmonyOS init script into every page of aa-launched
++    // browsers (navigator.webdriver and rounded touch coordinates).
++    if (this.browserContext._browser._isHarmonyBrowser)
++      scripts.push(new InitScript(this.browserContext, ohosInitScript));
++    return scripts;
+   }
+ 
+   getBinding(name: string) {
+--- /dev/null
++++ b/packages/playwright-core/src/ohos/launcher.ts
+@@ -0,0 +1,207 @@
++import { execFileAsync, getFreePort, httpGetJson, isOpenHarmony, resolveCommandPath, waitForEndpoint } from './utils';
++
++import type { Browser } from '../server/browser';
++import type { Chromium } from '../server/chromium/chromium';
++import type { CRBrowser } from '../server/chromium/crBrowser';
++import type { Progress } from '../server/progress';
++import type * as types from '../server/types';
++
++export interface LaunchConfig {
++  bundleName: string;
++  abilityName: string;
++  /** 'tcp' browsers listen on a TCP port; 'socket' browsers expose a Unix socket. */
++  kind: 'tcp' | 'socket';
++  /** Fixed debug port for browsers that cannot receive one through arguments. */
++  port?: number;
++  /** Whether the browser accepts extra arguments through the `cmdArgs` parameter. */
++  supportsCmdArgs?: boolean;
++  /** URL opened at launch (aa start -U). */
++  launchUrl?: string;
++  /** Extra command-line flags appended to the default stability flags. */
++  extraArgs?: string[];
++}
++
++// Stability flags for browsers launched through cmdArgs; test runs should
++// not be disturbed by first-run screens, sync or component updates.
++const DEFAULT_CMDARGS_FLAGS = [
++  '--no-first-run',
++  '--disable-extensions',
++  '--disable-sync',
++  '--disable-default-apps',
++  '--disable-background-networking',
++  '--disable-component-update',
++  '--no-default-browser-check',
++];
++
++const KNOWN_BROWSERS: Record<string, LaunchConfig> = {
++  'huaweiBrowser': {
++    bundleName: 'com.huawei.hmos.browser',
++    abilityName: 'MainAbility',
++    kind: 'socket',
++  },
++  'chrome': {
++    bundleName: 'com.haitai.htbrowser',
++    abilityName: 'EntryAbility',
++    kind: 'tcp',
++    supportsCmdArgs: true,
++  },
++  'chrome-beta': {
++    bundleName: 'com.huawei.ohos_chromium',
++    abilityName: 'BrowserAbility',
++    kind: 'tcp',
++    port: 9222,
++  },
++};
++
++export const ARK_WEB_BUNDLE_NAME = 'com.huawei.hmos.browser';
++
++export const resolveLaunchConfig = (options: types.LaunchOptions): LaunchConfig => {
++  const envBrowser = process.env.HARMONY_BROWSER;
++  const ability = options.harmonyAbility ?? process.env.HARMONY_ABILITY;
++  const launchUrl = options.harmonyLaunchUrl ?? process.env.HARMONY_LAUNCH_URL;
++  const custom = options.harmonyBundleName || (envBrowser && !KNOWN_BROWSERS[envBrowser] ? envBrowser : undefined);
++  const channel = envBrowser && KNOWN_BROWSERS[envBrowser] ? envBrowser : (options.channel ?? 'chrome');
++  const known = KNOWN_BROWSERS[channel];
++  const config: LaunchConfig = known ? { ...known } : { bundleName: channel, abilityName: 'MainAbility', kind: 'tcp', supportsCmdArgs: true };
++  if (custom)
++    config.bundleName = custom;
++  if (ability)
++    config.abilityName = ability;
++  if (launchUrl)
++    config.launchUrl = launchUrl;
++  const userArgs = [...(options.harmonyArgs ?? []), ...(options.args ?? [])];
++  const userPort = userArgs.flatMap(arg => {
++    const m = arg.match(/^--remote-debugging-port=(\d+)$/);
++    return m ? [Number(m[1])] : [];
++  })[0];
++  if (userPort)
++    config.port = userPort;
++  if (userArgs.length)
++    config.extraArgs = userArgs.filter(arg => !arg.startsWith('--remote-debugging-port='));
++  const port = options.harmonyDebugPort ?? (process.env.HARMONY_DEBUG_PORT ? Number(process.env.HARMONY_DEBUG_PORT) : undefined);
++  if (port && !config.port)
++    config.port = port;
++  return config;
++};
++
++const startBrowserViaAa = async (config: LaunchConfig): Promise<string> => {
++  if (!isOpenHarmony())
++    throw new Error('Local aa launch requires an OpenHarmony host; use connectOverCDP for an existing TCP endpoint.');
++  if (config.kind !== 'tcp')
++    throw new Error('This browser does not expose TCP CDP; use an installed TCP CDP browser such as Haitai.');
++  const aa = resolveCommandPath('aa');
++  if (!aa)
++    throw new Error('Local aa command not found; install or expose aa on PATH.');
++  const port = config.port ?? (config.supportsCmdArgs ? await getFreePort() : 9222);
++  const args = ['start', '-b', config.bundleName, '-a', config.abilityName];
++  if (config.supportsCmdArgs)
++    args.push('--ps', 'cmdArgs', [...DEFAULT_CMDARGS_FLAGS, ...(config.extraArgs || []), `--remote-debugging-port=${port}`].join(' '));
++  if (config.launchUrl)
++    args.push('-U', config.launchUrl);
++  const result = await execFileAsync(aa, args, 5000).catch(error => {
++    if (error.code !== 'ENOEXEC')
++      throw error;
++    // Some system aa wrappers have a comment before their shebang.
++    return execFileAsync('sh', [aa, ...args], 5000);
++  });
++  if (!result.stdout.includes('start ability successfully'))
++    throw new Error(`aa start failed: ${result.stdout || result.stderr}`);
++  const endpointURL = `http://127.0.0.1:${port}`;
++  try {
++    await waitForEndpoint(`${endpointURL}/json/version`, 5000);
++  } catch (error) {
++    throw new Error(`Local CDP is unavailable at ${endpointURL}. Save and close an existing browser manually before retrying: ${error.message}`);
++  }
++  const version = await httpGetJson(`${endpointURL}/json/version`);
++  if (!version.Browser || !version.webSocketDebuggerUrl)
++    throw new Error(`Endpoint ${endpointURL} is not a CDP browser`);
++  return endpointURL;
++};
++
++const patchBrowserClose = (browser: CRBrowser): void => {
++  const browserProcess = browser.options.browserProcess;
++  let closed = false;
++  const originalClose = browserProcess.close.bind(browserProcess);
++  const originalKill = browserProcess.kill.bind(browserProcess);
++  const close = async (disconnect: () => Promise<void>) => {
++    if (closed)
++      return;
++    closed = true;
++    try {
++      await browser._session.send('Browser.close').catch(() => {});
++      await disconnect();
++    } finally {
++      browserProcess.onclose?.(0, null);
++    }
++  };
++  browserProcess.close = () => close(originalClose);
++  browserProcess.kill = () => close(originalKill);
++};
++
++export const launchViaAa = async (chromium: Chromium, progress: Progress, options: types.LaunchOptions): Promise<Browser> => {
++  const config = resolveLaunchConfig(options);
++  const endpointURL = await progress.race(startBrowserViaAa(config));
++  const browser = await chromium._connectOverCDPInternal(progress, endpointURL, {
++    ...options,
++    __ohosDeviceBrowser: true,
++    __ohosArkWeb: false,
++    __ohosNoDefaultContext: true,
++  });
++  browser._isBrowserCollocatedWithServer = false;
++  patchBrowserClose(browser);
++  return browser;
++};
++
++export const ohosInitScript = `
++(() => {
++  // The device browsers expose navigator.webdriver through a getter-only
++  // property, so plain assignment is ignored.
++  try {
++    Object.defineProperty(navigator, 'webdriver', { value: true, configurable: true });
++  } catch (e) {
++  }
++  try {
++    if (typeof Touch !== 'undefined' && Touch.prototype) {
++      for (const key of ['clientX', 'clientY', 'pageX', 'pageY', 'screenX', 'screenY']) {
++        const descriptor = Object.getOwnPropertyDescriptor(Touch.prototype, key);
++        if (descriptor && descriptor.get) {
++          Object.defineProperty(Touch.prototype, key, {
++            get() {
++              return Math.round(descriptor.get.call(this));
++            },
++            configurable: true,
++          });
++        }
++      }
++    }
++  } catch (e) {
++  }
++  // The device browsers fire contextmenu on mouse release, while desktop
++  // chromium fires it on press. Synthesize it on press and suppress the
++  // native one so the event fires exactly once.
++  try {
++    document.addEventListener('contextmenu', event => {
++      if (event.isTrusted) {
++        event.preventDefault();
++        event.stopImmediatePropagation();
++      }
++    }, { capture: true });
++    document.addEventListener('mousedown', event => {
++      if (event.button !== 2 || event.defaultPrevented) {
++        return;
++      }
++      setTimeout(() => {
++        event.target.dispatchEvent(new MouseEvent('contextmenu', {
++          bubbles: true,
++          cancelable: true,
++          button: 2,
++          view: window,
++          clientX: event.clientX,
++          clientY: event.clientY,
++        }));
++      }, 0);
++    }, true);
++  } catch (e) {
++  }
++})();
++`;
+--- /dev/null
++++ b/packages/playwright-core/src/ohos/index.ts
+@@ -0,0 +1,8 @@
++import * as playwrightCore from '../../index.js';
++
++export * from '../../index.js';
++export default playwrightCore;
++export { launchViaAa, ohosInitScript, resolveLaunchConfig, ARK_WEB_BUNDLE_NAME } from './launcher';
++export { waitForEndpoint, httpGetJson } from './utils';
++
++export const takeScreenshot = async (page: any, options: any = {}): Promise<Buffer> => page.screenshot(options);
+--- /dev/null
++++ b/packages/playwright-core/src/ohos/utils.ts
+@@ -0,0 +1,153 @@
++// Generic helpers shared by the HarmonyOS launcher and the OS layer.
++import { execFile, execFileSync } from 'child_process';
++import fs from 'fs';
++import http from 'http';
++import net from 'net';
++import path from 'path';
++
++export interface ExecResult {
++  stdout: string;
++  stderr: string;
++  code: number;
++}
++
++// Node's Platform type does not include 'openharmony', so the platform check
++// is centralized here with a widening cast.
++export const isOpenHarmony = (): boolean => (process.platform as string) === 'openharmony';
++
++/**
++ * Diagnostic logger for the ohos layer. The standalone lib/ohos files cannot
++ * import @utils/debugLogger (per-file esbuild output keeps the bare
++ * specifier, and the artifact cannot resolve the vendored `debug` package),
++ * so logging goes through this small helper. Warnings and errors are always
++ * printed; debug details only when PW_OHOS_DEBUG=1.
++ */
++export const ohosLog = (message: string, debug = false): void => {
++  if (debug && process.env.PW_OHOS_DEBUG !== '1')
++    return;
++  // eslint-disable-next-line no-restricted-properties
++  process.stderr.write(`[playwright-ohos] ${message}\n`);
++};
++
++export const execFileAsync = (command: string, args: string[], timeoutMs: number, env?: NodeJS.ProcessEnv): Promise<ExecResult> => new Promise((resolve, reject) => {
++  execFile(command, args, {
++    timeout: timeoutMs,
++    maxBuffer: 16 * 1024 * 1024,
++    windowsHide: true,
++    ...(env ? { env } : {}),
++  }, (error, stdout, stderr) => {
++    if (error && error.code !== 0) {
++      reject(error);
++    } else {
++      resolve({
++        stdout: String(stdout || ''),
++        stderr: String(stderr || ''),
++        code: error ? (typeof error.code === 'number' ? error.code : 0) : 0,
++      });
++    }
++  });
++});
++
++/** Fetches JSON from an HTTP endpoint. */
++export const httpGetJson = (url: string, timeoutMs = 3000): Promise<any> => new Promise((resolve, reject) => {
++  const request = http.get(url, response => {
++    let data = '';
++    response.on('data', chunk => data += chunk);
++    response.on('end', () => {
++      try {
++        resolve(JSON.parse(data));
++      } catch (error) {
++        reject(new Error(`Invalid JSON from ${url}: ${String(data).slice(0, 200)}`));
++      }
++    });
++  });
++  request.on('error', reject);
++  request.setTimeout(timeoutMs, () => request.destroy(new Error(`Timeout fetching ${url}`)));
++});
++
++export const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
++
++const resolvedCommands = new Map<string, string | undefined>();
++
++/**
++ * Resolves a command to its real filesystem path through the shell, so
++ * commands configured as shell aliases are found as well. `realpath
++ * $(which <command>)` prints the canonical path for direct commands; for
++ * aliases it prints one word per line of the `which` output with the
++ * aliased target as the last line; missing commands spell "<command> not
++ * found". Existing absolute paths select the binary and filter out both
++ * the noise of interactive shells and the cwd-relative words of the
++ * not-found output.
++ */
++export const resolveCommandPath = (command: string): string | undefined => {
++  const cached = resolvedCommands.get(command);
++  if (cached !== undefined || resolvedCommands.has(command))
++    return cached;
++  // Interactive flags are needed for zsh/bash to load rc aliases; sh has
++  // no interactive alias setup and is tried first without them.
++  const attempts: Array<[string, string]> = [['sh', '-c'], ['zsh', '-ic'], ['bash', '-ic']];
++  let resolved: string | undefined;
++  for (const [shell, flags] of attempts) {
++    try {
++      const out = execFileSync(shell, [flags, `realpath $(which ${command} 2>/dev/null) 2>/dev/null || true`], { encoding: 'utf8', timeout: 8000 });
++      for (const line of out.split('\n').reverse()) {
++        const candidate = line.trim();
++        if (candidate.startsWith('/') && fs.existsSync(candidate)) {
++          resolved = candidate;
++          break;
++        }
++      }
++    } catch {
++    }
++    if (resolved)
++      break;
++  }
++  resolvedCommands.set(command, resolved);
++  return resolved;
++};
++
++/** Finds a free local TCP port. */
++export const getFreePort = (): Promise<number> => new Promise((resolve, reject) => {
++  const server = net.createServer();
++  server.listen(0, '127.0.0.1', () => {
++    const address = server.address();
++    if (!address || typeof address === 'string') {
++      server.close();
++      reject(new Error('Failed to allocate a free port'));
++      return;
++    }
++    const port = address.port;
++    server.close(() => resolve(port));
++  });
++  server.on('error', reject);
++});
++
++/** Polls an HTTP endpoint until it responds, or the deadline passes. */
++export const waitForEndpoint = async (url: string, timeoutMs = 30000): Promise<void> => {
++  const deadline = Date.now() + timeoutMs;
++  let lastError: Error | undefined;
++  while (Date.now() < deadline) {
++    try {
++      await httpGetJson(url);
++      return;
++    } catch (error) {
++      lastError = error;
++      await sleep(500);
++    }
++  }
++  throw new Error(`Endpoint ${url} did not become ready: ${lastError?.message ?? 'unknown error'}`);
++};
++
++export const ohosExecutablePath = (): string => {
++  for (const dir of (process.env.PATH || '').split(path.delimiter)) {
++    if (!dir)
++      continue;
++    const candidate = path.join(dir, 'aa');
++    try {
++      fs.accessSync(candidate, fs.constants.X_OK);
++      return candidate;
++    } catch {
++    }
++  }
++  return 'aa';
++};
+--- a/packages/playwright-core/src/tools/cli-client/DEPS.list
++++ b/packages/playwright-core/src/tools/cli-client/DEPS.list
+@@ -35,6 +35,7 @@
+ 
+ [registry.ts]
+ "strict"
++../../ohos/utils.ts
+ ../../package.ts
+ 
+ [minimist.ts]
+--- a/packages/playwright-core/src/tools/cli-client/registry.ts
++++ b/packages/playwright-core/src/tools/cli-client/registry.ts
+@@ -20,6 +20,7 @@
+ import path from 'path';
+ 
+ import { packageRoot, packageJSON } from '../../package';
++import { isOpenHarmony } from '../../ohos/utils';
+ 
+ import type * as playwright from '../../..';
+ 
+@@ -147,7 +148,8 @@
+     return process.env.PWTEST_DAEMON_SESSION_DIR;
+ 
+   let localCacheDir: string | undefined;
+-  if (process.platform === 'linux')
++  // openharmony follows the same XDG cache convention as linux.
++  if (process.platform === 'linux' || isOpenHarmony())
+     localCacheDir = process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
+   if (process.platform === 'darwin')
+     localCacheDir = path.join(os.homedir(), 'Library', 'Caches');
+--- a/packages/playwright-core/src/server/chromium/chromium.ts
++++ b/packages/playwright-core/src/server/chromium/chromium.ts
+@@ -38,6 +38,8 @@
+ import { registry } from '../registry';
+ import { WebSocketTransport } from '../transport';
+ import { CRDevTools } from './crDevTools';
++import { launchViaAa } from '../../ohos/launcher';
++import { isOpenHarmony, ohosExecutablePath } from '../../ohos/utils';
+ import { Browser } from '../browser';
+ import { Worker } from '../page';
+ import { CRExecutionContext, createHandle } from './crExecutionContext';
+@@ -69,13 +71,29 @@
+       this._devtools = this._createDevTools();
+   }
+ 
++  override executablePath(): string {
++    // Device browsers have no local executable; report the local aa command so callers get a usable path.
++    if (isOpenHarmony())
++      return ohosExecutablePath();
++    return super.executablePath();
++  }
++
+   override launch(progress: Progress, options: types.LaunchOptions, protocolLogger?: types.ProtocolLogger): Promise<Browser> {
++    // On openharmony, chromium.launch() delegates to the local aa launcher, which
++    // starts an on-device browser and connects over CDP.
++    if (isOpenHarmony() && !options.channel?.startsWith('bidi-'))
++      return launchViaAa(this, progress, options);
+     if (options.channel?.startsWith('bidi-'))
+       return this._bidiChromium.launch(progress, options, protocolLogger);
+     return super.launch(progress, options, protocolLogger);
+   }
+ 
+   override async launchPersistentContext(progress: Progress, userDataDir: string, options: channels.BrowserTypeLaunchPersistentContextOptions & { internalIgnoreHTTPSErrors?: boolean, socksProxyPort?: number }): Promise<BrowserContext> {
++    // launchPersistentContext is not supported on openharmony: device
++    // browsers are started through `aa start` and cannot host persistent
++    // contexts.
++    if (isOpenHarmony())
++      throw new Error('launchPersistentContext is not supported on HarmonyOS: device browsers are launched via \'aa start\' and do not support persistent contexts.');
+     if (options.channel?.startsWith('bidi-'))
+       return this._bidiChromium.launchPersistentContext(progress, userDataDir, options);
+     return super.launchPersistentContext(progress, userDataDir, options);
+@@ -87,7 +105,7 @@
+     return await this._connectOverCDPInternal(progress, params.endpointURL!, params);
+   }
+ 
+-  async _connectOverCDPInternal(progress: Progress, endpointURL: string, options: types.LaunchOptions & { headers?: types.HeadersArray, isLocal?: boolean, noDefaults?: boolean, isWebView?: boolean, artifactsDir?: string }, onClose?: () => Promise<void>) {
++  async _connectOverCDPInternal(progress: Progress, endpointURL: string, options: types.LaunchOptions & { headers?: types.HeadersArray, __ohosDeviceBrowser?: boolean, __ohosArkWeb?: boolean, __ohosNoDefaultContext?: boolean, isLocal?: boolean, noDefaults?: boolean, isWebView?: boolean, artifactsDir?: string }, onClose?: () => Promise<void>) {
+     let headersMap: { [key: string]: string; } | undefined;
+     if (options.headers)
+       headersMap = headersArrayToObject(options.headers, false);
+@@ -115,7 +133,7 @@
+     return this._connectOverCDPImpl(progress, chromeTransport, closeAndWait, options, onClose);
+   }
+ 
+-  private async _connectOverCDPImpl(progress: Progress, transport: ConnectionTransport, closeAndWait: () => Promise<void>, options: types.LaunchOptions & { isLocal?: boolean, noDefaults?: boolean, isWebView?: boolean, artifactsDir?: string }, onClose?: () => Promise<void>) {
++  private async _connectOverCDPImpl(progress: Progress, transport: ConnectionTransport, closeAndWait: () => Promise<void>, options: types.LaunchOptions & { __ohosDeviceBrowser?: boolean, __ohosArkWeb?: boolean, __ohosNoDefaultContext?: boolean, isLocal?: boolean, noDefaults?: boolean, isWebView?: boolean, artifactsDir?: string }, onClose?: () => Promise<void>) {
+     let artifactsDir: string;
+     const tempDirectories: string[] = [];
+     if (options.artifactsDir) {
+@@ -138,7 +156,10 @@
+ 
+     try {
+       const browserProcess: BrowserProcess = { close: doClose, kill: doClose };
+-      const persistent: types.BrowserContextOptions = {
++      // Chromium-based device browsers behave like desktop Chrome and do not
++      // need the persistent default context that connectOverCDP normally
++      // creates; the local aa launcher skips it through __ohosNoDefaultContext.
++      const persistent: types.BrowserContextOptions | undefined = options.__ohosNoDefaultContext ? undefined : {
+         noDefaultViewport: true,
+         ...(options.noDefaults ? { acceptDownloads: 'internal-browser-default' as const } : {}),
+       };
+@@ -156,8 +177,12 @@
+         originalLaunchOptions: {},
+         noDefaults: options.noDefaults,
+         isWebView: options.isWebView,
++        __ohosDeviceBrowser: options.__ohosDeviceBrowser,
++        __ohosArkWeb: !!options.__ohosArkWeb,
++        __ohosNoDefaultContext: !!options.__ohosNoDefaultContext,
+       };
+-      validateBrowserContextOptions(persistent, browserOptions);
++      if (persistent)
++        validateBrowserContextOptions(persistent, browserOptions);
+       const browser = await progress.race(CRBrowser.connect(this.attribution.playwright, transport, browserOptions));
+       if (!options.isLocal)
+         browser._isBrowserCollocatedWithServer = false;
+--- a/packages/playwright-core/src/server/chromium/crBrowser.ts
++++ b/packages/playwright-core/src/server/chromium/crBrowser.ts
+@@ -66,6 +66,12 @@
+     browser._devtools = devtools;
+     if (browser.isClank())
+       browser._isBrowserCollocatedWithServer = false;
++    // Forward the local aa launcher flags so they are available before the first
++    // page initializes.
++    browser._isHarmonyBrowser = !!options.__ohosDeviceBrowser;
++    browser._isArkWeb = !!options.__ohosArkWeb;
++    if (browser._isHarmonyBrowser)
++      browser._isBrowserCollocatedWithServer = false;
+     const session = connection.rootSession;
+     if ((options as any).__testHookOnConnectToBrowser)
+       await (options as any).__testHookOnConnectToBrowser();
+@@ -116,6 +122,33 @@
+   }
+ 
+   async doCreateNewContext(options: types.BrowserContextOptions): Promise<BrowserContext> {
++    // ArkWeb cannot create additional browser contexts, so the default
++    // context is reused. The requested emulation options are applied to the
++    // reused context and its open pages (the last requested context wins).
++    if (this._isArkWeb && this._defaultContext) {
++      if (options.viewport) {
++        this._defaultContext._options.viewport = options.viewport;
++        this._defaultContext._options.screen = options.screen || options.viewport;
++        this._defaultContext._options.deviceScaleFactor = options.deviceScaleFactor || this._defaultContext._options.deviceScaleFactor || 1;
++      }
++      if (options.hasTouch !== undefined)
++        this._defaultContext._options.hasTouch = options.hasTouch;
++      if (options.isMobile !== undefined)
++        this._defaultContext._options.isMobile = options.isMobile;
++      for (const crPage of this._crPages.values()) {
++        if (crPage._browserContext !== this._defaultContext)
++          continue;
++        if (options.viewport) {
++          crPage._page.setEmulatedSizeFromWindowOpen({ viewport: options.viewport, screen: options.screen || options.viewport });
++          await crPage.updateEmulatedViewportSize();
++        }
++        // Touch emulation only takes effect before the page navigates, so it
++        // must be pushed here at context creation time.
++        if (options.hasTouch !== undefined)
++          await crPage._mainFrameSession._client.send('Emulation.setTouchEmulationEnabled', { enabled: !!options.hasTouch });
++      }
++      return this._defaultContext;
++    }
+     const proxy = options.proxyOverride || options.proxy;
+     let proxyBypassList = undefined;
+     if (proxy) {
+@@ -172,8 +205,11 @@
+     if (targetInfo.type === 'browser')
+       return;
+     const session = this._session.createChildSession(sessionId);
+-    assert(targetInfo.browserContextId, 'targetInfo: ' + JSON.stringify(targetInfo, null, 2));
+-    let context = this._contexts.get(targetInfo.browserContextId) || null;
++    // ArkWeb reports page targets with type "other" and may omit
++    // browserContextId for them, so both are tolerated on ArkWeb.
++    if (!this._isArkWeb)
++      assert(targetInfo.browserContextId, 'targetInfo: ' + JSON.stringify(targetInfo, null, 2));
++    let context = this._contexts.get(targetInfo.browserContextId ?? '') || null;
+     if (!context) {
+       // TODO: auto attach only to pages from our contexts.
+       // assert(this._defaultContext);
+@@ -185,7 +221,7 @@
+       return;
+     }
+ 
+-    const treatOtherAsPage = targetInfo.type === 'other' && process.env.PW_CHROMIUM_ATTACH_TO_OTHER;
++    const treatOtherAsPage = targetInfo.type === 'other' && (process.env.PW_CHROMIUM_ATTACH_TO_OTHER || this._isArkWeb);
+ 
+     if (!context || (targetInfo.type === 'other' && !treatOtherAsPage)) {
+       session.detach().catch(() => {});
+@@ -199,6 +235,14 @@
+       const opener = targetInfo.openerId ? this._crPages.get(targetInfo.openerId) || null : null;
+       const crPage = new CRPage(session, targetInfo.targetId, context, opener, { hasUIWindow: targetInfo.type === 'page' });
+       this._crPages.set(targetInfo.targetId, crPage);
++      // The device browser restores its previous session history when the
++      // startup page initializes; reset it once the page is ready so goBack
++      // on a fresh page behaves like a clean launch.
++      if (this._isArkWeb) {
++        crPage._page.waitForInitializedOrError().then(async () => {
++          await crPage._mainFrameSession._client.send('Page.resetNavigationHistory').catch(() => {});
++        }).catch(() => {});
++      }
+       return;
+     }
+ 
+@@ -280,6 +324,12 @@
+   }
+ 
+   async _closePage(crPage: CRPage) {
++    // Closing a target blocks the ArkWeb debug channel, so the page is
++    // navigated to about:blank and kept alive for reuse by the next test.
++    if (this._isArkWeb) {
++      await crPage._mainFrameSession._client.send('Page.navigate', { url: 'about:blank' }).catch(() => {});
++      return;
++    }
+     await this._session.send('Target.closeTarget', { targetId: crPage._targetId });
+   }
+ 
+@@ -378,6 +428,14 @@
+   }
+ 
+   override async doCreateNewPage(): Promise<Page> {
++    // Targets created through Target.createTarget attach without fully
++    // working frame sessions on ArkWeb, so an existing open page is reused.
++    if (this._browser._isArkWeb) {
++      for (const crPage of this._browser._crPages.values()) {
++        if (crPage._browserContext === this && !crPage._page.isClosedOrClosingOrCrashed())
++          return crPage._page;
++      }
++    }
+     const { targetId } = await this._browser._session.send('Target.createTarget', { url: 'about:blank', browserContextId: this._browserContextId });
+     return this._browser._crPages.get(targetId)!._page;
+   }
+@@ -562,6 +620,31 @@
+     // beforeunload.
+     await this.dialogManager.closeBeforeUnloadDialogs();
+ 
++    // ArkWeb cannot dispose the default context; closing it cleans up pages,
++    // bindings and storage instead of closing the browser.
++    if (this._browser._isArkWeb) {
++      for (const binding of this._pageBindings.values())
++        await binding.dispose().catch(() => {});
++      const pages = [...this._crPages()];
++      for (const crPage of pages)
++        await this._browser._closePage(crPage).catch(() => {});
++      for (const [targetId, serviceWorker] of this._browser._serviceWorkers) {
++        if (serviceWorker.browserContext !== this)
++          continue;
++        serviceWorker.didClose();
++        this._browser._serviceWorkers.delete(targetId);
++      }
++      try {
++        await this._browser._session.send('Storage.clearDataForOrigin', { origin: '*', storageTypes: 'all' });
++      } catch {
++      }
++      try {
++        await this._browser._session.send('Browser.resetPermissions', { browserContextId: this._browserContextId });
++      } catch {
++      }
++      return;
++    }
++
+     if (!this._browserContextId) {
+       // Closing persistent context should close the browser.
+       return 'close-browser';
+--- a/packages/playwright-core/src/server/chromium/crPage.ts
++++ b/packages/playwright-core/src/server/chromium/crPage.ts
+@@ -228,20 +228,36 @@
+     await this._mainFrameSession._client.send('Page.reload');
+   }
+ 
+-  private async _go(delta: number): Promise<boolean> {
++  private async _go(delta: number): Promise<boolean | string> {
+     const history = await this._mainFrameSession._client.send('Page.getNavigationHistory');
+     const entry = history.entries[history.currentIndex + delta];
+     if (!entry)
+       return false;
+     await this._mainFrameSession._client.send('Page.navigateToHistoryEntry', { entryId: entry.id });
++    // The device browsers report no CDP events for history navigations;
++    // wait until the URL actually changes so goBack/goForward complete, and
++    // report the URL so the caller can skip the event-based wait.
++    if (this._browserContext._browser._isHarmonyBrowser) {
++      const deadline = Date.now() + 30000;
++      while (Date.now() < deadline) {
++        await new Promise(resolve => setTimeout(resolve, 200));
++        const { result } = await this._mainFrameSession._client.send('Runtime.evaluate', {
++          expression: 'location.href',
++          returnByValue: true,
++        });
++        if (result?.value === entry.url)
++          break;
++      }
++      return entry.url;
++    }
+     return true;
+   }
+ 
+-  goBack(): Promise<boolean> {
++  goBack(): Promise<boolean | string> {
+     return this._go(-1);
+   }
+ 
+-  goForward(): Promise<boolean> {
++  goForward(): Promise<boolean | string> {
+     return this._go(+1);
+   }
+ 
+@@ -972,11 +988,16 @@
+ 
+   _onScreencastFrame(payload: Protocol.Page.screencastFramePayload) {
+     const buffer = Buffer.from(payload.data, 'base64');
++    // ArkWeb reports the physical device size (as a float) instead of the
++    // emulated viewport in the screencast frame metadata; report the last
++    // emulated viewport like desktop Chrome, falling back to the rounded
++    // device size when no viewport was ever applied.
++    const isHarmonyBrowser = this._crPage._browserContext._browser._isHarmonyBrowser;
+     void this._page.screencast.onScreencastFrame({
+       buffer,
+       frameSwapWallTime: payload.metadata.timestamp ? payload.metadata.timestamp * 1000 : Date.now(),
+-      viewportWidth: payload.metadata.deviceWidth,
+-      viewportHeight: payload.metadata.deviceHeight,
++      viewportWidth: isHarmonyBrowser ? (this._metricsOverride?.width ?? Math.round(payload.metadata.deviceWidth)) : payload.metadata.deviceWidth,
++      viewportHeight: isHarmonyBrowser ? (this._metricsOverride?.height ?? Math.round(payload.metadata.deviceHeight)) : payload.metadata.deviceHeight,
+     }).then(() => {
+       this._client._sendMayFail('Page.screencastFrameAck', { sessionId: payload.sessionId });
+     });
+@@ -1160,6 +1181,16 @@
+     const position = await this._framePosition();
+     if (!position)
+       return null;
++    // Round bounding boxes reported by the device to fix sub-pixel
++    // precision differences.
++    if (this._crPage._browserContext._browser._isHarmonyBrowser) {
++      return {
++        x: Math.round(x + position.x),
++        y: Math.round(y + position.y),
++        width: Math.round(width),
++        height: Math.round(height),
++      };
++    }
+     return { x: x + position.x, y: y + position.y, width, height };
+   }
+ 
+--- a/packages/playwright-core/src/server/registry/DEPS.list
++++ b/packages/playwright-core/src/server/registry/DEPS.list
+@@ -2,6 +2,7 @@
+ @utils/**
+ @isomorphic/**
+ ../../bootstrap.ts
++../../ohos/
+ ../../package.ts
+ ../utils.ts
+ ../userAgent.ts
+--- a/packages/playwright-core/src/server/registry/index.ts
++++ b/packages/playwright-core/src/server/registry/index.ts
+@@ -34,6 +34,7 @@
+ import { installDependenciesLinux, installDependenciesWindows, validateDependenciesLinux, validateDependenciesWindows } from './dependencies';
+ import { dockerVersion, readDockerVersionSync, transformCommandsForRoot } from './dependencies';
+ import { downloadBrowserWithProgressBar, logPolitely } from './browserFetcher';
++import { isOpenHarmony, resolveCommandPath } from '../../ohos/utils';
+ import { packageRoot, binPath } from '../../package';
+ 
+ import type { DependencyGroup } from './dependencies';
+@@ -375,7 +376,7 @@
+ };
+ 
+ function computeDefaultCacheDirectory(): string {
+-  if (process.platform === 'linux')
++  if (process.platform === 'linux' || isOpenHarmony())
+     return process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
+   if (process.platform === 'darwin')
+     return path.join(os.homedir(), 'Library', 'Caches');
+@@ -760,7 +761,9 @@
+     });
+ 
+     const ffmpeg = descriptors.find(d => d.name === 'ffmpeg')!;
+-    const ffmpegExecutable = findExecutablePath(ffmpeg.dir, 'ffmpeg');
++    // Playwright ships no ffmpeg for the openharmony platform, so the
++    // executable resolves to the system ffmpeg instead of the downloaded one.
++    const ffmpegExecutable = isOpenHarmony() ? resolveCommandPath('ffmpeg') : findExecutablePath(ffmpeg.dir, 'ffmpeg');
+     this._executables.push({
+       name: 'ffmpeg',
+       browserName: undefined,
+--- a/utils/build/build.js
++++ b/utils/build/build.js
+@@ -655,6 +655,9 @@
+ 
+     // CLI client tools, should be a separate bundle.
+     filePath('packages/playwright-core/src/tools/cli-client/*.ts'),
++    // HarmonyOS entry point (also bundled into coreBundle via the server
++    // imports below).
++    filePath('packages/playwright-core/src/ohos/*.ts'),
+     filePath('packages/playwright-core/src/package.ts'),
+     filePath('packages/playwright-core/src/tools/utils/socketConnection.ts'),
+     filePath('packages/playwright-core/src/tools/utils/extension.ts'),
+--- a/packages/protocol/spec/mixins.yml
++++ b/packages/protocol/spec/mixins.yml
+@@ -99,6 +99,13 @@
+     chromiumSandbox: boolean?
+     firefoxUserPrefs: json?
+     cdpPort: int?
++    harmonyBundleName: string?
++    harmonyDebugPort: float?
++    harmonyAbility: string?
++    harmonyLaunchUrl: string?
++    harmonyArgs:
++      type: array?
++      items: string
+ 
+ HttpCredentials:
+   type: object
