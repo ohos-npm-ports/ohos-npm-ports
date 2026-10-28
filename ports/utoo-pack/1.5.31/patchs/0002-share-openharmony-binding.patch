@@ -1,0 +1,11 @@
+--- a/esm/binding.js
++++ b/esm/binding.js
+@@ -540,7 +540,7 @@
+     else if (process.platform === 'openharmony') {
+         if (process.arch === 'arm64') {
+             try {
+-                return require('./pack.openharmony-arm64.node');
++                return require('../cjs/pack.openharmony-arm64.node');
+             }
+             catch (e) {
+                 loadErrors.push(e);

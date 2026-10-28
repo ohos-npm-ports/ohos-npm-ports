@@ -1,0 +1,44 @@
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+-  "name": "@utoo/pack",
+-  "version": "1.5.31",
++  "name": "@ohos-npm-ports/utoo-pack",
++  "version": "1.5.31-1",
+   "main": "cjs/index.js",
+   "module": "esm/index.js",
+   "types": "esm/index.d.ts",
+@@ -41,7 +41,7 @@
+     "@swc/helpers": "0.5.15",
+     "@utoo/pack-shared": "1.5.31",
+     "browserslist": "^4.28.5",
+-    "domparser-rs": "^0.0.7",
++    "domparser-rs": "npm:@ohos-npm-ports/domparser-rs@0.0.7-1",
+     "find-up": "4.1.0",
+     "get-port": "5.1.1",
+     "hono": "^4.12.5",
+@@ -84,14 +84,13 @@
+     "check:binding-version": "node scripts/check-binding-version.cjs",
+     "test": "vitest run",
+     "clean": "rm -rf cjs esm",
+-    "prepublishOnly": "npm run build:js && napi pre-publish -t npm --no-gh-release",
+     "version": "napi version",
+     "generate-features-list": "node ./scripts/generate-feature-list.js"
+   },
+   "repository": {
+     "type": "git",
+-    "url": "https://github.com/utooland/utoo",
+-    "directory": "packages/pack"
++    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports",
++    "directory": "ports/utoo-pack/1.5.31"
+   },
+   "optionalDependencies": {
+     "@utoo/pack-darwin-arm64": "1.5.31",
+@@ -102,4 +101,4 @@
+     "@utoo/pack-linux-x64-musl": "1.5.31",
+     "@utoo/pack-win32-x64-msvc": "1.5.31"
+   }
+-}
+\ No newline at end of file
++}
