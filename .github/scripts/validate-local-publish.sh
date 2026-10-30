@@ -2,7 +2,18 @@
 set -eu
 export npm_config_progress=false
 
+if command -v brew >/dev/null 2>&1; then
+  python_bin="$(brew --prefix python)/libexec/bin"
+  if [ -x "$python_bin/python" ]; then
+    export PYTHON="$python_bin/python"
+    export PATH="$python_bin:$PATH"
+  fi
+fi
+
+repo=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
+sh "$repo/.github/scripts/ci-time-service-compat.sh"
 port_dir=$(cd "$1" && pwd)
+port_rel=$(node -e 'process.stdout.write(require("path").relative(process.argv[1],process.argv[2]))' "$repo" "$port_dir")
 registry=http://127.0.0.1:4873
 temporary=$(mktemp -d "${TMPDIR:-/tmp}/ohos-port-registry.XXXXXX")
 verdaccio_pid=
@@ -26,29 +37,23 @@ cat > "$temporary/bin/npm" <<'EOF'
 set -eu
 if [ "${1:-}" = publish ]; then
   shift
-  node -e '
-    const p=require(process.cwd()+"/package.json");
-    if (!p.name.startsWith("@ohos-npm-ports/")) throw new Error("Unexpected publish scope: " + p.name);
-    require("fs").appendFileSync(process.env.PACKAGE_LIST,`${p.name}@${p.version}\n`);
-  '
-  if [ "${PUBLISH_DRY_RUN:-0}" = 1 ]; then exit 0; fi
-  exec "$REAL_NPM" publish "$@" --registry "$PORT_REGISTRY" --@ohos-npm-ports:registry="$PORT_REGISTRY"
+  exec "$REAL_NPM" publish "$@" --registry "$PORT_REGISTRY"
 fi
 exec "$REAL_NPM" "$@"
 EOF
 chmod +x "$temporary/bin/npm"
 touch "$temporary/expected-packages.txt"
 (
-  cd "$port_dir"
-  PATH="$temporary/bin:$PATH" REAL_NPM="$real_npm" PORT_REGISTRY="$registry" \
-    PACKAGE_LIST="$temporary/expected-packages.txt" PUBLISH_DRY_RUN=1 sh ./publish.sh
+  cd "$repo"
+  cli/npm-ports pack "$port_rel" --no-build
+  PACKAGE_LIST="$temporary/expected-packages.txt" cli/npm-ports publish "$port_rel" --dry-run
 )
 if [ ! -s "$temporary/expected-packages.txt" ]; then
-  echo "publish.sh did not declare any package" >&2
+  echo "NPMBUILD did not declare any package" >&2
   exit 1
 fi
 
-verdaccio_version=$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).verdaccio" "$(dirname "$0")/tool-versions.json")
+verdaccio_version=$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).verdaccio" "$repo/.github/scripts/tool-versions.json")
 attempt=0
 until npm install --prefix "$temporary/app" --no-audit --no-fund --fetch-retries=5 "verdaccio@$verdaccio_version"; do
   attempt=$((attempt + 1))
@@ -69,7 +74,6 @@ uplinks:
 packages:
 EOF
 
-# Locally built packages must never merge versions or tarballs from npmjs.
 while IFS= read -r package; do
   name=${package%@*}
   key=$(node -e 'process.stdout.write(JSON.stringify(process.argv[1]))' "$name")
@@ -122,8 +126,8 @@ printf 'registry=%s/\n@ohos-npm-ports:registry=%s/\n//127.0.0.1:4873/:_authToken
 
 touch "$temporary/packages.txt"
 (
-  cd "$port_dir"
-  PATH="$temporary/bin:$PATH" REAL_NPM="$real_npm" PORT_REGISTRY="$registry" PACKAGE_LIST="$temporary/packages.txt" sh ./publish.sh
+  cd "$repo"
+  PATH="$temporary/bin:$PATH" REAL_NPM="$real_npm" PORT_REGISTRY="$registry" PACKAGE_LIST="$temporary/packages.txt" cli/npm-ports publish "$port_rel"
 )
 cmp "$temporary/expected-packages.txt" "$temporary/packages.txt"
 
@@ -155,8 +159,6 @@ while IFS= read -r package; do
     ' "$temporary/published.json" "$artifacts" "$registry"
   (
     cd "$temporary/consumer"
-    # Bounded and foreground so a hanging postinstall fails visibly instead of
-    # consuming the whole job timeout; install scripts still run normally.
     timeout 1200 "$real_npm" install --foreground-scripts --no-audit --no-fund --registry "$registry" "$package"
   )
 done < "$temporary/packages.txt"
@@ -165,9 +167,9 @@ node -e '
   const fs=require("fs");
   const packages=fs.readFileSync(process.argv[1],"utf8").trim().split("\n").map(JSON.parse);
   fs.writeFileSync(process.argv[2],JSON.stringify({sourceSha:process.env.GITHUB_SHA,portDir:process.argv[3],packages},null,2)+"\n");
-' "$temporary/packed.jsonl" "$artifacts/manifest.json" "$1"
+' "$temporary/packed.jsonl" "$artifacts/manifest.json" "$port_rel"
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
-  echo "artifact-name=port-$(basename "$(dirname "$port_dir")")-$(basename "$port_dir")" >> "$GITHUB_OUTPUT"
+  echo "artifact-name=port-$(basename "$port_dir")" >> "$GITHUB_OUTPUT"
 fi
 
 echo "Verdaccio publish and consumer install succeeded for:"

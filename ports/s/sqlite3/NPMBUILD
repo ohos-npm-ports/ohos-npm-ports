@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+pkgname="sqlite3"
+upstream="sqlite3"
+version="5.1.7"
+revision=10
+# 上游 release 的平台 asset 矩阵会变化，需人工核对 resource 后配套升级。
+bump=false
+dist_tag="latest"
+
+packages=(
+  "node-sqlite3-${version}"
+)
+source="https://github.com/TryGhost/node-sqlite3/archive/refs/tags/v${version}.tar.gz"
+sha256="fbfa89d06de316a51cf7d4734a19c61b876bb685d33593992617c12d0a950732"
+resource "darwin_arm64" \
+  "https://github.com/TryGhost/node-sqlite3/releases/download/v${version}/sqlite3-v${version}-napi-v6-darwin-arm64.tar.gz" \
+  "84a34404b12ff212adbca70eff76c2e4dd83b91245eed0b4569438f928567afc"
+resource "darwin_x64" \
+  "https://github.com/TryGhost/node-sqlite3/releases/download/v${version}/sqlite3-v${version}-napi-v6-darwin-x64.tar.gz" \
+  "5f4662107faf0a9d15d00661be6ae1fb09ce3f85c109a3552e1771d48083b43d"
+resource "linux_arm64" \
+  "https://github.com/TryGhost/node-sqlite3/releases/download/v${version}/sqlite3-v${version}-napi-v6-linux-arm64.tar.gz" \
+  "0f112c63a74bebdffce298792c264b3af4b85d7fe1975a4bca1227438f531dbb"
+resource "linux_x64" \
+  "https://github.com/TryGhost/node-sqlite3/releases/download/v${version}/sqlite3-v${version}-napi-v6-linux-x64.tar.gz" \
+  "6d1f7a95e5aca90db1fd6a2839380a021d5ee23d46f2d7c520ded094da813fed"
+resource "linuxmusl_arm64" \
+  "https://github.com/TryGhost/node-sqlite3/releases/download/v${version}/sqlite3-v${version}-napi-v6-linuxmusl-arm64.tar.gz" \
+  "ce982ea60aad176623e8dd56cb777562b1968dc34a5c4667d49089e19b27729c"
+resource "linuxmusl_x64" \
+  "https://github.com/TryGhost/node-sqlite3/releases/download/v${version}/sqlite3-v${version}-napi-v6-linuxmusl-x64.tar.gz" \
+  "d206816e03f7ce56057d4f118ce70fa8b8b0e2c35fa0b75c601ee6e792dc6f6c"
+resource "win32_ia32" \
+  "https://github.com/TryGhost/node-sqlite3/releases/download/v${version}/sqlite3-v${version}-napi-v6-win32-ia32.tar.gz" \
+  "8cd346d2341f4dbda30a2b592656ea14290d86d70608585628256ba4e89153a3"
+resource "win32_x64" \
+  "https://github.com/TryGhost/node-sqlite3/releases/download/v${version}/sqlite3-v${version}-napi-v6-win32-x64.tar.gz" \
+  "7a55f7adb5fc3126156c56253511ec5ac38110531281ecbafbe71244555e93ce"
+
+build() {
+  # 准备源码
+  fetch_source node-sqlite3-${version}.tar.gz
+  tar -zxf node-sqlite3-${version}.tar.gz
+  cd node-sqlite3-${version}
+  patch -p1 <../patchs/0001-change-prebuild-framework.patch
+
+  # 构建 addon
+  npm install
+  npm run prebuild
+
+  # 把其他平台上的预构建产物复制到包里面一起发布
+  platforms="darwin-arm64 darwin-x64 linux-arm64 linux-x64 linuxmusl-arm64 linuxmusl-x64 win32-ia32 win32-x64"
+  for platform in ${platforms}; do
+    asset_name=sqlite3-v${version}-napi-v6-${platform}
+    resource_name=${platform//-/_}
+    fetch_resource "$resource_name" ${asset_name}.tar.gz
+    mkdir ${asset_name}
+    tar -zxf ${asset_name}.tar.gz -C ${asset_name}
+    mkdir ./prebuilds/${platform}
+    cp ./${asset_name}/build/Release/node_sqlite3.node ./prebuilds/${platform}/@ohos-npm-ports+sqlite3.node
+  done
+  mv ./prebuilds/linux-arm64/@ohos-npm-ports+sqlite3.node ./prebuilds/linux-arm64/@ohos-npm-ports+sqlite3.glibc.node
+  mv ./prebuilds/linux-x64/@ohos-npm-ports+sqlite3.node ./prebuilds/linux-x64/@ohos-npm-ports+sqlite3.glibc.node
+  mv ./prebuilds/linuxmusl-arm64/@ohos-npm-ports+sqlite3.node ./prebuilds/linux-arm64/@ohos-npm-ports+sqlite3.musl.node
+  mv ./prebuilds/linuxmusl-x64/@ohos-npm-ports+sqlite3.node ./prebuilds/linux-x64/@ohos-npm-ports+sqlite3.musl.node
+  rm -rf ./sqlite3-v${version}-napi-v6*
+  rm -rf ./prebuilds/linuxmusl-arm64
+  rm -rf ./prebuilds/linuxmusl-x64
+}

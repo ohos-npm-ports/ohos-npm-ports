@@ -1,0 +1,8 @@
+**/artifacts/
+**/build/
+**/node_modules/
+*.tgz
+.port-artifacts/
+.consumer-logs/
+.consumer-browser.log
+.consumer-browser.pid

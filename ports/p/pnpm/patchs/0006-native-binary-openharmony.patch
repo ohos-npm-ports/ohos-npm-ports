@@ -1,0 +1,26 @@
+--- a/native-binary.mjs
++++ b/native-binary.mjs
+@@ -52,6 +52,9 @@ const PLATFORMS = {
+   },
+   // Android is bionic, which is neither of the two libcs the linux entries
+   // above are keyed on, so it takes a bare specifier of its own.
++  openharmony: {
++    arm64: '@ohos-npm-ports/pnpm-exe.openharmony-arm64/pnpm',
++  },
+ }
+ 
+ /**
+@@ -151,8 +154,10 @@
+ function installedModulesDirs () {
+-  const { name } = readWrapperManifest()
+-  const segments = typeof name === 'string' ? name.split('/').length : 1
++  // An alias may install a scoped package at an unscoped path.
++  const modulesDir = path.basename(path.dirname(wrapperDir)).startsWith('@')
++    ? path.resolve(wrapperDir, '../..')
++    : path.dirname(wrapperDir)
+   return [
+     path.join(wrapperDir, 'node_modules'),
+-    path.resolve(wrapperDir, ...Array(segments).fill('..')),
++    modulesDir,
+   ]
+ }

@@ -3,7 +3,7 @@ description: Run one primary port's baseline and override consumer tests on the 
 
 inputs:
   port:
-    description: Primary port directory, e.g. ports/name/1.2.3
+    description: Primary port directory, e.g. ports/n/name or ports/n/name@1.2
     required: true
   platform:
     description: Expected process.platform

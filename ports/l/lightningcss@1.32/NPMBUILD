@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+pkgname="lightningcss"
+upstream="lightningcss"
+version="1.32.0"
+revision=3
+dist_tag="legacy-1.32"
+
+packages=(
+  "lightningcss-${version}"
+)
+source="https://github.com/parcel-bundler/lightningcss/archive/refs/tags/v${version}.tar.gz"
+sha256="ca67b9ba532d439f5f91d23debfc2543d6decac130ee88bc4c66202fc7173ad9"
+
+build() {
+  fetch_source "${pkgname}.tar.gz"
+  rm -rf "${pkgname}-${version}"
+  tar -zxf "${pkgname}.tar.gz"
+  rm "${pkgname}.tar.gz"
+
+  cd "${pkgname}-${version}"
+  find . -type f -exec sha256sum {} + | sort >/tmp/lightningcss-${version}-before.sha256
+  patch -p1 <../patchs/0001-update-package-json.patch
+  patch -p1 <../patchs/0002-openharmony-loader.patch
+  node - <<'JS'
+const assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
+const { readFileSync, readdirSync } = require('node:fs');
+const before = new Map(readFileSync(`/tmp/lightningcss-${process.env.NPMBUILD_VERSION}-before.sha256`, 'utf8')
+  .trimEnd().split('\n').map(line => [line.slice(66).replace(/^\.\//, ''), line.slice(0, 64)]));
+const after = new Map();
+function scan(directory) {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) scan(path);
+    else if (entry.isFile()) after.set(path.replace(/^\.\//, ''),
+      createHash('sha256').update(readFileSync(path)).digest('hex'));
+  }
+}
+scan('.');
+const changed = [...new Set([...before.keys(), ...after.keys()])]
+  .filter(path => before.get(path) !== after.get(path)).sort();
+assert.deepEqual(changed, ['node/index.js', 'package.json']);
+JS
+
+  grep -q "process.platform === 'openharmony'" node/index.js
+  rust_prefix=$(brew --prefix rust)
+  if ! "$rust_prefix/bin/rustc" -vV 2>/dev/null |
+    grep -q '^host: aarch64-unknown-linux-ohos$'; then
+    HOMEBREW_NO_AUTO_UPDATE=1 brew install -y rust
+  fi
+  export PATH="$rust_prefix/bin:$PATH"
+  rustc -vV
+  cargo --version
+  rustc -vV | grep -q '^host: aarch64-unknown-linux-ohos$'
+  npm install --ignore-scripts --no-package-lock --no-audit --no-fund
+  export PATH="$(pwd)/node_modules/.bin:$PATH"
+  export CARGO_TARGET_DIR=/root/.cache/lightningcss-${version}-target
+  node scripts/build.js --release
+
+  test -f lightningcss.linux-arm64-ohos.node
+  llvm-strip --strip-all lightningcss.linux-arm64-ohos.node
+  chmod +x lightningcss.linux-arm64-ohos.node
+
+  actual_name=$(node -e "console.log(require('./package.json').name)")
+  [ "$actual_name" = '@ohos-npm-ports/lightningcss' ]
+  built_version=$(node -e "console.log(require('./package.json').version)")
+  [ "$built_version" = "${version}" ]
+  node -e '
+  const pkg = require("./package.json");
+  const base = pkg.version;
+  for (const [name, version] of Object.entries(pkg.optionalDependencies ?? {})) {
+    if (name.startsWith("lightningcss-") && version !== base) {
+      throw new Error(`${name} has ${version}, expected ${base}`);
+    }
+  }
+'
+  node --check node/index.js
+  grep -q "process.platform === 'openharmony'" node/index.js
+  node - <<'JS'
+const Module = require('module');
+const load = Module._load;
+const cases = [
+  ['linux', 'lightningcss-linux-arm64-gnu'],
+  ['darwin', 'lightningcss-darwin-arm64'],
+  ['win32', 'lightningcss-win32-arm64-msvc'],
+];
+for (const [platform, expected] of cases) {
+  Object.defineProperty(process, 'platform', { configurable: true, value: platform });
+  let selected;
+  Module._load = function (request, parent, isMain) {
+    if (request === 'detect-libc') return { MUSL: 'musl', familySync: () => 'glibc' };
+    if (request.startsWith('lightningcss-')) {
+      selected = request;
+      return {};
+    }
+    return load.call(this, request, parent, isMain);
+  };
+  delete require.cache[require.resolve('./node/index.js')];
+  require('./node/index.js');
+  if (selected !== expected) throw new Error(`${platform} selected ${selected}, expected ${expected}`);
+}
+Module._load = load;
+Object.defineProperty(process, 'platform', { configurable: true, value: 'openharmony' });
+delete require.cache[require.resolve('./node/index.js')];
+const { transform } = require('./node/index.js');
+const { code } = transform({ filename: 'test.css', code: Buffer.from('.a { color: red }'), minify: true });
+const output = code.toString();
+console.log('transform() output:', output);
+if (!output.includes('.a') || !output.includes('red')) throw new Error('unexpected transform output');
+JS
+
+  mkdir -p /tmp/lightningcss-consumer
+  npm pack --pack-destination /tmp/lightningcss-consumer
+  mkdir -p /tmp/lightningcss-consumer/project
+  cd /tmp/lightningcss-consumer/project
+  npm install --no-audit --no-fund /tmp/lightningcss-consumer/ohos-npm-ports-lightningcss-${version}.tgz
+  node - <<'JS'
+const { transform } = require('@ohos-npm-ports/lightningcss');
+const { code } = transform({ filename: 'consumer.css', code: Buffer.from('.consumer { color: red }'), minify: true });
+const output = code.toString();
+console.log('packed consumer transform() output:', output);
+if (!output.includes('.consumer') || !output.includes('red')) throw new Error('packed consumer transform failed');
+JS
+}

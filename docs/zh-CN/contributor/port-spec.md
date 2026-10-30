@@ -1,75 +1,139 @@
-# Port 规范：目录、命名、版本、patch
+# NPMBUILD 规范：port、版本、patch 与发布
 
-本文档归纳自仓库内现有 20+ 个 port 的共同结构。跟已有包（尤其是移植手法接近的）保持一致，别从零发明格式。
+## 1. 目录与命名
 
-## 1. 目录形状
+在本项目中，每一个 npm 包对应一个 port，拥有自己的独立目录。例如：`ports/p/parcel-watcher`。
 
+目录结构如下：
+```text
+ports/<首字母>/<port>/
+├── NPMBUILD                  # 必须：元数据、产物和完整生命周期实现
+├── patchs/                   # 可选
+├── test.js                   # consumer 测试
+└── slots/<slot>/             # 可选：同版本、同 revision 的槽位辅助文件
 ```
-ports/<port>/<version>/
-├── build.sh       # 必须：拉源码/上游产物 → 打补丁 → 编译/重打包 → 自验证
-├── publish.sh     # 必须：cd 到构建产物目录 → npm publish
-└── patchs/        # 可选（无需改动上游文件时可以没有）
-    ├── 0001-xxx.patch
-    └── 0002-xxx.patch
+
+port 目录使用**发布短名**，最终主包为 `@ohos-npm-ports/<pkgname>`。上游 scoped 包默认扁平化，例如 `@ast-grep/napi` 对应 `ports/a/ast-grep-napi`。`upstream` 字段精确保留 `@ast-grep/napi`，不依赖目录反推。不同上游映射到同一发布短名会被 lint 阻断，需人工选择无歧义名称。
+
+port 的维护模式为滚动更新，每个 port 目录只保留最新版本的数据。如果需要锁版本，则需要为包名加一个 `@<版本线>` 后缀，作为一个新的 port 录入。例如：`ports/l/lightningcss@1.32`。
+
+版本线后缀通常使用 `@major`、`@major.minor` 或完整版本后缀，0.x 通常至少保留 minor。`@` 后缀不属于 npm 包名，且必须使用非 `latest` 的 dist-tag。新增旧版本线需先确认维护必要性。
+
+## 2. NPMBUILD
+
+NPMBUILD 是本项目的软件包配方，文件格式如下：
+
+```bash
+#!/usr/bin/env bash
+pkgname="example"
+upstream="@upstream/example"
+version="1.2.3"
+revision=1
+dist_tag="latest"
+packages=("build/example-${version}")
+
+prepare() {
+  # 安装工具、下载、校验并解包。
+}
+build() {
+  # 编译；可以在这里应用源码补丁。
+}
+package() {
+  # 生成 packages 声明的发布目录。
+}
+check() {
+  # 验证包内容、安装和真实加载。
+}
 ```
 
-- `<port>` 用不带 scope 的短横线命名；上游是 scoped 包（如 `@ast-grep/napi`）时，目录名按 `scope-name` 惯例展开（`@ast-grep/napi` → `ast-grep-napi`，`@datadog/pprof` → `datadog-pprof`，`@resvg/resvg-js` → `resvg-resvg-js`）——目录名和最终发布名的对应关系必须一眼看出来。
-- `<version>` 是**上游基准版本号**（不含本仓库的修订后缀），如 `5.1.7`、`0.5.8`。同一个包可以有多个版本目录并存（`opentui-core` 现有 `0.4.5` 和 `0.5.8` 两代）——旧版本目录何时删除由维护者决定，不在贡献者范围内。
-- 平台专属子包（如 `@parcel/watcher` 的 openharmony 二进制槽位）独立开一个 `ports/<port>-openharmony-arm64/<version>/` 目录，不要塞进主包目录。
+必填字段为 `pkgname`、`upstream`、`version`、`revision`、`dist_tag`、`packages` 和 `build()`。`packages` 按发布顺序列出全部产物。`prepare()`、`package()` 和 `check()` 按需实现，缺省时自动跳过。
 
-## 2. build.sh
+版本、源码 URL、SHA-256 和共享路径等纯声明集中在生命周期函数之前，且同一变量只定义一次。当前 port 的上游版本统一引用 `${version}`，发布短名统一引用 `${pkgname}`，不要在不同钩子中重复抄写版本或包名。`prepare()` 与 `package()` 不重复声明同一份源码参数。跨 port 依赖的版本单独锁定，不能误用当前 port 的 revision。
 
-`build.sh` 必须使用 `#!/bin/sh` 和 `set -e`，并按以下顺序完成构建：
+配方自己的局部变量使用 `lower_snake_case`，例如 `build_dir`、`source_dir`、`archive_dir` 和 `slot_name`。只有管理器提供的 `NPMBUILD_*`、外部工具或子进程明确要求的环境变量使用大写，例如 `PATH`、`CARGO_HOME`、`CC`；不要为了风格统一而改写这些环境变量。
 
-`build.sh` 和 `publish.sh` 统一使用 POSIX sh 语法，不支持 bash 或 zsh 等扩展语法。
+本项目配套提供了一个 [命令行工具](cli.md)。这个命令行工具也被称为“管理器”，它对外暴露的命令名为 `npm-ports`。在仓库根目录执行 `export PATH="$PWD/cli:$PATH"` 或 `npm link` 后，即可使用这个命令。
 
-1. 下载源码或上游包，并固定来源；新增或升级 port 必须提供下载文件的校验值。
-2. 应用 `patchs/` 下的补丁，随后检查补丁引入的关键标记。
-3. 编译原生 addon 或原生二进制。
-4. 组装发布目录，写入最终的 `package.json`，并对随包分发的原生文件签名。
-5. 执行静态检查和必要的真实加载检查。
+管理器执行命令时会自动调用这些 NPMBUILD 钩子函数：
 
-构建过程可以拆成函数，但不要求所有 port 使用同一套函数名或横幅。跨函数切换目录时使用稳定的绝对路径，避免检查阶段因当前目录变化而误判。
+- `prepare`：执行 prepare()。
+- `build`：自动执行 prepare()、build()。
+- `package`：再执行 package()，产物保持裸上游版本。
+- `check`：再执行 check()，验证实际发布目录。
+- `pack`：执行完整生命周期，注入 revision 并同步槽位引用，统一签名后生成 npm tarball；`--no-build` 只复用已有发布目录。
+- `publish`：只发布已通过验证的 tarball，不重新执行生命周期。
 
-构建脚本不得执行 `npm publish`；发布由 `publish.sh` 负责。
+`check()` 放在 `package()` 后，是为了直接验证最终包布局。此时 package.json 仍是裸上游版本，最终 `<上游版本>-<revision>` 只在 `pack` 阶段写入。同一主包或槽位在一个 Bash 进程内顺序执行所有生命周期钩子，变量、环境和当前目录可以按此顺序传递；主包与槽位使用不同进程，彼此隔离。`packages` 的顺序只决定 staging 和发布顺序。
 
-## 3. publish.sh
+签名同样只属于 `pack`：管理器统一为发布目录中的 AArch64 ELF 调用 `selfsign --force <文件>`（该签名工具已通过 Harmonybrew 安装，集成在 ci-runner 镜像中），签名失败会中断打包。贡献者不需要也不应在 NPMBUILD 中处理任何签名相关事项，也不需要在钩子中调用 `readelf`。但 loader 和真实功能验证仍由配方负责。
 
-固定模式：
+在 NPMBUILD 中，`source` 和 `sha256` 必须成对声明。与 Homebrew 一样，附加下载的声明关键字使用单数 `resource`，每个资源有独立名称、URL 和 SHA-256：
+
+```bash
+source="https://registry.npmjs.org/example/-/example-${version}.tgz"
+sha256="64 位小写十六进制摘要"
+resource "source_archive" \
+  "https://github.com/example/example/archive/v${version}.tar.gz" \
+  "64 位小写十六进制摘要"
+resource "pinned_tool" \
+  "https://example.com/tool-1.0.0.tar.gz" \
+  "64 位小写十六进制摘要"
+
+prepare() {
+  fetch_source build/example.tgz
+  fetch_resource "source_archive" build/source.tar.gz
+  fetch_resource "pinned_tool" build/tool.tar.gz
+}
+```
+
+下载源码和资源时需要使用辅助函数 `fetch_source` 和 `fetch_resource` ，辅助函数会自动进行 SHA-256 校验。禁止在钩子中另写 `curl` 下载及 SHA-256 校验逻辑。资源名使用 `lower_snake_case`；可通过 `${resource_<name>_url}` 和 `${resource_<name>_sha256}` 引用元数据。主包与槽位在各自工作目录中获取同一资源时仍分别校验。
+
+管理器在执行 bump 时会根据 `upstream` 查询 npm registry 的 dist-tags 和版本列表。主 `source` 及 URL 中含 `${version}` 的 `resource` 会随主版本重新展开并下载计算摘要；含 `${vips_version}` 等独立版本变量、固定工具链版本或 commit 的资源保持锁定，由维护者配套升级。预览线可设置 `upstream_tag`；当 npm 预览版本与源码 tag/commit 没有可靠映射时，必须设置 `bump=false` 并说明耦合原因，不能生成错配 PR。
+
+写入时只精确修改 `version`、`revision`、`source`/`sha256` 和命中的 `resource` 声明，不做全文版本号替换，也不改注释、普通构建参数或补丁。NPMBUILD 使用 Bash，由管理器 source。下载、补丁、编译和构建期测试保持原有质量要求；新增或升级来源必须提供校验值。
+
+npm 包的打包和发布由管理器自动处理，NPMBUILD 中禁止执行 `npm publish` 操作。
+
+## 3. 版本与 revision
+
+- `version` 只写上游版本，`revision` 从 1 开始，最终包版本是 `<version>-<revision>`。revision 是发布版本号，不是重新编译的开关；纯格式调整不需要递增，需要重新发布同一上游版本的新产物时必须递增。
+- 全局 `revision` 是当前 port 修订版本号的唯一来源。这个变量仅供管理器使用，构建脚本不感知修订版本号的存在。禁止在 NPMBUILD 中的任何位置对这个变量进行复制和使用。
+- 当前 port 的主包、槽位、构建期断言和补丁只使用裸 `${version}`；补丁不得修改自身 package.json 的版本字段。跨 port 依赖是独立锁定的外部坐标，仍需保留对方完整的已发布版本（包括对方的 revision）。
+- 移植修复：`npm-ports revision <port>`，只递增全局 revision。
+- 上游升级：`npm-ports bump <port> --write`，精确修改 NPMBUILD 的版本及关联 source/resource 摘要并将 revision 重置为 1，不扫描或改写补丁；升级后按需重新生成补丁。
+- 创建一个升级 PR：`npm-ports bump-pr <port>`，一次只接受一个 port；同 port 已有开放 PR 时跳过，不覆盖旧 PR。默认草稿，配置 GitHub App 后可用 `--no-draft`。
+- 只有 `npm-ports pack` 在生成 tarball 前统一注入最终版本、同步同 port 槽位引用并为 AArch64 ELF 签名。
+
+所有产物必须位于 `@ohos-npm-ports/` scope，主包名必须是 `@ohos-npm-ports/<pkgname>`。repository.directory 由打包器设置为当前 port 目录。
+
+## 4. 槽位包
+
+平台槽位不再单独建立 port。主 port 在 `slots/<slot>/` 保存补丁等辅助文件，在同一个 NPMBUILD 中实现 `slot_<slot>_<phase>()` 钩子，并在 `packages` 中先列槽位、再列主包。槽位名中的非字母数字替换为下划线，例如：
+
+```bash
+packages=(
+  "slots/openharmony-arm64/example-openharmony-arm64-1.2.3"
+  "example-1.2.3"
+)
+slot_openharmony_arm64_build() {
+  # 使用 NPMBUILD_SLOT_DIR，构建槽位。
+}
+```
+
+主包和槽位共享 version/revision，统一构建、打包、artifact、私仓验证和发布。`NPMBUILD_DIR` 始终是主 port 目录，`NPMBUILD_SLOT_DIR` 是当前主包或槽位的工作目录。
+
+## 5. patch 与 lint
+
+- patch 使用 `NNNN-描述.patch`，并由 NPMBUILD 的钩子实际应用。
+- 修改 patch 应重新生成 diff，应用后验证关键标记。
+- `npm-ports lint --all` 检查元数据、首字母目录、发布短名冲突、Bash 语法、孤立 patch、遗留 publish.sh、旧元数据别名、版本字面量、重复全局声明、重复 SHA-256、readelf、签名逻辑、连续空行和构建内直接发布。
+- lint 不能证明上游 patch 仍兼容，升级后必须真实构建。
+
+## 6. 私仓验证
 
 ```sh
-#!/bin/sh
-set -e
-cd <构建产物目录>
-npm publish --tag latest --access public
+npm-ports check ports/p/<port>
+sh .github/scripts/validate-local-publish.sh ports/p/<port>
 ```
 
-`cd` 的目标是“构建产物目录”。CI 调用 publish.sh 时先 `cd` 进 port 目录再执行 `./publish.sh`（见 ci.yml），cwd 就是 port 目录，所以一律用字面量相对路径：`cd sqlite3-5.1.7`。
-
-旧 port 里有 `cd "$(dirname "$0")/<pkg>-<ver>"` 的写法（`parcel-watcher-openharmony-arm64`、`opentui-core-openharmony-arm64`），新 port 不要照抄。
-
-一个包同时发主包和平台槽位包时（如 `typescript`），publish.sh 里写两条 `cd` + 两条 `npm publish`：先发槽位包，再 `cd ../<主包目录>` 发主包。
-
-CI 对 publish.sh 只检查三件事：文件存在、`sh -n` 语法通过、port 文件里能找到 `@ohos-npm-ports/` scope 字符串（见 port-lint.sh）——不解析 `cd` 目标，但请保持上面的简单结构，方便人读。
-
-**`--tag latest` 只属于这个包当前真正应该分发给新用户的那条版本线**。一个包如果有多个 `<version>` 目录并存（如 `opentui-core` 的 `0.4.5` 和 `0.5.8`），只有其中最新的那条线的 publish.sh 才写 `--tag latest`；给较旧那条线发修订版（比如给 `0.4.5` 修一个只有那条线才有的 bug）时，必须显式换一个不同的 tag（如 `--tag legacy-0.4`），不能照抄模板漏改——npm 的 `latest` dist-tag 谁发布得晚就是谁，跟 semver 版本号大小无关：如果 `0.5.8` 已经是 `latest`，之后再发一次 `0.4.5-2` 却还打 `--tag latest`，`latest` 会被错误地拉回 `0.4.5-2`，新装的用户全部拿到旧版本。新增 port 只有一条版本线时无需关心这条，正常照抄模板即可。
-
-## 4. 包名与版本号
-
-- `package.json` 的 `name` 字段改成 `@ohos-npm-ports/<port>`。这个改写可能来自三种载体，任选其一：
-  - 打补丁改写 fetch 下来的上游 `package.json`（最常见，通常在 `0001-update-package-json.patch`）
-  - `build.sh` 里用 heredoc 直接生成整份 `package.json`（平台专属子包这类没有“上游 package.json”可改的场景）
-  - port 目录里直接放一份静态 `package.json`，`build.sh` 用 `cp` 复制进构建产物（commit-pin 类的原生构建，如 `prisma-engines`）
-- `version` 字段改成 `<上游版本>-<修订号>`（`5.1.7-8`）。修订号只在**补丁本身**改进时才 +1，不随上游发版自动变化；升级到新的上游版本要新开一个 `<version>` 目录，修订号从 `-1` 重新起。
-- `repository.url` 指回本仓库（`https://github.com/ohos-npm-ports/ohos-npm-ports`），不要留着上游原仓库地址。
-
-## 5. patch 命名与纪律
-
-- 编号前缀 `NNNN-`（四位数字，从 `0001` 起），描述用短横线连词：`0001-update-package-json.patch`。
-- **每个 patch 必须被 build.sh 实际应用**：要么按文件名逐条 `patch -p1 < ../patchs/0001-xxx.patch`，要么整体 glob 循环 `for patch in ../patchs/*.patch; do patch -p1 < "$patch"; done`（`playwright-core` 用的是后者——patch 数量多、顺序靠文件名排序时更省事）。没被应用到的 patch 文件是死代码，CI 的 `port-lint` 会拦下来。
-- **改已有 patch 要重新生成 diff，不要手改 `@@` 行号**——上游文件哪怕只挪动几行，手改的行号在 `patch` 工具下常常静默不生效（打完补丁退出码是 0，但内容根本没变），验证靠 grep 补丁引入的标记字符串，不要只看退出码。
-- 一个 patch 可以身兼数职（`sqlite3` 的唯一 patch 同时改了 `binding.gyp`、`lib/sqlite3-binding.js` 和 `package.json`）——不必强行拆成“一个改动一个 patch”，只要每个改动本身内聚。
-
-## 6. 校验规则来源
-
-`port-lint.sh` 的阻断级规则都是先对仓库里全部现存 port 目录跑一遍确认零误报，再定为阻断（见该脚本头部注释）；仍在观察阶段的规则（版本号字符串是否过期、build.sh 是否有自验证）先只报警告，不拦截 PR。来源校验值尚未覆盖全部存量 port，新增或升级 port 不得新增缺少校验值的例外，存量 port 另行补齐。
+该脚本打包全部产物、发布到临时 Verdaccio、校验 tarball 和 integrity，并实际安装。需要跨平台验证时，同时保留或更新 port 的 test.js。

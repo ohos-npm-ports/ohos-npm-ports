@@ -1,0 +1,21 @@
+{
+  "name": "@ohos-npm-ports/build-tool",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NPMBUILD port manager for ohos-npm-ports",
+  "type": "module",
+  "bin": {
+    "npm-ports": "cli/npm-ports"
+  },
+  "files": [
+    "cli"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs .github/scripts/*.test.mjs",
+    "lint": "cli/npm-ports lint --all"
+  },
+  "license": "0BSD"
+}

@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+pkgname="next"
+upstream="next"
+version="16.3.5"
+revision=3
+source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
+sha256="d94aca1deaf130ce7d7a544975b20620ad577d3d6057bbbec21d917e37f5ec5e"
+resource "upstream" \
+  "https://codeload.github.com/vercel/next.js/tar.gz/refs/tags/v${version}" \
+  "40beba17f8f6879d67da08995e5dab58da8950d7bf59b470d1d273d93049611c"
+dist_tag="latest"
+
+packages=(
+  "next-swc-openharmony-arm64"
+  "next-${version}"
+)
+root_dir="$NPMBUILD_DIR"
+
+prepare() {
+  repo_root=$(CDPATH= cd -- "$root_dir/../../.." && pwd)
+
+  # ===== deps =====
+  brew install -y rust
+  command -v curl >/dev/null
+  command -v cargo >/dev/null
+
+  rm -rf "$root_dir/src" "$root_dir/next-$version" "$root_dir/next-swc-openharmony-arm64"
+  mkdir -p "$root_dir/src" "$root_dir/next-swc-openharmony-arm64"
+
+  fetch_resource "upstream" "$root_dir/next-source.tar.gz"
+  tar -zxf "$root_dir/next-source.tar.gz" -C "$root_dir/src" --strip-components=1
+  rm -f "$root_dir/next-source.tar.gz"
+  rm -f "$root_dir/src/rust-toolchain.toml"
+
+  fetch_source "$root_dir/next.tgz"
+  tar -zxf "$root_dir/next.tgz" -C "$root_dir"
+  mv "$root_dir/package" "$root_dir/next-$version"
+  rm -f "$root_dir/next.tgz"
+}
+
+build() {
+  host_triple=$(rustc -vV | sed -n 's/^host: //p')
+  [ "$host_triple" = "aarch64-unknown-linux-ohos" ]
+  git config --global --add safe.directory "$repo_root"
+
+  cd "$root_dir/src"
+  patch -p1 <"$root_dir/patchs/0003-turbo-tasks-fs-ohos.patch"
+  grep -q "into_os_string" turbopack/crates/turbo-tasks-fs/src/disk.rs
+  patch -p1 <"$root_dir/patchs/0004-openharmony-project-path.patch"
+  grep -q "into_os_string" crates/next-napi-bindings/src/next_api/project.rs
+  # The upstream workspace enables nightly-only optimization flags. The build
+  # image uses stable rustc, so bootstrap those flags without another toolchain.
+  export RUSTC_BOOTSTRAP=1
+  cargo build -p next-napi-bindings --release \
+    --features image-extended,tracing/release_max_level_trace
+  test -f target/release/libnext_napi_bindings.so
+  cp target/release/libnext_napi_bindings.so \
+    "$root_dir/next-swc-openharmony-arm64/next-swc.openharmony-arm64.node"
+  cd "$root_dir"
+}
+
+package() {
+  llvm-strip --strip-all \
+    next-swc-openharmony-arm64/next-swc.openharmony-arm64.node
+  chmod +x next-swc-openharmony-arm64/next-swc.openharmony-arm64.node
+
+  cd "$root_dir/next-$version"
+  patch -p1 <"$root_dir/patchs/0001-openharmony-loader.patch"
+  patch -p1 <"$root_dir/patchs/0002-package-json.patch"
+  cd "$root_dir"
+
+  cat >next-swc-openharmony-arm64/package.json <<EOF
+{
+  "name": "@ohos-npm-ports/next-swc-openharmony-arm64",
+  "version": "${version}",
+  "description": "OpenHarmony arm64 native SWC binding for Next.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
+    "directory": "ports/n/next"
+  },
+  "os": ["openharmony"],
+  "cpu": ["arm64"],
+  "main": "next-swc.openharmony-arm64.node",
+  "files": ["next-swc.openharmony-arm64.node"],
+  "license": "MIT",
+  "engines": { "node": ">= 20" },
+  "publishConfig": { "access": "public" }
+}
+EOF
+}
+
+check() {
+  node -e '
+    const main = require(`./next-${process.env.NPMBUILD_VERSION}/package.json`);
+    const sub = require("./next-swc-openharmony-arm64/package.json");
+    if (main.name !== "@ohos-npm-ports/next" || main.version !== sub.version) process.exit(1);
+    if (main.optionalDependencies[sub.name] !== sub.version) process.exit(1);
+  '
+  grep -q "openharmony-arm64" next-${version}/dist/build/swc/index.js
+  grep -q "@ohos-npm-ports/next-swc-openharmony-arm64" next-${version}/dist/build/swc/index.js
+}

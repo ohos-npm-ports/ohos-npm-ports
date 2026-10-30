@@ -1,0 +1,56 @@
+name: NPMBUILD bump
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+    inputs:
+      port:
+        description: 'Optional port name; empty checks every port'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      ports: ${{ steps.ports.outputs.ports }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - id: ports
+        env:
+          SELECTED: ${{ inputs.port }}
+        run: |
+          if [ -n "$SELECTED" ]; then
+            cli/npm-ports info "$SELECTED" >/dev/null
+            echo "ports=$(jq -cn --arg port "$SELECTED" '[$port]')" >> "$GITHUB_OUTPUT"
+          else
+            echo "ports=$(cli/npm-ports list | jq -R -s -c 'split("\n")[:-1]')" >> "$GITHUB_OUTPUT"
+          fi
+
+  bump:
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        port: ${{ fromJson(needs.discover.outputs.ports) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Bump one port and create a draft PR unless one is already open
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: cli/npm-ports bump-pr "${{ matrix.port }}"

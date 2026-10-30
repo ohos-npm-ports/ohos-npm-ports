@@ -1,0 +1,133 @@
+#!/usr/bin/env node
+import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { basename } from 'node:path';
+import { buildPort, checkPort, packagePort, packPort, publishPort, runLifecycle } from './build.mjs';
+import { bumpPorts, updatePortText } from './bump.mjs';
+import { bumpPr } from './bump-pr.mjs';
+import { createPort } from './create.mjs';
+import { discoverPorts, findRoot, loadPort } from './port.mjs';
+import { lintPort, lintPublishedNames } from './lint.mjs';
+
+const usage = `Usage: npm-ports <command> [port|--all] [options]
+
+Commands:
+  list                       List NPMBUILD ports
+  info <port|--all> [--json] Show port metadata
+  create <upstream>          Create NPMBUILD (--set-name/--set-version, --no-fetch)
+  edit <port>                Open NPMBUILD with $VISUAL/$EDITOR (default: vim)
+  lint [port|--all]          Validate port structure and published names
+  prepare <port>             Install dependencies and fetch sources
+  build <port>               Run prepare() and build()
+  package <port>             Build and stage package directories
+  check <port>               Run the complete lifecycle and package checks
+  pack <port> [--no-build]   Check, then create exact npm tarballs
+  publish <port>             Publish packed tarballs (--dry-run or --registry URL)
+  bump <port|--all>          Check upstream versions (add --write to edit)
+  bump-pr <port>             Bump one port and create a PR; skip if one is open
+  revision <port>            Increment revision (or use --set N)
+
+Ports are ports/<letter>/<name> or ports/<letter>/<name>@<version-line>.
+`;
+
+function options(args) {
+  const flags = new Set(args.filter((arg) => arg.startsWith('--')));
+  const value = (name, fallback = '') => {
+    const index = args.indexOf(name);
+    if (index !== -1) return args[index + 1] ?? fallback;
+    const assignment = args.find((arg) => arg.startsWith(`${name}=`));
+    return assignment ? assignment.slice(name.length + 1) : fallback;
+  };
+  return { flags, value };
+}
+
+function selected(root, args) {
+  if (args.includes('--all')) return discoverPorts(root).map((dir) => loadPort(root, dir));
+  const input = args.find((arg, index) => !arg.startsWith('--') && !['--base', '--registry', '--output', '--set'].includes(args[index - 1]));
+  if (!input) throw new Error('Select a port or --all');
+  return [loadPort(root, input)];
+}
+
+function info(port) {
+  return Object.fromEntries([
+    'name', 'relative', 'pkgname', 'upstream', 'version', 'revision', 'portVersion',
+    'distTag', 'upstreamTag', 'versionLine', 'source', 'sha256', 'resources', 'packages',
+  ].map((key) => [key, port[key]]));
+}
+
+function openEditor(port) {
+  const editor = process.env.VISUAL || process.env.EDITOR || 'vim';
+  execFileSync(editor, [`${port.dir}/NPMBUILD`], { stdio: 'inherit' });
+}
+
+try {
+  const [command, ...args] = process.argv.slice(2);
+  const { flags, value } = options(args);
+  const root = findRoot();
+  if (!command || flags.has('--help') || ['help', '--help', '-h'].includes(command)) {
+    console.log(usage);
+    process.exitCode = command ? 0 : 1;
+  } else if (command === 'list') {
+    for (const dir of discoverPorts(root)) console.log(basename(dir));
+  } else if (command === 'info') {
+    const ports = selected(root, args);
+    const data = ports.map(info);
+    if (flags.has('--json')) console.log(JSON.stringify(args.includes('--all') ? data : data[0], null, 2));
+    else for (const port of ports) console.log(`${port.name}: ${port.upstream} ${port.portVersion}; tag=${port.distTag}; outputs=${port.packages.join(', ')}`);
+  } else if (command === 'lint') {
+    const ports = args.length === 0 ? discoverPorts(root).map((dir) => loadPort(root, dir)) : selected(root, args);
+    lintPublishedNames(ports);
+    for (const port of ports) {
+      lintPort(port);
+      console.log(`OK ${port.relative}`);
+    }
+  } else if (command === 'prepare') {
+    for (const port of selected(root, args)) runLifecycle(port, 'prepare');
+  } else if (command === 'build') {
+    for (const port of selected(root, args)) buildPort(port);
+  } else if (command === 'package') {
+    for (const port of selected(root, args)) packagePort(port);
+  } else if (command === 'check') {
+    for (const port of selected(root, args)) checkPort(port);
+  } else if (command === 'pack') {
+    for (const port of selected(root, args)) packPort(root, port, { build: !flags.has('--no-build') });
+  } else if (command === 'publish') {
+    for (const port of selected(root, args)) publishPort(port, { dryRun: flags.has('--dry-run'), registry: value('--registry') });
+  } else if (command === 'bump') {
+    const ports = selected(root, args);
+    const changed = await bumpPorts(root, ports, { write: flags.has('--write'), registry: value('--registry'), output: value('--output') });
+    if (changed.length === 0) console.log('All selected ports are up to date');
+  } else if (command === 'bump-pr') {
+    const inputs = args.filter((arg, index) => !arg.startsWith('--') && args[index - 1] !== '--base');
+    if (args.includes('--all') || inputs.length !== 1) throw new Error('bump-pr accepts exactly one port');
+    const [port] = selected(root, args);
+    await bumpPr(root, port, { draft: !flags.has('--no-draft'), base: value('--base', 'main') });
+  } else if (command === 'create') {
+    const inputs = args.filter((arg, index) => !arg.startsWith('--') && !['--set-name', '--set-version'].includes(args[index - 1]));
+    if (inputs.length !== 1) throw new Error('create accepts exactly one upstream npm package');
+    const port = await createPort(root, inputs[0], {
+      name: value('--set-name'), version: value('--set-version'), fetch: !flags.has('--no-fetch'),
+    });
+    console.log(`Created ${port.relative}`);
+    if (!port.version || !port.sha256) console.log('Fill in version and sha256 before linting.');
+    console.log(`Next: npm-ports lint ${port.pkgname} && npm-ports check ${port.pkgname}`);
+    openEditor(port);
+  } else if (command === 'edit') {
+    if (args.length !== 1 || args[0].startsWith('--')) throw new Error('edit accepts exactly one port');
+    const [port] = selected(root, args);
+    openEditor(port);
+  } else if (command === 'revision') {
+    const [port] = selected(root, args);
+    const requested = value('--set');
+    const revision = requested ? Number(requested) : port.revision + 1;
+    if (!Number.isInteger(revision) || revision < 1) throw new Error('revision must be a positive integer');
+    const file = `${port.dir}/NPMBUILD`;
+    writeFileSync(file, updatePortText(readFileSync(file, 'utf8'), { revision: String(revision) }));
+    console.log(`${port.name}: ${port.version}-${revision}`);
+  } else {
+    throw new Error(`Unknown command: ${command}\n${usage}`);
+  }
+} catch (error) {
+  console.error(`npm-ports: ${error.message}`);
+  process.exitCode = 1;
+}

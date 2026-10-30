@@ -10,7 +10,7 @@ npm 官方明确不鼓励 `npm unpublish`——一旦有其他项目在这次发
 npm deprecate @ohos-npm-ports/<port>@<坏版本> "说明坏在哪、该升到哪个版本"
 ```
 
-`deprecate` 不会阻止已经锁定这个版本的项目继续安装它（避免制造新的破坏），但会在 `npm install` 时给出警告，引导用户升级。然后正常走一次 port 修订号 +1 的发布（改 `patchs/` 或 `build.sh`，`package.json` 的 `version` 从 `<上游版本>-<N>` 改成 `<上游版本>-<N+1>`），修复后的版本正常合并、正常发布。
+`deprecate` 不会阻止已经锁定这个版本的项目继续安装它（避免制造新的破坏），但会在 `npm install` 时给出警告，引导用户升级。然后修复对应 port 的补丁或构建，并执行 `npm-ports revision <port>` 将修订号 +1；打包器会统一生成 `<上游版本>-<N+1>` 及同步槽位引用。修复后的版本正常合并、正常发布。
 
 ### 2. dist-tag 回退（如果坏版本已经是 `latest`）
 

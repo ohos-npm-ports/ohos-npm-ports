@@ -4,15 +4,13 @@
 
 ohos-npm-ports 项目，是一个把 npm 三方库移植到 OpenHarmony 平台的项目。
 
-项目网站：[ohos-npm-ports 包目录](https://ohos-npm-ports.github.io/)，可查询已发布的移植包、版本和接入配置。
-
 ports 这个词一语双关，既表示移植软件，也表示本项目采用 ports 模式维护软件包（只存储构建脚本，不存储完整源码） 。
 
 ## 本项目解决什么问题
 
 当前 Node.js 运行时已经支持 OpenHarmony 平台（以下简称鸿蒙），详见[官方文档](https://github.com/nodejs/node/blob/main/BUILDING.md)。
 
-然而，Node.js 运行时支持鸿蒙，并不意味着 npm 包也一定支持鸿蒙。因为有一部分 npm 包并不是跨平台的，尤其是使用了 addon 技术的 npm 包最为典型。这些 npm 包想要在鸿蒙上正常使用，是需要做移植/适配工作的。
+然而，Node.js 运行时支持鸿蒙，并不意味着 npm 包也一定支持鸿蒙。因为有一部分 npm 包并不是跨平台的，例如使用了 addon 技术的 npm 包就不具备跨平台能力。想要在鸿蒙上使用这些 npm 包，需要先对它们进行移植/适配。
 
 对于需要鸿蒙适配的 npm 包，最佳的处理方式是直接往官方社区提 PR，让官方社区支持鸿蒙，不要额外 fork 版本出来维护。这样可以既让维护成本最小化，也能让用户得到最佳的使用体验。
 
@@ -22,7 +20,7 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 
 ## 已收录的包
 
-已发布的移植包、版本和接入配置请查看[网站包目录](https://ohos-npm-ports.github.io/)，构建脚本和补丁见 [ports/](ports/)。
+已发布的移植包、版本和接入配置请查看[项目主页](https://ohos-npm-ports.github.io/)，构建脚本和补丁见 [ports/](ports/)。
 
 ## 使用方法
 
@@ -49,7 +47,7 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 }
 ```
 
-PS：如果需要指定版本号，可以写成这种形式：npm:@ohos-npm-ports/sqlite3@5.1.7-7
+> 提示：如果需要指定版本号，可以写成这种形式：npm:@ohos-npm-ports/sqlite3@5.1.7-7
 
 ## 兼容性
 
@@ -57,9 +55,7 @@ PS：如果需要指定版本号，可以写成这种形式：npm:@ohos-npm-port
 
 ## 贡献指南
 
-新增 port、升级已有 port 或修复构建问题，请先阅读 [贡献文档](docs/zh-CN/contributor/)。
-
-提交前重点确认构建脚本、补丁、发布包名和版本号符合规范，并完成构建与加载验证。
+请参阅[贡献指南](docs/zh-CN/contributor/contributing.md)。
 
 ## 项目治理
 

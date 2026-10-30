@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+pkgname="oxlint-tsgolint"
+upstream="oxlint-tsgolint"
+version="7.0.2003"
+revision=3
+source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
+sha256="86d3490dd9d558ca83b7ffa0184198d8f7229e788059ed82ab5d7c1d91109d33"
+dist_tag="latest"
+
+packages=(
+  "oxlint-tsgolint-${version}"
+)
+slot_name="@oxlint-tsgolint/openharmony-arm64"
+work_dir="$NPMBUILD_DIR"
+stage_dir="${work_dir}/build"
+output_dir="${work_dir}/${pkgname}-${version}"
+
+prepare() {
+  # ============================================================
+  # ohos-npm-ports: @ohos-npm-ports/oxlint-tsgolint ${version}
+  #
+  # 构建方式：
+  #   1. clone tsgolint v7.0.2003（含 typescript-go submodule），按上游 justfile
+  #      的方式打 patches/0*.patch，go build 出静态二进制
+  #   2. 下载官方 oxlint-tsgolint@7.0.2003 tarball，钉住 sha256
+  #   3. 打两个 patch：改写 manifest + 给 loader 加 openharmony 分支，grep marker
+  #   4. 二进制与槽位包 manifest 一起塞进
+  #      @oxlint-tsgolint/openharmony-arm64/
+  #   5. 哈希不变量 + 走真实入口的 lint 冒烟
+  #
+  # 上游 loader 直接按 process.platform 拼槽位包名，没有 openharmony 分支；
+  # 槽位包名因此固定为 @oxlint-tsgolint/openharmony-arm64。
+  #
+  # 发布目录名必须与 NPMBUILD packages 一致，并留在配方目录根下，
+  # 所以中间件放 STAGE，成品由 package() 落到 OUT，check() 不删 OUT。
+  # ============================================================
+
+  brew install -y go git
+
+  # ===== fetch =====
+  echo "=== fetch: tsgolint v${version} 源码 + 官方 npm tarball ==="
+  rm -rf "${stage_dir}"
+  mkdir -p "${stage_dir}"
+  cd "${stage_dir}"
+
+  git clone --depth 1 --branch "v${version}" \
+    https://github.com/oxc-project/tsgolint.git tsgolint-src
+  # git am 会造 commit，而 CI 容器里没有配 git identity
+  git -C tsgolint-src config user.email port@example.com
+  git -C tsgolint-src config user.name port
+  git -C tsgolint-src submodule update --init --depth 1
+  # git am 跑在 submodule 里，它有自己一份 git config
+  git -C tsgolint-src/typescript-go config user.email port@example.com
+  git -C tsgolint-src/typescript-go config user.name port
+
+  fetch_source "src.tgz"
+  tar -zxf src.tgz
+  rm src.tgz
+  mv package src
+}
+
+build() {
+  echo "=== build: typescript-go 补丁 + go build ==="
+  cd "${stage_dir}/tsgolint-src"
+
+  cd typescript-go
+  git am --3way --no-gpg-sign ../patches/0*.patch
+  cd ..
+  mkdir -p internal/collections
+  find ./typescript-go/internal/collections -type f ! -name '*_test.go' \
+    -exec cp {} internal/collections/ \;
+
+  # CI 环境的临时目录指向容器内不存在的设备路径，go 的 work dir 会失败；
+  # GOTMPDIR 优先于 TMPDIR，缓存同理重定向到工作目录
+  export GOTMPDIR="$PWD/.gotmpdir"
+  export GOCACHE="$PWD/.gocache"
+  export GOMODCACHE="$(brew --prefix)/var/go-mod-cache"
+  mkdir -p "$GOTMPDIR" "$GOCACHE" "$GOMODCACHE"
+
+  go build -ldflags="-s -w" -trimpath -o tsgolint ./cmd/tsgolint
+
+  chmod +x tsgolint
+
+  cd "${stage_dir}/src"
+  # check() 拿它断言 patch 只改了 manifest 与 loader
+  find . -type f -exec sha256sum {} + | sed 's|\./||' | sort >"${work_dir}/before.sha256"
+}
+
+package() {
+  echo "=== package: 打 patch + grep marker + 嵌入二进制与槽位 manifest ==="
+  cd "${stage_dir}/src"
+
+  patch -p1 <"${work_dir}/patchs/0001-update-package-json.patch"
+  patch -p1 <"${work_dir}/patchs/0002-openharmony-loader.patch"
+  # patch 对零上下文 hunk 的越界行号会静默套用到文件末尾（exit 0）
+  grep -q '"name": "@ohos-npm-ports/oxlint-tsgolint"' package.json
+  grep -q "\"version\": \"${version}\"" package.json
+  grep -q "openharmony" bin/tsgolint.js
+  node --check bin/tsgolint.js
+
+  rm -rf "${output_dir}"
+  cp -a "${stage_dir}/src" "${output_dir}"
+
+  mkdir -p "${output_dir}/${slot_name}"
+  cp "${stage_dir}/tsgolint-src/tsgolint" "${output_dir}/${slot_name}/tsgolint"
+  chmod +x "${output_dir}/${slot_name}/tsgolint"
+  cat >"${output_dir}/${slot_name}/package.json" <<EOF
+{
+  "name": "${slot_name}",
+  "version": "${version}",
+  "description": "High-performance type-aware TypeScript linter powered by typescript-go, for use with oxlint. — OpenHarmony (OHOS) build",
+  "license": "MIT",
+  "preferUnplugged": true,
+  "files": [
+    "tsgolint"
+  ],
+  "os": [
+    "openharmony"
+  ],
+  "cpu": [
+    "arm64"
+  ]
+}
+EOF
+}
+
+check() {
+  echo "=== test: 哈希不变量 + 真实入口 lint 冒烟 ==="
+  cd "${output_dir}"
+
+  # 剔除 patch 允许改写的两个文件与组装新增的槽位文件，其余须逐字节一致
+  find . -type f -exec sha256sum {} + | sed 's|\./||' | sort >"${work_dir}/after.sha256"
+  grep -v -e '  package\.json$' -e '  bin/tsgolint\.js$' \
+    "${work_dir}/before.sha256" >"${work_dir}/before.filtered"
+  grep -v -e '  package\.json$' -e '  bin/tsgolint\.js$' \
+    -e "  ${slot_name}/tsgolint\$" -e "  ${slot_name}/package\.json\$" \
+    "${work_dir}/after.sha256" >"${work_dir}/after.filtered"
+  diff "${work_dir}/before.filtered" "${work_dir}/after.filtered"
+
+  # oxlint 走的就是这条入口：lint 一个故意写错类型的文件，期望对应诊断
+  smoke_dir="${stage_dir}/smoke"
+  mkdir -p "${smoke_dir}"
+  cd "${smoke_dir}"
+  printf '{"compilerOptions":{"strict":true}}' >tsconfig.json
+  printf 'const n = 1 as unknown as string | undefined;\n' >bad.ts
+  "${output_dir}/bin/tsgolint.js" -tsconfig tsconfig.json bad.ts >out.txt 2>&1 || true
+  grep -q 'no-unsafe-type-assertion' out.txt || {
+    cat out.txt >&2
+    exit 1
+  }
+
+  cd "${work_dir}"
+  rm -rf "${stage_dir}"
+  rm -f "${work_dir}"/before.sha256 "${work_dir}"/after.sha256 \
+    "${work_dir}"/before.filtered "${work_dir}/after.filtered"
+  test -d "${output_dir}"
+
+  echo "OK: @ohos-npm-ports/${pkgname} ${version} built and smoke-tested"
+}

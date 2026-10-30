@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+pkgname="yuku-codegen"
+upstream="yuku-codegen"
+version="0.10.2"
+revision=3
+source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
+sha256="f4ea9116966244be684a5450006ad9252a8d759c823458f833885c6522991918"
+dist_tag="latest"
+
+packages=(
+  "yuku-codegen-${version}"
+)
+slot_name="@yuku-codegen/binding-openharmony-arm64"
+zig_version="0.16.0"
+resource "yuku" \
+  "https://github.com/yuku-toolchain/yuku/archive/refs/tags/v${version}.tar.gz" \
+  "bc649dc0df663e7f3aeb005849f079cfc5aa838362e86806f5996c7255672f47"
+resource "zig" \
+  "https://ziglang.org/download/${zig_version}/zig-aarch64-linux-${zig_version}.tar.xz" \
+  "ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17"
+work_dir="$NPMBUILD_DIR"
+stage_dir="${work_dir}/build"
+output_dir="${work_dir}/${pkgname}-${version}"
+
+prepare() {
+  # ============================================================
+  # ohos-npm-ports: @ohos-npm-ports/yuku-codegen ${version}
+  #
+  # 构建方式：
+  #   1. 下载官方 yuku-codegen@${version} tarball 与 yuku monorepo v${version}，
+  #      钉住所有下载的 sha256
+  #   2. 打 patch 改写 manifest（name/repository/files），grep marker
+  #   3. 用 zig 把 monorepo 里的 napi-zig binding 交叉编译到
+  #      aarch64-linux-musl（与 OHOS 同 libc 族）
+  #   4. 零依赖重打包：上游全部内容进发布目录，编译后的 binding 嵌进
+  #      @yuku-codegen/binding-openharmony-arm64/
+  #   5. 用真实 loader 冒烟（容器 node 的 process.platform 就是 openharmony）
+  #
+  # binding.js 按 process.platform/process.arch 拼后缀，包内路径即 openharmony
+  # 分支的第一个候选。
+  #
+  # 发布目录名必须与 NPMBUILD packages 一致，并留在配方目录根下，
+  # 所以中间件放 STAGE，成品由 package() 落到 OUT，check() 不删 OUT。
+  # ============================================================
+
+  # ===== fetch =====
+  echo "=== fetch: 官方 ${pkgname}@${version} + yuku monorepo + zig ==="
+  rm -rf "${stage_dir}"
+  mkdir -p "${stage_dir}"
+  cd "${stage_dir}"
+
+  fetch_source src.tgz
+  tar -zxf src.tgz
+  rm src.tgz
+  mv package src
+
+  fetch_resource "yuku" yuku.tgz
+  tar -zxf yuku.tgz
+  rm yuku.tgz
+  mv "yuku-${version}" yuku
+
+  fetch_resource "zig" zig.tar.xz
+  tar -xJf zig.tar.xz
+  rm zig.tar.xz
+}
+
+build() {
+  echo "=== build: 打 patch + grep marker + 交叉编译 napi-zig binding ==="
+  cd "${stage_dir}/src"
+
+  # check() 拿它断言 patch 只改了 package.json
+  find . -type f -exec sha256sum {} + | sed 's|\./||' | sort >"${work_dir}/before.sha256"
+
+  patch -p1 <"${work_dir}/patchs/0001-update-package-json.patch"
+  # patch 对零上下文 hunk 的越界行号会静默套用到文件末尾（exit 0）
+  grep -q "\"name\": \"@ohos-npm-ports/${pkgname}\"" package.json
+  grep -q "\"version\": \"${version}\"" package.json
+  grep -q "\"${slot_name}\"" package.json
+
+  cd "${stage_dir}/yuku"
+  "${stage_dir}/zig-aarch64-linux-${zig_version}/zig" build \
+    -Dtarget=aarch64-linux-musl -Doptimize=ReleaseFast
+  test -f "zig-out/lib/${pkgname}.node"
+  cp "zig-out/lib/${pkgname}.node" "${stage_dir}/${pkgname}.node"
+}
+
+package() {
+  echo "=== package: 组装发布目录 + 嵌入 binding + manifest 断言 ==="
+  rm -rf "${output_dir}"
+  cp -a "${stage_dir}/src" "${output_dir}"
+
+  mkdir -p "${output_dir}/${slot_name}"
+  cp "${stage_dir}/${pkgname}.node" "${output_dir}/${slot_name}/${pkgname}.node"
+
+  cd "${output_dir}"
+  node -e '
+      const p = require("./package.json");
+      if (p.name !== "@ohos-npm-ports/yuku-codegen") { console.error("bad name: " + p.name); process.exit(1); }
+      if (p.version !== `${process.env.NPMBUILD_VERSION}`) { console.error("bad version: " + p.version); process.exit(1); }
+      console.log("OK: manifest");
+    '
+}
+
+check() {
+  echo "=== test: 哈希不变量 + 真实 loader 冒烟 ==="
+  cd "${output_dir}"
+
+  # 剔除 patch 允许改写的 package.json 与组装新增的 binding，其余须逐字节一致
+  find . -type f -exec sha256sum {} + | sed 's|\./||' | sort >"${work_dir}/after.sha256"
+  grep -v '  package\.json$' "${work_dir}/before.sha256" >"${work_dir}/before.filtered"
+  grep -v -e '  package\.json$' -e "  ${slot_name}/${pkgname}\.node$" \
+    "${work_dir}/after.sha256" >"${work_dir}/after.filtered"
+  diff "${work_dir}/before.filtered" "${work_dir}/after.filtered"
+
+  # 容器 node 报 openharmony，这次 load 走的是真实解析路径
+  node -e "const b = require('./binding.js'); console.log('loader smoke:', typeof b)"
+
+  cd "${work_dir}"
+  rm -rf "${stage_dir}"
+  rm -f "${work_dir}"/before.sha256 "${work_dir}"/after.sha256 \
+    "${work_dir}"/before.filtered "${work_dir}/after.filtered"
+  test -d "${output_dir}"
+
+  echo "OK: @ohos-npm-ports/${pkgname} ${version} built and smoke-tested"
+}

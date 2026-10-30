@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+pkgname="domparser-rs"
+upstream="domparser-rs"
+version="0.0.7"
+revision=3
+# npm 包与固定源码 commit 需人工配套升级。
+bump=false
+source="https://registry.npmjs.org/domparser-rs/-/domparser-rs-${version}.tgz"
+sha256="fef9487622af8ccc1e4fdc60e1795fde5ad84766d3dd253e601d648a8fa5dc5e"
+resource "upstream" \
+  "https://codeload.github.com/utooland/domparser-rs/tar.gz/79e32cd0ae4902a907a91b9c079c3de1f152db95" \
+  "cea5f6328b4db383de21aed329d6500eba5fa5537725242903705410584e773b"
+dist_tag="latest"
+
+packages=(
+  "domparser-rs-${version}"
+)
+
+root_dir="$NPMBUILD_DIR"
+build_dir="$root_dir/build"
+source_dir="$build_dir/source"
+package_dir="$root_dir/domparser-rs-${version}"
+
+prepare() {
+  export PATH="$(brew --prefix rust)/bin:$PATH"
+  command -v cargo >/dev/null
+  [ "$(rustc -vV | sed -n 's/^host: //p')" = aarch64-unknown-linux-ohos ]
+
+  mkdir -p "$build_dir"
+  fetch_resource "upstream" "$build_dir/source.tgz"
+  fetch_source "$build_dir/package.tgz"
+  rm -rf "$source_dir" "$package_dir" "$build_dir/upstream"
+  mkdir -p "$source_dir" "$package_dir" "$build_dir/upstream"
+  tar xzf "$build_dir/source.tgz" -C "$source_dir" --strip-components=1
+  tar xzf "$build_dir/package.tgz" -C "$build_dir/upstream" --strip-components=1
+  cp -R "$build_dir/upstream/." "$package_dir/"
+}
+
+build() {
+  cd "$source_dir"
+  export CARGO_TARGET_DIR="$build_dir/target"
+  cargo build --locked --release -p domparser_napi -j "${CARGO_BUILD_JOBS:-2}"
+}
+
+package() {
+  cd "$package_dir"
+  patch -p1 <"$root_dir/patchs/0001-package-json.patch"
+  grep -q '@ohos-npm-ports/domparser-rs' package.json
+  cp "$build_dir/target/release/libdomparser_napi.so" domparser.openharmony-arm64.node
+}
+
+check() {
+  grep -q "process.platform === 'openharmony'" "$package_dir/index.js"
+  node "$root_dir/verify.cjs" "$package_dir" "$build_dir/upstream"
+  cd "$package_dir"
+  npm pack --ignore-scripts --pack-destination "$build_dir"
+  mkdir -p "$build_dir/packed"
+  tar xzf "$build_dir/ohos-npm-ports-domparser-rs-${version}.tgz" -C "$build_dir/packed"
+  test -s "$build_dir/packed/package/domparser.openharmony-arm64.node"
+}

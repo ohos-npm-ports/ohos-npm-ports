@@ -1,0 +1,67 @@
+name: Generic install matrix
+description: Install selected ports from verified artifacts without port-specific test code
+inputs:
+  platform:
+    required: true
+  arch:
+    required: true
+  ports:
+    required: true
+  replay:
+    required: false
+    default: 'false'
+  artifact-run-id:
+    required: false
+    default: ''
+  token:
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/download-artifact@v8
+      with:
+        pattern: 'port-*'
+        path: .port-artifacts
+        run-id: ${{ inputs.artifact-run-id || github.run_id }}
+        github-token: ${{ inputs.token }}
+    - name: Run generic install matrix
+      if: inputs.platform != 'openharmony'
+      shell: bash
+      env:
+        EXPECTED_PLATFORM: ${{ inputs.platform }}
+        EXPECTED_ARCH: ${{ inputs.arch }}
+        CONSUMER_PORTS: ${{ inputs.ports }}
+        REPLAY_ARTIFACTS: ${{ inputs.replay }}
+        GITHUB_SHA: ${{ github.sha }}
+      run: node .github/scripts/run-install-matrix.mjs
+    - name: Run generic install matrix in OpenHarmony
+      if: inputs.platform == 'openharmony'
+      shell: bash
+      env:
+        EXPECTED_PLATFORM: ${{ inputs.platform }}
+        EXPECTED_ARCH: ${{ inputs.arch }}
+        CONSUMER_PORTS: ${{ inputs.ports }}
+        REPLAY_ARTIFACTS: ${{ inputs.replay }}
+        GITHUB_SHA: ${{ github.sha }}
+      run: |
+        docker run --rm \
+          -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+          -v "$RUNNER_TEMP:$RUNNER_TEMP" \
+          -w "$GITHUB_WORKSPACE" \
+          -e EXPECTED_PLATFORM -e EXPECTED_ARCH -e CONSUMER_PORTS -e REPLAY_ARTIFACTS \
+          -e GITHUB_SHA -e GITHUB_STEP_SUMMARY \
+          -e HOMEBREW_NO_AUTO_UPDATE=1 -e HOMEBREW_NO_INSTALL_UPGRADE=1 \
+          ghcr.io/ohos-npm-ports/ci-runner:latest \
+          sh -ec '. .github/scripts/setup-ci-runner.sh; exec node .github/scripts/run-install-matrix.mjs'
+    - name: Restore workspace ownership
+      if: inputs.platform == 'openharmony'
+      shell: bash
+      run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
+    - name: Upload diagnostic logs
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: install-matrix-logs-${{ inputs.platform }}-${{ inputs.arch }}
+        path: .install-matrix-logs
+        if-no-files-found: ignore
+        retention-days: 3

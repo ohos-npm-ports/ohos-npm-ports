@@ -1,18 +1,8 @@
-name: port-lint
-
-# Fast, host-side static checks — runs before the expensive container build
-# in ci.yml so an obviously-broken PR (orphan patch, stray `npm publish` in
-# build.sh, a bad commit message) gets a result in seconds instead of
-# waiting on a multi-minute container build. See
-# docs/zh-CN/maintainer/ci-pipeline.md for the full rule list and which
-# ones are blocking vs. warning-only.
-#
-# PR-only (unlike ci.yml, which also runs on push to build+publish): the
-# commit-message convention and this comment-summary report both only make
-# sense in a PR's own commit range.
+name: NPMBUILD lint
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths: ["ports/**"]
 
@@ -38,7 +28,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Find changed port versions
+      - name: Find changed ports
         id: diff
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
@@ -46,7 +36,7 @@ jobs:
         run: |
           dirs=$(git diff --name-only --diff-filter=d "$BASE" "$HEAD" \
                  | grep '^ports/' \
-                 | sed -E 's|^(ports/[^/]+/[^/]+)/.*|\1|' \
+                 | sed -nE 's|^(ports/[^/]+/[^/]+)/.*|\1|p' \
                  | sort -u \
                  | jq -R -s -c 'split("\n")[:-1]')
           echo "changed=$dirs" >> "$GITHUB_OUTPUT"
@@ -58,10 +48,13 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-      - name: port-lint
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: NPMBUILD lint
         run: |
           echo '${{ needs.detect.outputs.changed }}' | jq -r '.[]' \
-            | xargs .github/scripts/port-lint.sh
+            | while IFS= read -r dir; do cli/npm-ports lint "$dir"; done
 
   lint-commits:
     runs-on: ubuntu-latest

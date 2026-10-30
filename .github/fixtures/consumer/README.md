@@ -2,8 +2,9 @@
 
 ## 分工
 
-- `ports/<port>/<version>/test.js`：原始包映射、功能断言及工程场景。新增 port 测试不需要修改 runner 的包名清单。
-- `.github/scripts/consumer-plan.mjs`：自动发现测试、选择变化的 port、展开配套构建依赖。CI 基础设施变化时验证全部已接入测试的 port。
+- `.github/scripts/run-install-matrix.mjs`：全部 port 的默认安装验证，不需要 test.js；自动校验 artifact、主包与槽位、安装版本和 bin。
+- `ports/<首字母>/<port>/test.js`：可选的真实功能断言及工程场景。新增 port 测试不需要修改 runner 的包名清单；上游默认版本读取 NPMBUILD。
+- `.github/scripts/consumer-plan.mjs`：自动发现测试、选择变化的 port、展开配套构建依赖，同时输出通用安装选择。CI 基础设施变化时验证全部已接入测试的 port。
 - `.github/scripts/run-port-consumer.mjs`：artifact 校验、临时 Verdaccio、真实 npm alias overrides、安装/`npm ci`、执行 test.js 和 baseline 结果对比。没有针对 Next、Lightning CSS 等包的特殊分支。
 - `projects/node/`：默认最小 npm 工程，不安装前端框架、不自动 build/start。`projects/react-assets/` 仅是可选 React/Webpack 样例。Next 各版本共用 `projects/next-react/`，通过 `@test-project: next-react` 选择。
 
@@ -12,7 +13,7 @@
 ```js
 // @test-package: @upstream/package
 // @test-project: react-assets
-// @test-prerequisite: ports/companion-openharmony-arm64/1.2.3
+// @test-prerequisite: ports/companion
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const pkg = await import('@upstream/package');
@@ -24,17 +25,19 @@ fs.writeFileSync(process.env.PORT_TEST_REPORT, JSON.stringify({
 }));
 ```
 
-`@test-package` 必填，包含完整上游 scope。上游版本默认是 port 目录版本，可用 `@test-upstream-version` 覆盖；发布包名默认 `@ohos-npm-ports/<port目录名>`，可用 `@test-port-package` 覆盖。`@test-project` 默认 `node`。要使用可选前端样例须显式写 `@test-project: react-assets`；专属工程可通过 `@test-fixture: test-fixture` 指向该 port 内的目录，目录须包含 package.json。可重复的 `@test-prerequisite` 用于配套槽位包或其他 port；配套目录有 `test.js` 时也会进入该消费工程测试，没有时仅作为待发布的支持产物。
+`@test-package` 必填，包含完整上游 scope。上游版本默认读取 NPMBUILD，可用 `@test-upstream-version` 覆盖；发布包名默认 `@ohos-npm-ports/<pkgname>`，可用 `@test-port-package` 覆盖。`@test-project` 默认 `node`。要使用可选前端样例须显式写 `@test-project: react-assets`；专属工程可通过 `@test-fixture: test-fixture` 指向该配方内的目录，目录须包含 package.json。可重复的 `@test-prerequisite` 用于其他配方；其 test.js 也会进入该消费工程测试，没有时仅带入构建产物。主配方的 packages 已包含槽位，不要再把 slots/ 子目录写成独立 prerequisite。
 
 测试被复制到消费工程，默认以 ESM（.mjs）执行；仅显式声明 `@test-format: cjs` 时以 .cjs 执行，cwd 是工程根目录；用上游原名 require。`PORT_TEST_MODE` 为 `baseline` 或 `overrides`。`PORT_TEST_REPORT` 是必须写入的 JSON 报告路径。`result` 放跨模式可比较的功能结果；`assets` 放工程生成并要通过 HTTP 验证的资源，如 `{path:'/image.png',magic:'89504e470d0a1a0a'}` 或 `{path:'/style.css',includes:'.app{'}`。生成资源放到工程 `public/` 下。
 
-如确实只支持部分平台，必须同时声明 `@test-platforms: openharmony`（逗号分隔）和 `@test-platform-reason: ...`；这些字段只记录适用范围，不会跳过矩阵 job；不支持 primary port 的 OS 会直接失败。仅目标平台可用的槽位包应作为父包的 prerequisite，而不是独立 primary 测试。普通 wrapper 应默认覆盖 Windows、Linux、macOS、OpenHarmony，不以静默跳过来制造通过。
+如确实只支持部分平台，必须同时声明 `@test-platforms: openharmony`（逗号分隔）和 `@test-platform-reason: ...`；这些字段只记录适用范围，不会跳过矩阵 job；不支持 primary 配方的 OS 会直接失败。仅目标平台可用的槽位随主配方 packages 构建和测试，不是独立 primary。普通 wrapper 应默认覆盖 Windows、Linux、macOS、OpenHarmony，不以静默跳过来制造通过。
 
-## 全量接入与配套测试
+## 默认安装矩阵与配套测试
 
-port 逐个接入：有 test.js 的 primary 版本各自形成五 OS 矩阵，support 槽位由父包带测；缺 test.js 的版本在覆盖报告中为 warning，设置 `CONSUMER_REQUIRE_ALL=true` 后改为失败。此清单仅是配置覆盖；是否通过必须查看本轮各 OS job，不能沿用旧提交的绿色结果。
+全部 port 默认进入五平台通用安装矩阵，不需要 test.js。`.github/scripts/run-install-matrix.mjs` 根据构建矩阵选择 port，校验 artifact 后在临时 Verdaccio 发布并安装主包，按 os/cpu 过滤检查槽位、实际安装版本和 bin，再执行 npm ci。全量 dispatch 覆盖全部 port，普通变更覆盖受影响 port，artifact replay 同样启用。四个桌面平台共用 `consumer-install` 矩阵，OpenHarmony 使用 `consumer-install-openharmony` 和 ci-runner。
 
-`@test-role` 默认 primary，support 只在依赖它的父包 job 中执行，不成为根依赖。`@test-timeout` 单位为秒，默认 600，上限 1800。`@test-browser: chromium` 声明需要临时浏览器服务。prerequisites 引入配套构建产物与 alias overrides，但不重复执行其他 primary 的完整功能测试；这些主包各有自己的五 OS 门禁。
+有 test.js 的 primary 另外形成五 OS 功能测试矩阵；它只补充真实 API、CLI、加载和工程行为，不再是进入安装矩阵的门槛。缺 test.js 的配方在覆盖报告中标记为 notice，设置 `CONSUMER_REQUIRE_ALL=true` 后仍可按功能测试覆盖要求改为失败。是否通过必须查看本轮各 OS job，不能沿用旧提交的绿色结果。
+
+`@test-role` 默认 primary，support 只用于仍有独立配套配方的场景，在依赖它的父包 job 中执行，不成为根依赖。`@test-timeout` 单位为秒，默认 600，上限 1800。`@test-browser: chromium` 声明需要临时浏览器服务。prerequisites 引入配套构建产物与 alias overrides，但不重复执行其他 primary 的完整功能测试；这些主包各有自己的五 OS 门禁。
 
 `PORT_TEST_HELPER` 是可选 test-tools.mjs 的文件 URL，提供 packageRoot、bin、command、cli、write、report、bunScript。cli 能执行 Node 入口或原生 ELF/Windows 二进制；专项功能仍放在每个 port 的 test.js。Bun 测试通过 prerequisite 使用本轮 bun 产物。测试缺报告、缺运行时或超时均失败。
 

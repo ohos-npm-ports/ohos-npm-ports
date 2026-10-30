@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+pkgname="prisma-client"
+upstream="@prisma/client"
+version="5.8.0"
+revision=3
+dist_tag="latest"
+
+packages=(
+  "build/pkg"
+)
+work_dir="$NPMBUILD_DIR"
+build_dir="${work_dir}/build"
+source="https://registry.npmjs.org/@prisma/client/-/client-${version}.tgz"
+sha256="61398ed8615cf6ab560c4aaf88499ed83a559f0d941cc8c1b43f66cebe93dfc4"
+
+prepare() {
+  # ============================================================
+  # ohos-npm-ports: @ohos-npm-ports/prisma-client ${version}
+  #
+  # 构建方式：
+  #   1. 下载官方 @prisma/client@${version} tarball，打 patch：manifest 改写
+  #      （name/repository），delta 自证
+  #   2. 零编译重打包：除被 patch 的 package.json 外每个文件与 pristine
+  #      上游树逐字节对账（补丁只允许碰指定文件的不变量）
+  #   3. npm pack 成 tarball 后做 drop-in 冒烟（node + bun 双运行时）
+  #
+  # The client is pure JS; on OpenHarmony it works unmodified once engines come
+  # from @ohos-npm-ports/prisma-engines via the @ohos-npm-ports/prisma CLI
+  # override (see ports/p/prisma).
+  # ============================================================
+
+  # ===== fetch =====
+  echo "=== fetch: 官方 @prisma/client@${version} ==="
+  rm -rf "${build_dir}"
+  mkdir -p "${build_dir}"
+  cd "${build_dir}"
+  fetch_source "src.tgz"
+  tar -zxf src.tgz
+  rm src.tgz
+  mv package src
+  # record pristine hashes before any modification, for the post-assembly diff
+  (cd src && find . -type f -exec sha256sum {} + | sort) >pristine.sha256
+}
+
+build() {
+  echo "=== build: 打 manifest patch + grep marker ==="
+  cd "${build_dir}/src"
+  patch -p1 <"${work_dir}/patchs/0001-update-package-json.patch"
+  # toybox patch can silently no-op on a malformed header; assert it landed.
+  grep -q '"name": "@ohos-npm-ports/prisma-client"' package.json
+  grep -q "\"version\": \"${version}\"" package.json
+}
+
+package() {
+  echo "=== package: 组装发布目录 + pristine 对账 + npm pack ==="
+  rm -rf "${build_dir}/pkg"
+  mkdir "${build_dir}/pkg"
+  (cd "${build_dir}/src" && tar -zcf - . | tar -zxf - -C "${build_dir}/pkg")
+  rm -rf "${build_dir}/pkg/node_modules"
+
+  cd "${build_dir}"
+  # integrity: every shipped file must be byte-identical to the pristine
+  # upstream tree except the patched manifest -- this also enforces that the
+  # patch touches nothing else
+  (cd pkg && find . -path ./package.json -prune -o -type f -exec sha256sum {} + | sort) >built.sha256
+  grep -v '  \./package.json$' pristine.sha256 >pristine-no-manifest.sha256
+  cmp pristine-no-manifest.sha256 built.sha256
+  rm pristine.sha256 pristine-no-manifest.sha256 built.sha256
+  node -e '
+      const p = require("'"${build_dir}"'/pkg/package.json");
+      if (p.name !== "@ohos-npm-ports/prisma-client" || p.version !== `${process.env.NPMBUILD_VERSION}`) { console.error("bad manifest"); process.exit(1); }
+      const { execSync } = require("child_process");
+      for (const f of ["index.js", "runtime/library.js", "generator-build/index.js", "scripts/postinstall.js"]) {
+        require("fs").accessSync(require("path").join("'"${build_dir}"'/pkg", f));
+        execSync("node --check " + JSON.stringify(require("path").join("'"${build_dir}"'/pkg", f)));
+      }
+      console.log("OK: manifest + entry files parse");
+    '
+  (cd pkg && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-client-${version}.tgz "${build_dir}")
+  test -f "${build_dir}/ohos-npm-ports-prisma-client-${version}.tgz"
+}
+
+check() {
+  # Drop-in smoke on the real machine: all three overrides, no PRISMA_* env vars.
+  # client 5.8.0 asks for engine version 5.8.0-37.* while the engines port ships
+  # the 5.1.1-pinned commit, so this also exercises the version-agnostic local
+  # engine resolution of the prisma CLI port.
+  smoke_dir="${build_dir}/.smoke"
+  rm -rf "$smoke_dir"
+  mkdir -p "$smoke_dir/app"
+  cat >"$smoke_dir/package.json" <<EOF
+{
+  "name": "prisma-client-port-smoke",
+  "private": true,
+  "dependencies": {
+    "@prisma/client": "file:${build_dir}/ohos-npm-ports-prisma-client-${version}.tgz",
+    "prisma": "npm:@ohos-npm-ports/prisma@5.1.1-1"
+  },
+  "overrides": {
+    "@prisma/engines": "npm:@ohos-npm-ports/prisma-engines@5.1.1-3"
+  }
+}
+EOF
+  cat >"$smoke_dir/app/schema.prisma" <<'EOF'
+generator client {
+  provider = "prisma-client-js"
+  output   = "client"
+}
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+model Widget {
+  id   Int    @id @default(autoincrement())
+  name String
+}
+EOF
+
+  smoke_abs="$(cd "$smoke_dir" && pwd)"
+  cd "$smoke_dir"
+  npm install --ignore-scripts --no-audit --no-fund
+  cd app
+
+  crud='const { PrismaClient } = require("./client");
+(async () => {
+  const p = new PrismaClient();
+  const w = await p.widget.create({ data: { name: "smoke" } });
+  const f = await p.widget.findUnique({ where: { id: w.id } });
+  if (!f || f.name !== "smoke") throw new Error("read-back failed");
+  const n = await p.widget.count();
+  if (n !== 1) throw new Error("bad count: " + n);
+  await p.$disconnect();
+  console.log("CRUD OK");
+})().catch((e) => { console.error(e.message); process.exit(1); });'
+
+  # node runtime
+  "$smoke_abs/node_modules/.bin/prisma" db push --schema schema.prisma --skip-generate 2>&1 | grep -q 'database is now in sync' || {
+    echo "db push failed" >&2
+    exit 1
+  }
+  "$smoke_abs/node_modules/.bin/prisma" generate --schema schema.prisma 2>&1 | grep -q 'Generated Prisma Client' || {
+    echo "generate failed" >&2
+    exit 1
+  }
+  node -e "$crud"
+  # bun runtime; the ci-runner image ships no bun -- gate it and cover bun on a real device
+  if command -v bun >/dev/null 2>&1; then
+    rm -rf client dev.db
+    bun "$smoke_abs/node_modules/prisma/build/index.js" db push --schema schema.prisma --skip-generate 2>&1 | grep -q 'database is now in sync' || {
+      echo "bun db push failed" >&2
+      exit 1
+    }
+    bun "$smoke_abs/node_modules/prisma/build/index.js" generate --schema schema.prisma 2>&1 | grep -q 'Generated Prisma Client' || {
+      echo "bun generate failed" >&2
+      exit 1
+    }
+    bun -e "$crud"
+  fi
+  cd "${build_dir}"
+  rm -rf "$smoke_dir" ohos-npm-ports-prisma-client-${version}.tgz
+
+  echo "OK: @ohos-npm-ports/prisma-client built and smoke-tested"
+}

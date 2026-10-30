@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+pkgname="utoo-pack"
+upstream="@utoo/pack"
+version="1.5.31"
+revision=3
+# npm 包与 utoo/next.js 固定 commit 需人工配套升级。
+bump=false
+source="https://registry.npmjs.org/@utoo/pack/-/pack-${version}.tgz"
+sha256="d7f1a2442bc65259f791dbb625c4a4a63a20bba39e2969ea9fa05a6b95559dcb"
+resource "utoo" \
+  "https://codeload.github.com/utooland/utoo/tar.gz/0e838fbfa1105d68dfdd2c1fc4f79fb1c1feebbd" \
+  "28f208e1280fc01aa05d8ec5663b7ced5a6907da44c7361cb5be6a818a7d9c64"
+resource "next" \
+  "https://codeload.github.com/utooland/next.js/tar.gz/815238d6a4a18958c43a6875a86026d20a424dac" \
+  "30c63a6c41d7a945f2121e8300c739e992c28dc246cfbde4d2fa913ba395d336"
+dist_tag="latest"
+
+packages=(
+  "utoo-pack-${version}"
+)
+
+root_dir="$NPMBUILD_DIR"
+build_dir="$root_dir/build"
+source_dir="$build_dir/source"
+package_dir="$root_dir/utoo-pack-${version}"
+
+prepare() {
+  export PATH="$(brew --prefix rust)/bin:$PATH"
+  command -v cmake >/dev/null || brew install -y cmake
+  command -v pkgconf >/dev/null || brew install -y pkgconf
+  [ "$(rustc -vV | sed -n 's/^host: //p')" = aarch64-unknown-linux-ohos ]
+
+  mkdir -p "$build_dir"
+  fetch_resource "utoo" "$build_dir/source.tgz"
+  fetch_resource "next" "$build_dir/next.tgz"
+  fetch_source "$build_dir/package.tgz"
+  rm -rf "$source_dir" "$package_dir" "$build_dir/upstream"
+  mkdir -p "$source_dir" "$package_dir" "$build_dir/upstream"
+  tar xzf "$build_dir/source.tgz" -C "$source_dir" --strip-components=1
+  tar xzf "$build_dir/next.tgz" -C "$source_dir/next.js" --strip-components=1 \
+    --exclude='*/test' --exclude='*/examples' --exclude='*/.claude'
+  tar xzf "$build_dir/package.tgz" -C "$build_dir/upstream" --strip-components=1
+  cp -R "$build_dir/upstream/." "$package_dir/"
+}
+
+build() {
+  cd "$source_dir"
+  export RUSTC_BOOTSTRAP=1
+  export CARGO_TARGET_DIR="$build_dir/target"
+  export CARGO_PROFILE_RELEASE_LTO=false
+  export VERGEN_GIT_SHA=0e838fbfa1105d68dfdd2c1fc4f79fb1c1feebbd
+  export VERGEN_GIT_DIRTY=false
+  export CC=cc CXX=c++
+  cargo build --locked --release -p pack-napi --features plugin -j "${CARGO_BUILD_JOBS:-2}"
+}
+
+package() {
+  cd "$package_dir"
+  patch -p1 <"$root_dir/patchs/0001-package-json.patch"
+  patch -p1 <"$root_dir/patchs/0002-share-openharmony-binding.patch"
+  grep -q '@ohos-npm-ports/utoo-pack' package.json
+  grep -q '../cjs/pack.openharmony-arm64.node' esm/binding.js
+  cp "$source_dir/LICENSE" LICENSE
+  cp "$source_dir/next.js/license.md" cjs/LICENSE-turbopack
+  cp "$build_dir/target/release/libpack_napi.so" cjs/pack.openharmony-arm64.node
+}
+
+check() {
+  cmp "$source_dir/LICENSE" "$package_dir/LICENSE"
+  cmp "$source_dir/next.js/license.md" "$package_dir/cjs/LICENSE-turbopack"
+  grep -q "process.platform === 'openharmony'" "$package_dir/cjs/binding.js"
+  node "$root_dir/verify.cjs" "$package_dir" "$build_dir/upstream"
+  cd "$package_dir"
+  npm pack --ignore-scripts --pack-destination "$build_dir"
+  mkdir -p "$build_dir/packed"
+  tar xzf "$build_dir/ohos-npm-ports-utoo-pack-${version}.tgz" -C "$build_dir/packed"
+  test -s "$build_dir/packed/package/cjs/pack.openharmony-arm64.node"
+}

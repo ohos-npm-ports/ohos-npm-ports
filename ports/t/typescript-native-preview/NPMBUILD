@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+pkgname="typescript-native-preview"
+upstream="@typescript/native-preview"
+version="7.0.0-dev.20260707.2"
+revision=4
+source="https://registry.npmjs.org/@typescript/native-preview/-/native-preview-${version}.tgz"
+sha256="50cd22d1de46ec5f39ab27edf10d1b4ab35937eb1a6edcb171370f361b572289"
+bump=false
+# npm prerelease 与 tsgo_commit 需人工配套更新，不能由版本号直接推导。
+dist_tag="latest"
+
+packages=(
+  "build/typescript-native-preview-openharmony-arm64"
+  "build/typescript-native-preview-${version}"
+)
+slot_name="typescript-native-preview-openharmony-arm64"
+slot_package_name="@ohos-npm-ports/${slot_name}"
+tsgo_commit=9977d6d38fcc78de8ae71770f3aa08256e6cc861
+root_dir="$NPMBUILD_DIR"
+build_dir="${root_dir}/build"
+package_dir="${build_dir}/${pkgname}-${version}"
+slot_dir="${build_dir}/${slot_name}"
+source_dir="${build_dir}/typescript-go"
+
+prepare() {
+  # tsgo（@typescript/native-preview）：Go 写的 TypeScript 原生编译器。
+  # 官方 npm 包重打包（纯 wrapper：bin/tsgo → getExePath → 平台二进制）+ 用同一个
+  # 上游 commit 的源码原生静态编译，二进制装进平台槽位包
+  # @ohos-npm-ports/typescript-native-preview-openharmony-arm64
+  # （lib/tsgo + lib/*.d.ts，os/cpu 限定，preferUnplugged）；
+  # loader 在 openharmony 下解析槽位包，其余平台仍走上游的平台槽位包
+  # （0002 只改了 openharmony 分支的包名，不动上游解析）。
+
+  # ============================== deps ==============================
+  brew install -y go git
+  # harmonybrew 的 go 把工作目录 baked 成设备专属路径，容器里会 "creating work dir" 失败。
+  # go 认的是 GOTMPDIR（不是 TMPDIR），缓存同理一律重定向到 ${build_dir}。
+  export GOTMPDIR="${build_dir}/.gotmpdir"
+  export GOCACHE="${build_dir}/.gocache"
+  export GOMODCACHE="${build_dir}/.gomodcache"
+  mkdir -p "${GOTMPDIR}" "${GOCACHE}" "${GOMODCACHE}"
+
+  rm -rf "${package_dir}" "${slot_dir}" "${source_dir}"
+  mkdir -p "${build_dir}" "${slot_dir}/lib"
+
+  fetch_source "${build_dir}/native-preview.tgz"
+  tar -zxf "${build_dir}/native-preview.tgz" -C "${build_dir}"
+  rm "${build_dir}/native-preview.tgz"
+  mv "${build_dir}/package" "${package_dir}"
+
+  # 编译器源码：commit 由上游 npm 包 package.json 的 gitHead 钉死，保证与
+  # 包内 JS 包装层（dist/ 等）出自同一棵树。
+  git init -q "${source_dir}"
+  git -C "${source_dir}" remote add origin https://github.com/microsoft/typescript-go.git
+  git -C "${source_dir}" fetch --depth 1 origin "${tsgo_commit}"
+  git -C "${source_dir}" checkout -q FETCH_HEAD
+}
+
+build() {
+  cd "${source_dir}"
+  patch -p1 <"${root_dir}/patchs/0003-skip-fanotify-on-hongmeng.patch"
+  grep -q "hongMengKernel" "${source_dir}/internal/fswatch/fanotify_linux.go"
+
+  # noembed 模式下 lib.d.ts 需与二进制同目录
+  go build -ldflags="-s -w" -trimpath -tags=noembed -o "${slot_dir}/lib/tsgo" ./cmd/tsgo
+  cp "${source_dir}/internal/bundled/libs/"*.d.ts "${slot_dir}/lib/"
+
+  cd "${package_dir}"
+  patch -p1 <"${root_dir}/patchs/0001-update-package-json.patch"
+  grep -q '"name": "@ohos-npm-ports/typescript-native-preview"' package.json
+  patch -p1 <"${root_dir}/patchs/0002-add-openharmony-support.patch"
+  grep -qF "${slot_package_name}" lib/getExePath.js
+}
+
+package() {
+  # 槽位包：二进制 + noembed 声明文件 + 法务文件
+  cp "${package_dir}/LICENSE" "${package_dir}/NOTICE.txt" "${slot_dir}/"
+  chmod +x "${slot_dir}/lib/tsgo"
+
+  cat >"${slot_dir}/package.json" <<EOF
+{
+  "name": "${slot_package_name}",
+  "version": "${version}",
+  "description": "OpenHarmony arm64 native tsgo binary for @ohos-npm-ports/typescript-native-preview",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
+    "directory": "ports/typescript-native-preview/${version}"
+  },
+  "license": "Apache-2.0",
+  "preferUnplugged": true,
+  "os": ["openharmony"],
+  "cpu": ["arm64"],
+  "files": ["lib", "LICENSE", "NOTICE.txt"],
+  "publishConfig": { "access": "public" }
+}
+EOF
+}
+
+check() {
+  cd "${package_dir}"
+
+  node -e "
+const p = require('./package.json');
+if (p.name !== '@ohos-npm-ports/typescript-native-preview') throw new Error('name: ' + p.name);
+if (p.version !== '${version}') throw new Error('version: ' + p.version);
+const d = Object.keys(p.optionalDependencies || {});
+if (d.length !== 8) throw new Error('optionalDependencies: ' + d.join(','));
+if (!d.includes('@typescript/native-preview-linux-arm64')) throw new Error('missing linux-arm64 slot');
+if (!d.includes('@ohos-npm-ports/typescript-native-preview-openharmony-arm64')) throw new Error('missing openharmony slot');
+"
+  node --check lib/getExePath.js
+  node --check lib/tsgo.js
+  node --check bin/tsgo
+
+  # e2e：槽位包二进制真跑一次 typecheck
+  smoke_dir="$(mktemp -d)"
+  cd "${smoke_dir}"
+  printf '{"compilerOptions":{"strict":true}}' >tsconfig.json
+  printf 'const n: number = "x";\n' >bad.ts
+  "${slot_dir}/lib/tsgo" --version
+  "${slot_dir}/lib/tsgo" --noEmit -p tsconfig.json >out.txt 2>&1 || true
+  grep -q 'error TS2322' out.txt || {
+    cat out.txt >&2
+    exit 1
+  }
+  cd "${package_dir}"
+  rm -rf "${smoke_dir}"
+
+  echo "OK: ${slot_package_name} + @ohos-npm-ports/${pkgname} ${version} (tsgo ${version}, openharmony-arm64, typecheck smoke passed)"
+}
