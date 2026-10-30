@@ -24,8 +24,8 @@ build() {
   # to equal ${pkgname}-${version} here, so no rename is needed.
 
   cd "${pkgname}-${version}"
-  patch -p1 <../patchs/0001-update-package-json.patch
-  patch -p1 <../patchs/0002-openharmony-loader.patch
+  patch -p1 <../patches/0001-update-package-json.patch
+  patch -p1 <../patches/0002-openharmony-loader.patch
 
   brew install -y rust
 

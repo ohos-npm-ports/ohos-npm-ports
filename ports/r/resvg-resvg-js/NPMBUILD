@@ -30,8 +30,8 @@ build() {
   # ${source_name}-${version} here, so no rename is needed.
 
   cd "${source_name}-${version}"
-  patch -p1 <../patchs/0001-update-package-json.patch
-  patch -p1 <../patchs/0002-openharmony-loader.patch
+  patch -p1 <../patches/0001-update-package-json.patch
+  patch -p1 <../patches/0002-openharmony-loader.patch
 
   # The committed rust-toolchain file pins nightly-2023-12-11 via rustup, which
   # isn't installed in this container (we use harmonybrew's rust directly) and

@@ -25,7 +25,7 @@ build() {
   mv "pprof-nodejs-${version}" "${pkgname}-${version}"
 
   cd "${pkgname}-${version}"
-  patch -p1 <../patchs/0001-update-package-json.patch
+  patch -p1 <../patches/0001-update-package-json.patch
 
   # node-gyp isn't a devDependency of this package (upstream relies on it being
   # available globally / bundled with npm), so install it explicitly to get it

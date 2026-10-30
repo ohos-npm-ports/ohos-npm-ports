@@ -90,8 +90,8 @@ package() {
   echo "=== package: 打 patch + grep marker + 嵌入二进制与槽位 manifest ==="
   cd "${stage_dir}/src"
 
-  patch -p1 <"${work_dir}/patchs/0001-update-package-json.patch"
-  patch -p1 <"${work_dir}/patchs/0002-openharmony-loader.patch"
+  patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
+  patch -p1 <"${work_dir}/patches/0002-openharmony-loader.patch"
   # patch 对零上下文 hunk 的越界行号会静默套用到文件末尾（exit 0）
   grep -q '"name": "@ohos-npm-ports/oxlint-tsgolint"' package.json
   grep -q "\"version\": \"${version}\"" package.json

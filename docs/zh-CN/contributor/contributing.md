@@ -31,7 +31,7 @@ npm-ports pack ports/<port>
 ## Fork 与 PR 流程
 
 1. Fork 本仓库并在个人仓启用 Actions。
-2. 参照同类包的 `NPMBUILD` 生命周期钩子和 patchs 编写移植；目录、版本线、revision 和槽位规范见 [port-spec.md](port-spec.md)。
+2. 参照同类包的 `NPMBUILD` 生命周期钩子和 patches 编写移植；目录、版本线、revision 和槽位规范见 [port-spec.md](port-spec.md)。
 3. 在容器内构建并完成 [verification.md](verification.md) 的验证。
 4. 推到个人仓，确认 CI 的构建和临时 Verdaccio 通过。个人仓没有中心仓 NPM_TOKEN，不应进入正式发布步骤。
 5. 提 PR 到本仓库。合并后流水线自动构建并发布，无需人工执行 npm publish。

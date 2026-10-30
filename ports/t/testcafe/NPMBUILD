@@ -33,7 +33,7 @@ JS
 
 build() {
   cd "$build_dir/package"
-  for patch_file in "$work_dir"/patchs/*.patch; do patch -p1 <"$patch_file"; done
+  for patch_file in "$work_dir"/patches/*.patch; do patch -p1 <"$patch_file"; done
   grep -q "process.platform === 'openharmony'" lib/browser/provider/built-in/index.js
   grep -q 'generateThumbnail' lib/ohos/thumbnail.cjs
   grep -q 'supportMultipleWindows:true' lib/ohos/provider.cjs

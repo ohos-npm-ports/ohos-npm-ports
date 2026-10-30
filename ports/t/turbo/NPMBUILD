@@ -86,9 +86,9 @@ build() {
   export ghostty_source_dir="$(pwd)/ghostty-src"
 
   cd "turborepo-${version}"
-  patch -p1 <../patchs/0001-update-package-json.patch
-  patch -p1 <../patchs/0002-openharmony-wrapper.patch
-  patch -p1 <../patchs/0005-libghostty-vt-sys-ohos-zig-target.patch
+  patch -p1 <../patches/0001-update-package-json.patch
+  patch -p1 <../patches/0002-openharmony-wrapper.patch
+  patch -p1 <../patches/0005-libghostty-vt-sys-ohos-zig-target.patch
 
   # Vendor the three crates that need OHOS fixes (same pattern bun-pty uses for
   # portable-pty), then wire up [patch.crates-io] + Cargo.lock via 0003/0004.
@@ -100,12 +100,12 @@ build() {
   cp -r "$(ls -d "$HOME"/.cargo/registry/src/*/zstd-sys-2.0.16+zstd.1.5.7 | head -1)" vendor/zstd-sys
   cp -r "$(ls -d "$HOME"/.cargo/registry/src/*/aws-lc-sys-0.41.0 | head -1)" vendor/aws-lc-sys
   chmod -R u+w vendor/nix vendor/zstd-sys vendor/aws-lc-sys
-  (cd vendor/nix && patch -p1 <../../../patchs/0006-nix-0.26.2-ohos.patch)
-  (cd vendor/zstd-sys && patch -p1 <../../../patchs/0007-zstd-sys-ohos-qsort.patch)
-  (cd vendor/aws-lc-sys && patch -p1 <../../../patchs/0008-aws-lc-sys-ohos-cc-builder.patch)
+  (cd vendor/nix && patch -p1 <../../../patches/0006-nix-0.26.2-ohos.patch)
+  (cd vendor/zstd-sys && patch -p1 <../../../patches/0007-zstd-sys-ohos-qsort.patch)
+  (cd vendor/aws-lc-sys && patch -p1 <../../../patches/0008-aws-lc-sys-ohos-cc-builder.patch)
 
-  patch -p1 <../patchs/0003-workspace-cargo-manifest.patch
-  patch -p1 <../patchs/0004-cargo-lock.patch
+  patch -p1 <../patches/0003-workspace-cargo-manifest.patch
+  patch -p1 <../patches/0004-cargo-lock.patch
 
   # --- build ---
   cargo build --release --locked -p turbo

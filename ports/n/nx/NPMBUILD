@@ -64,7 +64,7 @@ build() {
   # "ohos" gates; 0.25 predates them and its default features don't compile
   # there) + one tcgetattr call-site fix for the nix 0.26+ AsFd API.
   cd gitdeps/wezterm
-  patch -p1 <../../patchs/0002-portable-pty-nix-bump.patch
+  patch -p1 <../../patches/0002-portable-pty-nix-bump.patch
   cd ../..
 
   # --- apply source patches ---
@@ -72,14 +72,14 @@ build() {
   cd src
   # 0001: exclude jemalloc on target_env = "ohos" (tikv-jemalloc-sys fails to
   # build there) + the [patch] sections for ../gitdeps, with Cargo.lock updates.
-  patch -p1 <../patchs/0001-nx-source-ohos.patch
+  patch -p1 <../patches/0001-nx-source-ohos.patch
   # 0003: whitelist openharmony; the `as string` cast is needed because
   # @types/node's Platform union has no 'openharmony' member (TS2367).
-  patch -p1 <../patchs/0003-assert-supported-platform.patch
+  patch -p1 <../patches/0003-assert-supported-platform.patch
   # 0004: @ts-expect-error -> @ts-ignore — upstream compiles with tsgo, under
   # which the directive is used; plain tsc rejects it as unused (TS2578).
   # @ts-ignore is unused-safe under both and doesn't change the emitted JS.
-  patch -p1 <../patchs/0004-tsc-expect-error-compat.patch
+  patch -p1 <../patches/0004-tsc-expect-error-compat.patch
   cd ..
 
   # --- build the native binding ---
@@ -199,7 +199,7 @@ build() {
   cp ../src/nx.openharmony-arm64.node dist/src/native/
 
   # 0005: rename to @ohos-npm-ports/nx and set the repository pointer.
-  patch -p1 <../patchs/0005-update-package-json.patch
+  patch -p1 <../patches/0005-update-package-json.patch
   cd ..
 
   # --- verify package contents ---

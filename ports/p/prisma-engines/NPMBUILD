@@ -71,9 +71,9 @@ prepare() {
 build() {
   echo "=== build: 应用补丁并断言 marker ==="
   cd "${build_dir}/src"
-  patch -p1 <"${work_dir}/patchs/0001-workspace-config-ohos.patch"
-  patch -p1 <"${work_dir}/patchs/0002-rustc-compat-fixes.patch"
-  patch -p1 <"${work_dir}/patchs/0005-build-rs-no-git-required.patch"
+  patch -p1 <"${work_dir}/patches/0001-workspace-config-ohos.patch"
+  patch -p1 <"${work_dir}/patches/0002-rustc-compat-fixes.patch"
+  patch -p1 <"${work_dir}/patches/0005-build-rs-no-git-required.patch"
   # toybox patch can silently no-op on a malformed header; assert it landed.
   grep -q '\[patch.crates-io\]' Cargo.toml
   grep -q 'PanicHookInfo' libs/user-facing-errors/src/lib.rs
@@ -87,14 +87,14 @@ build() {
   mkdir -p vendor/socket2-0.4.7
   tar -zxf socket2.crate -C vendor/socket2-0.4.7 --strip-components=1
   rm socket2.crate
-  (cd vendor/socket2-0.4.7 && patch -p1 <"${work_dir}/patchs/0003-socket2-ohos-target.patch")
+  (cd vendor/socket2-0.4.7 && patch -p1 <"${work_dir}/patches/0003-socket2-ohos-target.patch")
   grep -q 'target_env = "ohos"' vendor/socket2-0.4.7/src/sys/unix.rs
 
   fetch_resource "openssl_src" "openssl-src.crate"
   mkdir -p "vendor/openssl-src-111.25.0+1.1.1t"
   tar -zxf openssl-src.crate -C "vendor/openssl-src-111.25.0+1.1.1t" --strip-components=1
   rm openssl-src.crate
-  (cd "vendor/openssl-src-111.25.0+1.1.1t" && patch -p1 <"${work_dir}/patchs/0004-openssl-src-ohos-target.patch")
+  (cd "vendor/openssl-src-111.25.0+1.1.1t" && patch -p1 <"${work_dir}/patches/0004-openssl-src-ohos-target.patch")
   grep -q 'aarch64-unknown-linux-ohos' 'vendor/openssl-src-111.25.0+1.1.1t/src/lib.rs'
 
   if ! curl -fsIL --max-time 8 -o /dev/null "https://index.crates.io/config.json" 2>/dev/null; then

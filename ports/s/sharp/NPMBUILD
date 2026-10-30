@@ -60,7 +60,7 @@ build() {
   tar -xf vips.tar.xz
   rm vips.tar.xz
   cd "vips-${vips_version}"
-  patch -p1 <../patchs/0001-libvips-disable-nls-and-tools-build.patch
+  patch -p1 <../patches/0001-libvips-disable-nls-and-tools-build.patch
 
   # Every meson feature option here defaults to 'auto' (enable if the
   # corresponding brew package is present, silently skip otherwise), so this
@@ -107,7 +107,7 @@ build() {
   mkdir -p pkg/vendor pkg/src/build/Release
   cp -r sharp-src/lib pkg/lib
   cp sharp-src/package.json pkg/package.json
-  (cd pkg && patch -p1 <../patchs/0002-package-json.patch)
+  (cd pkg && patch -p1 <../patches/0002-package-json.patch)
   cp sharp-src/src/build/Release/sharp-openharmony-arm64.node pkg/src/build/Release/sharp-openharmony-arm64.node
 
   # Ship the two libs we build under their bare SONAME (not the fully

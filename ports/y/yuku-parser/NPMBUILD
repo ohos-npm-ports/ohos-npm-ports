@@ -71,7 +71,7 @@ build() {
   # check() 拿它断言 patch 只改了 package.json
   find . -type f -exec sha256sum {} + | sed 's|\./||' | sort >"${work_dir}/before.sha256"
 
-  patch -p1 <"${work_dir}/patchs/0001-update-package-json.patch"
+  patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
   # patch 对零上下文 hunk 的越界行号会静默套用到文件末尾（exit 0）
   grep -q "\"name\": \"@ohos-npm-ports/${pkgname}\"" package.json
   grep -q "\"version\": \"${version}\"" package.json

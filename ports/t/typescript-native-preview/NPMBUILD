@@ -58,7 +58,7 @@ prepare() {
 
 build() {
   cd "${source_dir}"
-  patch -p1 <"${root_dir}/patchs/0003-skip-fanotify-on-hongmeng.patch"
+  patch -p1 <"${root_dir}/patches/0003-skip-fanotify-on-hongmeng.patch"
   grep -q "hongMengKernel" "${source_dir}/internal/fswatch/fanotify_linux.go"
 
   # noembed 模式下 lib.d.ts 需与二进制同目录
@@ -66,9 +66,9 @@ build() {
   cp "${source_dir}/internal/bundled/libs/"*.d.ts "${slot_dir}/lib/"
 
   cd "${package_dir}"
-  patch -p1 <"${root_dir}/patchs/0001-update-package-json.patch"
+  patch -p1 <"${root_dir}/patches/0001-update-package-json.patch"
   grep -q '"name": "@ohos-npm-ports/typescript-native-preview"' package.json
-  patch -p1 <"${root_dir}/patchs/0002-add-openharmony-support.patch"
+  patch -p1 <"${root_dir}/patches/0002-add-openharmony-support.patch"
   grep -qF "${slot_package_name}" lib/getExePath.js
 }
 

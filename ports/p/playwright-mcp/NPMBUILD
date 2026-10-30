@@ -27,7 +27,7 @@ prepare() {
 
 build() {
   cd "$root_dir/${pkgname}-${version}"
-  patch -p1 <"$script_dir"/patchs/0001-update-package-json.patch
+  patch -p1 <"$script_dir"/patches/0001-update-package-json.patch
 }
 
 check() {

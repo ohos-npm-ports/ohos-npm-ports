@@ -42,8 +42,8 @@ prepare() {
 build() {
   echo "=== build: 打 patch + grep marker + 跨平台回归 ==="
   cd "${build_dir}/src"
-  patch -p1 <"${work_dir}/patchs/0001-openharmony-local-engines.patch"
-  patch -p1 <"${work_dir}/patchs/0002-update-package-json.patch"
+  patch -p1 <"${work_dir}/patches/0001-openharmony-local-engines.patch"
+  patch -p1 <"${work_dir}/patches/0002-update-package-json.patch"
   # toybox patch can silently no-op on a malformed header; assert both landed.
   grep -q 'async function ohosLocalEngines' build/index.js
   grep -q 'process.platform === "openharmony" ? (await ohosLocalEngines(downloadParams))' build/index.js

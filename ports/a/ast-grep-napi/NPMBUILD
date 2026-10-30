@@ -46,7 +46,7 @@ build() {
   mv package "ast-grep-napi-${version}"
 
   cd "ast-grep-napi-${version}"
-  for patch in ../patchs/*.patch; do
+  for patch in ../patches/*.patch; do
     patch -p1 <"$patch"
   done
   grep -q '"name": "@ohos-npm-ports/ast-grep-napi"' package.json

@@ -42,7 +42,7 @@ build() {
   fetch_source node-sqlite3-${version}.tar.gz
   tar -zxf node-sqlite3-${version}.tar.gz
   cd node-sqlite3-${version}
-  patch -p1 <../patchs/0001-change-prebuild-framework.patch
+  patch -p1 <../patches/0001-change-prebuild-framework.patch
 
   # 构建 addon
   npm install

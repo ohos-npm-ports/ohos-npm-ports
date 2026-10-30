@@ -8,7 +8,7 @@
 ```text
 ports/<首字母>/<port>/
 ├── NPMBUILD                  # 必须：元数据、产物和完整生命周期实现
-├── patchs/                   # 可选
+├── patches/                   # 可选
 ├── test.js                   # consumer 测试
 └── slots/<slot>/             # 可选：同版本、同 revision 的槽位辅助文件
 ```

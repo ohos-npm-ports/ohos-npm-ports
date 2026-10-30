@@ -71,17 +71,17 @@ build() {
 
   rm -f "${source_dir}/.cargo/config.toml"
 
-  for p in "${work_dir}"/patchs/0001-host-platform-openharmony.patch \
-    "${work_dir}"/patchs/0002-iana-time-zone-vendor.patch \
-    "${work_dir}"/patchs/0003-cargo-lock-iana-time-zone.patch \
-    "${work_dir}"/patchs/0007-use-ohos-tempdir.patch; do
+  for p in "${work_dir}"/patches/0001-host-platform-openharmony.patch \
+    "${work_dir}"/patches/0002-iana-time-zone-vendor.patch \
+    "${work_dir}"/patches/0003-cargo-lock-iana-time-zone.patch \
+    "${work_dir}"/patches/0007-use-ohos-tempdir.patch; do
     (cd "${source_dir}" && patch -p1 <"$p")
   done
   # iana-time-zone 运行时 dlopen 改写：vendor 进源码树再打
   mkdir -p "${source_dir}/vendor"
   tar -zxf "${build_dir}/iana-time-zone.crate" -C "${source_dir}/vendor"
   mv "${source_dir}/vendor/iana-time-zone-0.1.65" "${source_dir}/vendor/iana-time-zone"
-  (cd "${source_dir}" && patch -p1 <"${work_dir}/patchs/0004-iana-time-zone-dlopen.patch")
+  (cd "${source_dir}" && patch -p1 <"${work_dir}/patches/0004-iana-time-zone-dlopen.patch")
   # toybox patch 错 header 会静默 no-op，退出码不可信，grep marker 确认
   grep -q 'openharmony' "${source_dir}/pnpm/crates/detect-libc/src/lib.rs"
   grep -q 'iana-time-zone = { path' "${source_dir}/Cargo.toml"
@@ -132,8 +132,8 @@ EOF
 
   main_dir="${build_dir}/pnpm-wrapper-${version}"
   mv "${build_dir}/wrapper/package" "${main_dir}"
-  (cd "${main_dir}" && patch -p1 <"${work_dir}/patchs/0005-update-package-json.patch")
-  (cd "${main_dir}" && patch -p1 <"${work_dir}/patchs/0006-native-binary-openharmony.patch")
+  (cd "${main_dir}" && patch -p1 <"${work_dir}/patches/0005-update-package-json.patch")
+  (cd "${main_dir}" && patch -p1 <"${work_dir}/patches/0006-native-binary-openharmony.patch")
   grep -q '@ohos-npm-ports/pnpm' "${main_dir}/package.json"
   grep -qF '@ohos-npm-ports/pnpm-exe.openharmony-arm64/pnpm' "${main_dir}/native-binary.mjs"
 

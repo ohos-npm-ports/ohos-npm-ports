@@ -56,8 +56,8 @@ build() {
 
 package() {
   cd "$package_dir"
-  patch -p1 <"$root_dir/patchs/0001-package-json.patch"
-  patch -p1 <"$root_dir/patchs/0002-share-openharmony-binding.patch"
+  patch -p1 <"$root_dir/patches/0001-package-json.patch"
+  patch -p1 <"$root_dir/patches/0002-share-openharmony-binding.patch"
   grep -q '@ohos-npm-ports/utoo-pack' package.json
   grep -q '../cjs/pack.openharmony-arm64.node' esm/binding.js
   cp "$source_dir/LICENSE" LICENSE
