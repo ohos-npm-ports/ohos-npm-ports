@@ -22,7 +22,7 @@ Commands:
   package <port>             Build and stage package directories
   check <port>               Run the complete lifecycle and package checks
   pack <port> [--no-build]   Check, then create exact npm tarballs
-  publish <port>             Publish packed tarballs (--dry-run or --registry URL)
+  publish <port>             Publish packed tarballs (--dry-run, --registry URL, --skip-existing)
   bump <port|--all>          Check upstream versions (add --write to edit)
   bump-pr <port>             Bump one port and create a PR; skip if one is open
   revision <port>            Increment revision (or use --set N)
@@ -92,7 +92,7 @@ try {
   } else if (command === 'pack') {
     for (const port of selected(root, args)) packPort(root, port, { build: !flags.has('--no-build') });
   } else if (command === 'publish') {
-    for (const port of selected(root, args)) publishPort(port, { dryRun: flags.has('--dry-run'), registry: value('--registry') });
+    for (const port of selected(root, args)) publishPort(port, { dryRun: flags.has('--dry-run'), registry: value('--registry'), skipExisting: flags.has('--skip-existing') });
   } else if (command === 'bump') {
     const ports = selected(root, args);
     const changed = await bumpPorts(root, ports, { write: flags.has('--write'), registry: value('--registry'), output: value('--output') });

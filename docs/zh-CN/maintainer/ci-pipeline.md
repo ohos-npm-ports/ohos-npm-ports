@@ -39,6 +39,8 @@ npm-ports check "${{ matrix.dir }}"
 
 随后 `validate-local-publish.sh` 执行 `pack --no-build`。打包器先注入 revision，再使用 `/storage/Users/currentUser/.harmonybrew/opt/ohos-selfsign/bin/selfsign --force` 统一为发布目录中的 AArch64 ELF 签名；随后生成 tarball，启动临时 Verdaccio，真实发布并安装全部主包和槽位包。上传的是私仓实际导出且通过 integrity 校验的 tarball，不另做 bottle。
 
+main push 上的发布列表按 npm 现状判定：构建矩阵里主包版本在 npm 上返回 404 的 port 才发布，PR 和手动触发不发布。发布命令带 `--skip-existing`，详见 [发布出问题了怎么办](release-rollback.md)。
+
 manifest 记录 `sourceSha`、`portDir` 和每个包的名称、版本、文件名与 SHA-512。test.js 单独变化不触发重新发布。
 
 ## 6. 五平台 consumer 与 conclusion

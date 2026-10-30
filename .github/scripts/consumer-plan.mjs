@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { discoverPorts, loadPort } from '../../cli/port.mjs';
+import { publishedIntegrity } from '../../cli/registry.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const excluded = JSON.parse(readFileSync(join(repo, '.github/fixtures/consumer/excluded-ports.json'), 'utf8'));
@@ -80,6 +81,19 @@ export function artifactPattern(port) {
   return names.length === 1 ? names[0] : `{${names.join(',')}}`;
 }
 
+// A port needs publishing when its main package version is absent from npm. Judging by the registry instead of
+// by the diff makes publishing self-healing: a version whose earlier run failed is picked up by the next push,
+// and edits that leave the version alone (CI, test.js, mass renames) never try to publish over it.
+// PUBLISHED_PACKAGES (a JSON array of "name@version") replaces the registry lookup in tests.
+export function missingFromRegistry(dirs, { published = process.env.PUBLISHED_PACKAGES, lookup = publishedIntegrity } = {}) {
+  const known = published ? new Set(JSON.parse(published)) : null;
+  return dirs.filter((dir) => {
+    const { pkgname, portVersion } = port(dir);
+    const name = `@ohos-npm-ports/${pkgname}`;
+    return known ? !known.has(`${name}@${portVersion}`) : lookup(name, portVersion) === null;
+  });
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url) && process.argv[2] === 'artifact-pattern') {
   console.log(artifactPattern(process.argv[3]));
 } else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -102,7 +116,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const tests = selected.filter((dir) => testSpec(dir)?.role === 'primary');
   const matrix = [...new Set([...dirs, ...expanded])].sort();
   console.log(`matrix=${JSON.stringify(matrix)}`);
-  console.log(`publish=${JSON.stringify(dirs.filter((dir) => changed.some((file) => file.startsWith(`${dir}/`) && file !== `${dir}/test.js`)).sort())}`);
+  const publish = process.env.PUBLISH_CHECK === 'true' ? missingFromRegistry(matrix) : [];
+  console.log(`publish=${JSON.stringify(publish)}`);
   console.log(`generic-enabled=${matrix.length > 0 || Boolean(process.env.ARTIFACT_RUN_ID)}`);
   console.log(`generic-ports=${JSON.stringify(matrix)}`);
   console.log(`consumer-enabled=${tests.length > 0}`);
