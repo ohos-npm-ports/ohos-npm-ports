@@ -7,7 +7,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { registryConfig } from './consumer-registry.mjs';
+import { artifactsForPort, registryConfig } from './consumer-registry.mjs';
 import { loadPort } from '../../cli/port.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -88,16 +88,7 @@ function freePort() {
   });
 }
 
-async function main() {
-  assert.equal(process.platform, process.env.EXPECTED_PLATFORM);
-  assert.equal(process.arch, process.env.EXPECTED_ARCH);
-  const selected = JSON.parse(process.env.CONSUMER_PORTS ?? '[]');
-  assert.ok(Array.isArray(selected) && selected.length > 0, 'CONSUMER_PORTS must be a nonempty JSON array');
-  assert.equal(new Set(selected).size, selected.length, 'Duplicate port selection');
-  for (const dir of selected) assert.match(dir, /^ports\/[a-z0-9]\/[^/]+$/);
-  const artifactRoot = resolve(process.argv[2] ?? '.port-artifacts');
-  assert.ok(existsSync(artifactRoot), `Missing artifacts: ${artifactRoot}`);
-  const artifacts = manifests(artifactRoot, new Set(selected));
+async function validatePort(dir, artifacts, tooling) {
   const temporary = mkdtempSync(join(tmpdir(), 'ohos-install-matrix-'));
   const registryLog = join(temporary, 'verdaccio.log');
   let registry;
@@ -121,7 +112,7 @@ async function main() {
   const npm = (args, cwd = temporary, capture = false) => run(process.execPath, [npmCli, ...args], cwd, capture);
   const saveLogs = () => {
     try {
-      const destination = join(repo, '.install-matrix-logs');
+      const destination = join(repo, '.install-matrix-logs', dir.replaceAll('/', '-'));
       mkdirSync(destination, { recursive: true });
       if (existsSync(registryLog)) cpSync(registryLog, join(destination, 'verdaccio.log'));
       const npmLogs = join(temporary, 'npm-cache/_logs');
@@ -129,8 +120,6 @@ async function main() {
     } catch (error) { console.error(`Could not save logs: ${error.message}`); }
   };
   try {
-    const tooling = join(temporary, 'tooling');
-    npm(['install', '--prefix', tooling, '--no-audit', '--no-fund', `npm@${versions.npm}`, `verdaccio@${versions.verdaccio}`]);
     npmCli = join(tooling, 'node_modules/npm/bin/npm-cli.js');
     const registryAddress = `127.0.0.1:${await freePort()}`;
     const registryUrl = `http://${registryAddress}`;
@@ -179,39 +168,37 @@ async function main() {
       assert.equal(metadata.dist.integrity, artifact.integrity);
       published.set(`${artifact.name}@${artifact.version}`, metadata);
     }
-    for (const dir of selected) {
-      const port = loadPort(repo, dir);
-      const own = artifacts.filter((artifact) => artifact.portDir === dir);
-      const mainName = `${scope}${port.pkgname}`;
-      const main = own.find((artifact) => artifact.name === mainName);
-      assert.ok(main, `${dir}: missing main artifact ${mainName}`);
-      const project = mkdtempSync(join(temporary, 'project-'));
-      writeFileSync(join(project, 'package.json'), `${JSON.stringify({
-        name: 'generic-install-matrix', private: true,
-        dependencies: { [port.upstream]: `npm:${main.name}@${main.version}` },
-      }, null, 2)}\n`);
-      console.log(`Installing ${dir} on ${process.platform}/${process.arch}`);
-      await npm(['install', '--include=optional', '--foreground-scripts', '--no-audit', '--no-fund'], project);
-      await npm(['ci', '--include=optional', '--foreground-scripts', '--no-audit', '--no-fund'], project);
-      const mainManifest = JSON.parse(readFileSync(join(project, 'node_modules', port.upstream, 'package.json'), 'utf8'));
-      assert.equal(mainManifest.name, main.name);
-      assert.equal(mainManifest.version, main.version);
-      validateBins(mainManifest, project);
-      const tree = JSON.parse(await npm(['ls', '--all', '--json'], project, true));
-      for (const artifact of own) {
-        const metadata = published.get(`${artifact.name}@${artifact.version}`);
-        if (!platformMatches(metadata)) {
-          console.log(`Skipping ${artifact.name} on ${process.platform}/${process.arch} due to os/cpu filters`);
-          continue;
-        }
-        assert.ok(containsPackage(tree, artifact.name, artifact.version), `${dir}: ${artifact.name}@${artifact.version} is missing after install`);
+    const port = loadPort(repo, dir);
+    const own = artifacts;
+    const mainName = `${scope}${port.pkgname}`;
+    const main = own.find((artifact) => artifact.name === mainName);
+    assert.ok(main, `${dir}: missing main artifact ${mainName}`);
+    const project = mkdtempSync(join(temporary, 'project-'));
+    writeFileSync(join(project, 'package.json'), `${JSON.stringify({
+      name: 'generic-install-matrix', private: true,
+      dependencies: { [port.upstream]: `npm:${main.name}@${main.version}` },
+    }, null, 2)}\n`);
+    console.log(`Installing ${dir} on ${process.platform}/${process.arch}`);
+    await npm(['install', '--include=optional', '--foreground-scripts', '--no-audit', '--no-fund'], project);
+    await npm(['ci', '--include=optional', '--foreground-scripts', '--no-audit', '--no-fund'], project);
+    const mainManifest = JSON.parse(readFileSync(join(project, 'node_modules', port.upstream, 'package.json'), 'utf8'));
+    assert.equal(mainManifest.name, main.name);
+    assert.equal(mainManifest.version, main.version);
+    validateBins(mainManifest, project);
+    const tree = JSON.parse(await npm(['ls', '--all', '--json'], project, true));
+    for (const artifact of own) {
+      const metadata = published.get(`${artifact.name}@${artifact.version}`);
+      if (!platformMatches(metadata)) {
+        console.log(`Skipping ${artifact.name} on ${process.platform}/${process.arch} due to os/cpu filters`);
+        continue;
       }
-      console.log(`PASS ${dir} on ${process.platform}/${process.arch}`);
-      if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `PASS ${dir} on ${process.platform}/${process.arch}\n`);
+      assert.ok(containsPackage(tree, artifact.name, artifact.version), `${dir}: ${artifact.name}@${artifact.version} is missing after install`);
     }
+    console.log(`PASS ${dir} on ${process.platform}/${process.arch}`);
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `PASS ${dir} on ${process.platform}/${process.arch}\n`);
   } catch (error) {
     console.error(error);
-    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `FAIL generic install matrix on ${process.platform}/${process.arch}: ${error.message}\n`);
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `FAIL ${dir} on ${process.platform}/${process.arch}: ${error.message}\n`);
     saveLogs();
     process.exitCode = 1;
   } finally {
@@ -222,6 +209,33 @@ async function main() {
       if (registry.exitCode === null && registry.signalCode === null) registry.kill('SIGKILL');
     }
     if (registryStream && !registryStream.closed) registryStream.end();
+    try { rmSync(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 }); }
+    catch (error) { console.warn(`Could not remove ${temporary}: ${error.message}`); }
+  }
+}
+
+async function main() {
+  assert.equal(process.platform, process.env.EXPECTED_PLATFORM);
+  assert.equal(process.arch, process.env.EXPECTED_ARCH);
+  const selected = JSON.parse(process.env.CONSUMER_PORTS ?? '[]');
+  assert.ok(Array.isArray(selected) && selected.length > 0, 'CONSUMER_PORTS must be a nonempty JSON array');
+  assert.equal(new Set(selected).size, selected.length, 'Duplicate port selection');
+  for (const dir of selected) assert.match(dir, /^ports\/[a-z0-9]\/[^/]+$/);
+  const artifactRoot = resolve(process.argv[2] ?? '.port-artifacts');
+  assert.ok(existsSync(artifactRoot), `Missing artifacts: ${artifactRoot}`);
+  const artifacts = manifests(artifactRoot, new Set(selected));
+  const temporary = mkdtempSync(join(tmpdir(), 'ohos-install-tooling-'));
+  try {
+    const tooling = join(temporary, 'tooling');
+    const npmCli = process.platform === 'win32'
+      ? join(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js')
+      : execFileSync('sh', ['-c', 'command -v npm'], { encoding: 'utf8' }).trim();
+    execFileSync(process.execPath, [npmCli, 'install', '--prefix', tooling, '--no-audit', '--no-fund', `npm@${versions.npm}`, `verdaccio@${versions.verdaccio}`], { stdio: 'inherit', timeout: 1200000 });
+    for (const dir of selected) {
+      await validatePort(dir, artifactsForPort(artifacts, dir), tooling);
+      if (process.exitCode) break;
+    }
+  } finally {
     try { rmSync(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 }); }
     catch (error) { console.warn(`Could not remove ${temporary}: ${error.message}`); }
   }
