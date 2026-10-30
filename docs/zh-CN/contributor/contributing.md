@@ -1,52 +1,53 @@
 # 贡献指南
 
-本仓库把 npm 三方包移植到 OpenHarmony（以下简称鸿蒙）平台。贡献分两类：
-
-- 录入一个新包 → 先看下面“准入”，再照 [port-spec.md](port-spec.md) 建目录
-- 一个包在鸿蒙上跑不起来，想知道该走哪条路 → 看 [porting-guide.md](porting-guide.md)
-
-改动提交前的自检清单在 [verification.md](verification.md)；PR 打开后 CI 会跑什么、门禁怎么判定见 [../maintainer/ci-pipeline.md](../maintainer/ci-pipeline.md)。
+本仓库把 npm 三方包移植到 OpenHarmony。新增包先看下面的准入规则和 [port-spec.md](port-spec.md)；选择移植路径见 [porting-guide.md](porting-guide.md)。完整命令行用法见 [cli.md](cli.md)，提交前的自检见 [verification.md](verification.md)，CI 门禁见 [../maintainer/ci-pipeline.md](../maintainer/ci-pipeline.md)。
 
 ## 准入规则
 
-- 优先级永远是“上游原生支持 > 官方社区 fork/port > 本仓库临时收录”。往这里加一个包之前，先确认它没有已经在计划或进行中的上游 PR——本仓库的定位是**临时垫层**，不是长期分发点（见“项目治理”）。
-- 移植后的包不能破坏它在其他平台上的行为：一个只能在鸿蒙上用的包无法支撑真实生产场景（用户的工程可能因此在 Linux 流水线上构建失败）。
-- 发布用的包名一律 `@ohos-npm-ports/<name>`；发布版本号一律 `<上游版本>-<修订号>`（如 `5.1.7-8`），修订号从 `-1` 起，允许在不改上游版本号的前提下多次迭代补丁。
-- 注意开源合规：移植时不得改动原作者与开源许可证信息。
+- 优先级永远是“上游原生支持 > 官方社区 fork/port > 本仓库临时收录”。添加包之前先确认上游没有已经计划或进行中的适配 PR。
+- 移植不能破坏其他平台行为；只能在鸿蒙上使用的包无法支撑真实生产工程。
+- 发布包名一律 `@ohos-npm-ports/<name>`，版本一律 `<上游版本>-<修订号>`。NPMBUILD 的 revision 从 1 起，允许在上游版本不变时迭代移植修复；构建脚本和补丁只使用裸上游 version，修订号仅由 `npm-ports pack` 注入。
+- 不得改动原作者与开源许可证信息。
 
 ## 开发环境：必须在容器里做
 
-为了让本地环境和流水线环境保持一致（“在我的机器上能跑通”等价于“在流水线上能跑通”），所有构建/调试工作必须在容器内完成，不要在宿主机上直接跑 `build.sh`。
+为了让本地环境和流水线一致，构建和调试应在 ci-runner 容器内完成：
 
 ```sh
 docker pull ghcr.io/ohos-npm-ports/ci-runner:latest
 docker run -itd --name=ohos ghcr.io/ohos-npm-ports/ci-runner:latest
 docker exec -it ohos sh
 git clone https://github.com/ohos-npm-ports/ohos-npm-ports.git
-cd ohos-npm-ports/ports/<name>/<version>
-./build.sh
+cd ohos-npm-ports
+export PATH="$PWD/cli:$PATH"
+npm-ports pack ports/<port>
 ```
 
-- 若 GHCR 访问不通，把 `ghcr.io` 换成 `ghcr.nju.edu.cn`（南京大学镜像站）。
-- 镜像会持续更新，建议每次工作前 `docker pull` 一次；镜像未变化时不会重复下载。
-- 镜像源码在本仓库的 [`docker/Dockerfile`](../../../docker/Dockerfile)，其中包含构建所需的工具链。
-- 硬件必须是 arm64 原生（arm 服务器、Mac、鸿蒙 PC 等）——x86_64 上用指令集翻译跑 arm64 容器性能极差，满足不了编译构建需求。
-- 网络需要能访问 GitHub（源码/发行版通常挂在那里），建议选香港或海外地域的服务器。
+- 若 GHCR 访问不通，可把 `ghcr.io` 换成 `ghcr.nju.edu.cn`。
+- 镜像源码见 [`docker/Dockerfile`](../../../docker/Dockerfile)，建议工作前拉取最新镜像。
+- 使用 arm64 原生硬件；x86_64 指令翻译不适合这些编译任务。
+- 网络需要访问 GitHub 和 npm registry。
 
 ## Fork 与 PR 流程
 
-1. Fork 本仓库到自己的账号，在个人仓的 Actions 里启用工作流。
-2. 参照最近同类包的 `build.sh`/`publish.sh`/`patchs/` 写移植补丁（目录/命名/版本规范见 [port-spec.md](port-spec.md)；不确定该参考哪个包，按构建框架选择示例——见 [build-frameworks.md](build-frameworks.md)）。
-3. 在容器内本地构建、验证通过（见 [verification.md](verification.md)）。
-4. 推到个人仓，确认 `ci.yml` 在自己仓里能跑通 `build.sh`（`publish.sh` 会因权限报错——这是预期行为，个人仓没有发包用的 `NPM_TOKEN`）。
-5. 提 PR 到本仓库。合并后流水线自动构建发包，不需要人工介入发布。
+1. Fork 本仓库并在个人仓启用 Actions。
+2. 参照同类包的 `NPMBUILD` 生命周期钩子和 patchs 编写移植；目录、版本线、revision 和槽位规范见 [port-spec.md](port-spec.md)。
+3. 在容器内构建并完成 [verification.md](verification.md) 的验证。
+4. 推到个人仓，确认 CI 的构建和临时 Verdaccio 通过。个人仓没有中心仓 NPM_TOKEN，不应进入正式发布步骤。
+5. 提 PR 到本仓库。合并后流水线自动构建并发布，无需人工执行 npm publish。
+
+新建配方可执行 `npm-ports create <upstream> [--set-name <port>] [--set-version <version>] [--no-fetch]`。默认从 npm registry 获取最新版本和 tarball 并计算 SHA-256；scoped 上游按既定规则生成扁平短名，可用 `--set-name` 覆盖。`--no-fetch` 不访问 registry，版本和摘要留待手工填写。生成后自动打开编辑器；已有 port 不会被覆盖。
+
+定位并修改配方可执行 `npm-ports edit <port>`，命令使用 `VISUAL` 或 `EDITOR` 指定的编辑器（默认 vim）打开对应的 NPMBUILD，无需手工查找路径。
+
+上游版本升级可用 `npm-ports bump <port> --write`；只修移植问题时用 `npm-ports revision <port>` 增加修订号。两者都必须经过真实构建，不能只改元数据后直接合并。
 
 ## Commit 规范
 
-只对改动了 `ports/**` 的 commit 生效（改 README、CI 配置等不受限）：
+只对改动了 `ports/**` 的 commit 生效：
 
 - 新增 port：`<port>: add port <version>`
-- 版本升级：`<port>: bump to <version> ...` 或（仅改修订号）`<port>: bump port revision to <version>`
+- 版本升级：`<port>: bump to <version> ...` 或仅修订时 `<port>: bump port revision to <version>`
 - 修复/整理：`<port>: <具体做了什么>`
 
-这是从仓库自身历史里归纳出来的既有约定（早期提交更自由，这条规范只管将来），PR 里的 commit message 会被 CI 自动检查，格式不对会在 PR 里看到具体哪一条不通过。
+PR 的 lint-commits 会检查这些提交并在失败时给出具体原因。

@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+pkgname="typescript"
+upstream="typescript"
+version="7.0.2"
+revision=5
+dist_tag="latest"
+
+packages=(
+  "build/typescript-openharmony-arm64"
+  "build/typescript-${version}"
+)
+slot_name="typescript-openharmony-arm64"
+slot_package_name="@ohos-npm-ports/${slot_name}"
+tsgo_tag="typescript/v${version}"
+work_dir="$NPMBUILD_DIR"
+build_dir="${work_dir}/build"
+source="https://registry.npmjs.org/typescript/-/typescript-${version}.tgz"
+sha256="da2513f4b95176d6dde8b51aab7afe8a927656c9d277369793f77f7e59371c08"
+
+prepare() {
+  # ============================================================
+  # ohos-npm-ports: @ohos-npm-ports/typescript ${version}
+  #
+  # 构建方式：
+  #   1. 下载官方 typescript@${version}（JS wrapper：bin/tsc → getExePath → 平台二进制）
+  #   2. 打 patch：改名、optionalDependencies 挂 openharmony 槽位包、
+  #      getExePath 在 openharmony 上解析槽位包
+  #   3. clone typescript-go 源码，本地编译 Go 二进制
+  #   4. 二进制 + noembed 声明文件装进平台槽位包
+  #      @ohos-npm-ports/typescript-openharmony-arm64（lib/tsc + lib/*.d.ts）
+  #
+  # 槽位包布局镜像上游平台包 @typescript/typescript-linux-arm64
+  # （lib/tsc + lib/*.d.ts，os/cpu 限定，preferUnplugged，无 main/bin）。
+  # 上游平台包里的 lib/tsc.sig 为上游发布流水线产物，运行时不校验，槽位包不带。
+  # ============================================================
+
+  # ===== deps =====
+  mkdir -p /data/storage/el2/base/cache
+  mkdir -p /data/storage/el2/base/file
+  brew install -y go git
+
+  echo "=== fetch: 官方 typescript@${version}（主包坯子）==="
+  rm -rf "${build_dir}"
+  mkdir -p "${build_dir}"
+  fetch_source "${build_dir}/typescript-${version}.tgz"
+  tar -zxf "${build_dir}/typescript-${version}.tgz" -C "${build_dir}"
+  mv "${build_dir}/package" "${build_dir}/typescript-${version}"
+
+  echo "=== fetch: typescript-go 源码（只取当前 tag）==="
+  git clone --depth 1 --branch "${tsgo_tag}" \
+    https://github.com/microsoft/typescript-go.git \
+    "${build_dir}/typescript-go"
+  cd "${build_dir}/typescript-go"
+  patch -p1 <"${work_dir}/patchs/0003-skip-fanotify-on-hongmeng.patch"
+}
+
+build() {
+  echo "=== build: 编译 tsgo ==="
+  mkdir -p "${build_dir}/${slot_name}/lib"
+  cd "${build_dir}/typescript-go"
+  go build \
+    -ldflags="-s -w" \
+    -trimpath \
+    -tags=noembed \
+    -o "${build_dir}/${slot_name}/lib/tsc" \
+    ./cmd/tsgo
+
+  echo "=== build: 复制 noembed 模式需要的 lib 声明文件（与二进制同目录）==="
+  cp "${build_dir}/typescript-go/internal/bundled/libs/"*.d.ts \
+    "${build_dir}/${slot_name}/lib/"
+
+  echo "=== build: 二进制自检（容器内直接执行）==="
+  "${build_dir}/${slot_name}/lib/tsc" --version
+}
+
+package() {
+  echo "=== package: 主包打 patch（改名/槽位接线）==="
+  cd "${build_dir}/typescript-${version}"
+  patch -p1 <"${work_dir}/patchs/0001-update-package-json.patch"
+  patch -p1 <"${work_dir}/patchs/0002-add-openharmony-support.patch"
+
+  echo "=== package: 组装槽位包 ==="
+  cp "${build_dir}/typescript-${version}/LICENSE" "${build_dir}/${slot_name}/LICENSE"
+  cp "${build_dir}/typescript-${version}/NOTICE.txt" "${build_dir}/${slot_name}/NOTICE.txt"
+  cat >"${build_dir}/${slot_name}/package.json" <<EOF
+{
+  "name": "${slot_package_name}",
+  "version": "${version}",
+  "description": "OpenHarmony arm64 native tsgo binary for @ohos-npm-ports/typescript",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
+    "directory": "ports/typescript/${version}"
+  },
+  "license": "Apache-2.0",
+  "preferUnplugged": true,
+  "os": ["openharmony"],
+  "cpu": ["arm64"],
+  "files": ["lib", "LICENSE", "NOTICE.txt"],
+  "publishConfig": { "access": "public" }
+}
+EOF
+}
+
+check() {
+  cd "${build_dir}"
+  echo "=== test: 槽位包二进制 ==="
+  test -s "${slot_name}/lib/lib.d.ts"
+
+  echo "=== test: 主包接线（版本/槽位 optionalDependencies/getExePath 指向）==="
+  node -e '
+        const fs = require("fs");
+        const main = JSON.parse(fs.readFileSync(process.argv[1] + "/package.json", "utf8"));
+        if (main.name !== "@ohos-npm-ports/typescript") process.exit(1);
+        if (main.version !== process.argv[2]) process.exit(1);
+        if (main.optionalDependencies["@ohos-npm-ports/typescript-openharmony-arm64"] !== process.argv[2]) process.exit(1);
+    ' "${build_dir}/typescript-${version}" "${version}"
+  grep -qF "@ohos-npm-ports/typescript-openharmony-arm64" \
+    "${build_dir}/typescript-${version}/lib/getExePath.js"
+
+  echo "=== test: 槽位包二进制真跑 typecheck ==="
+  smoke_dir="$(mktemp -d)"
+  cd "${smoke_dir}"
+  printf '{"compilerOptions":{"strict":true}}' >tsconfig.json
+  printf 'const n: number = "x";\n' >bad.ts
+  "${build_dir}/${slot_name}/lib/tsc" --version
+  "${build_dir}/${slot_name}/lib/tsc" --noEmit -p tsconfig.json >out.txt 2>&1 || true
+  grep -q 'error TS' out.txt || {
+    cat out.txt >&2
+    exit 1
+  }
+  cd "${build_dir}"
+  rm -rf "${smoke_dir}"
+
+  echo "OK: ${slot_package_name} + @ohos-npm-ports/${pkgname} ${version}"
+}

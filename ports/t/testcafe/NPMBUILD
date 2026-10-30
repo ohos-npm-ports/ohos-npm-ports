@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+pkgname="testcafe"
+upstream="testcafe"
+version="3.7.6"
+revision=3
+source="https://registry.npmjs.org/testcafe/-/testcafe-${version}.tgz"
+sha256="e0870553529a88d5cb77e0b1cc4981406edbe52187daec50b673c91d7c4f6ce1"
+dist_tag="latest"
+
+packages=(
+  "testcafe-${version}"
+)
+
+export npm_config_registry=https://registry.npmjs.org
+
+work_dir="$NPMBUILD_DIR"
+build_dir="$work_dir/.build"
+package_dir="$work_dir/testcafe-${version}"
+export OPENSSL_CONF=/dev/null
+
+prepare() {
+  mkdir -p "$build_dir"
+  fetch_source "$build_dir/upstream.tgz"
+  rm -rf "$build_dir/package"
+  tar -xzf "$build_dir/upstream.tgz" -C "$build_dir"
+  node - "$build_dir/package" "$build_dir/upstream-hashes.json" <<'JS'
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const root=process.argv[2],hashes={};
+function walk(dir){for(const item of fs.readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,item.name);if(item.isDirectory())walk(p);else hashes[path.relative(root,p)]=crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');}}
+walk(root);fs.writeFileSync(process.argv[3],JSON.stringify(hashes));
+JS
+}
+
+build() {
+  cd "$build_dir/package"
+  for patch_file in "$work_dir"/patchs/*.patch; do patch -p1 <"$patch_file"; done
+  grep -q "process.platform === 'openharmony'" lib/browser/provider/built-in/index.js
+  grep -q 'generateThumbnail' lib/ohos/thumbnail.cjs
+  grep -q 'supportMultipleWindows:true' lib/ohos/provider.cjs
+  node - "$build_dir/package" "$build_dir/upstream-hashes.json" <<'JS'
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
+const root=process.argv[2],before=JSON.parse(fs.readFileSync(process.argv[3]));
+const allowed=new Set(['package.json','lib/browser/provider/built-in/index.js','lib/screenshots/capturer.js']);
+for(const [file,hash] of Object.entries(before)){const current=crypto.createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex');if(!allowed.has(file))assert.equal(current,hash,file);}
+function walk(dir){for(const item of fs.readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,item.name);if(item.isDirectory())walk(p);else {const rel=path.relative(root,p);assert.ok(rel in before||rel.startsWith('lib/ohos/'),rel);}}}
+walk(root);
+JS
+}
+
+package() {
+  rm -rf "$package_dir"
+  mv "$build_dir/package" "$package_dir"
+  cd "$package_dir"
+  npm pack --ignore-scripts --pack-destination "$build_dir"
+}
+
+check() {
+  rm -rf "$build_dir/consumer"
+  mkdir -p "$build_dir/consumer"
+  node - "$build_dir" <<'JS'
+const fs=require('node:fs'),path=require('node:path');const root=process.argv[2];fs.writeFileSync(path.join(root,'consumer/package.json'),JSON.stringify({private:true,dependencies:{testcafe:`file:${path.join(root,'ohos-npm-ports-testcafe-'+process.env.NPMBUILD_VERSION+'.tgz')}`}}));
+JS
+  cd "$build_dir/consumer"
+  npm install --ignore-scripts --no-audit --no-fund
+  export TESTCAFE_PACKAGE="$build_dir/consumer/node_modules/testcafe"
+  export NODE_PATH="$build_dir/consumer/node_modules"
+  node - "$TESTCAFE_PACKAGE" <<'JS'
+const assert=require('node:assert/strict'),path=require('node:path');const root=process.argv[2],p=require(path.join(root,'package.json'));
+assert.equal(p.name,'@ohos-npm-ports/testcafe');assert.equal(p.version,`${process.env.NPMBUILD_VERSION}`);assert.equal(typeof require(root),'function');
+JS
+  PORT_TEST_REPORT="$build_dir/consumer-report.json" node "$work_dir/test.js"
+  node "$work_dir/tests/platforms.cjs"
+  node --test "$work_dir"/tests/*.test.cjs "$work_dir"/tests/*.test.mjs
+  node -e "const assert=require('node:assert/strict');assert.equal(require('testcafe/package.json').version,'${version}');assert.equal(typeof require('testcafe'),'function')"
+  node node_modules/testcafe/bin/testcafe.js --version
+}

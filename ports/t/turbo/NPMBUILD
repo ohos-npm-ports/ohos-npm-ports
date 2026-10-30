@@ -1,0 +1,243 @@
+#!/usr/bin/env bash
+pkgname="turbo"
+upstream="turbo"
+version="2.10.10"
+revision=3
+dist_tag="latest"
+
+packages=(
+  "turbo-${version}"
+)
+ghostty_commit=a887df42c56f6de86c0fe6da9c4eeca37931e083
+rust_nightly=2026-05-22
+source="https://codeload.github.com/vercel/turborepo/tar.gz/refs/tags/v${version}"
+sha256="f232d3972e0e74ad0c067291e5605bce399451d5ced50a6226b2c87246edc5bf"
+resource "zig" \
+  "https://ziglang.org/download/0.15.2/zig-aarch64-linux-0.15.2.tar.xz" \
+  "958ed7d1e00d0ea76590d27666efbf7a932281b3d7ba0c6b01b0ff26498f667f"
+resource "rust_nightly" \
+  "https://static.rust-lang.org/dist/${rust_nightly}/rust-nightly-aarch64-unknown-linux-ohos.tar.gz" \
+  "b0f0ee13f8d6e4ebd2937886806b5444e2d09668af82979b3124546a6816a146"
+resource "ghostty" \
+  "https://codeload.github.com/ghostty-org/ghostty/tar.gz/${ghostty_commit}" \
+  "fb4b2f9ffa0af125983041fdbe4ef94d3fa79fb9f2d22b9c213c0e3847a866b6"
+
+build() {
+  # Source build of turbo for OpenHarmony (no prebuilt binaries): the Rust CLI
+  # (crates/turborepo) and the TUI's libghostty-vt (via zig) compile natively on
+  # an OHOS host; the JS launcher is the patched packages/turbo/bin/turbo.
+
+  # Must match the pinned commit in crates/libghostty-vt-sys/build.rs.
+  # Matches rust-toolchain.toml; the tree uses #![feature(...)] and -Z rustflags,
+  # so stable rustc cannot build it.
+
+  # Large downloads intermittently stall or die mid-transfer on some networks.
+
+  # --- toolchain dependencies ---
+  # protoc for turborepo-daemon's tonic-prost-build, capnp for the embedded
+  # sccache, openssl@3/libxml2/zlib for rust-nightly's cargo and rust-lld.
+  brew install -y protobuf capnp openssl@3 libxml2 zlib
+
+  # zig for the TUI's libghostty-vt (ghostty's pinned commit requires
+  # >= 0.15.2). Official static tarball; zig finds its lib/ via its own
+  # realpath, so keep the extracted tree intact.
+  zig_version=0.15.2
+  zig_dir="zig-aarch64-linux-${zig_version}"
+  fetch_resource "zig" "zig.tar.xz"
+  tar -xJf zig.tar.xz
+  rm zig.tar.xz
+  chmod +x "${zig_dir}/zig"
+  export PATH="$(pwd)/${zig_dir}:$PATH"
+  # Keep zig's cache inside the working directory: /data/storage/... only
+  # exists on OHOS hosts, and $PWD works in both CI containers and devices.
+  export ZIG_GLOBAL_CACHE_DIR="$(pwd)/zig-cache"
+
+  # --- rust nightly toolchain (upstream-pinned channel) ---
+  fetch_resource "rust_nightly" "rust-nightly.tar.gz"
+  mkdir -p rust-nightly-extract
+  tar -zxf rust-nightly.tar.gz -C rust-nightly-extract --strip-components=1
+  rm rust-nightly.tar.gz
+  rust_home="$(pwd)/rust-nightly"
+  sh rust-nightly-extract/install.sh --prefix="${rust_home}" --disable-ldconfig \
+    --components=rustc,cargo,rust-std-aarch64-unknown-linux-ohos
+  rm -rf rust-nightly-extract
+
+  export PATH="${rust_home}/bin:$PATH"
+  export LD_LIBRARY_PATH="$(brew --prefix openssl@3)/lib:$(brew --prefix libxml2)/lib:$(brew --prefix zlib)/lib"
+  # rust-nightly's cargo verifies TLS against the system OpenSSL trust store,
+  # which is empty on OHOS; point it at harmonybrew's CA bundle.
+  export CARGO_HTTP_CAINFO="$(brew --prefix)/etc/openssl@3/cert.pem"
+  cargo --version
+
+  # --- sources ---
+  # Tarballs instead of git clone: the CI image has no git binary (cargo's own
+  # git deps go through libgit2, so they don't need it either).
+  fetch_source "turborepo.tar.gz"
+  mkdir -p "turborepo-${version}"
+  tar -zxf turborepo.tar.gz -C "turborepo-${version}" --strip-components=1
+  rm turborepo.tar.gz
+
+  # libghostty-vt-sys's build.rs git-clones ghostty at this pinned commit;
+  # pre-seed via GHOSTTY_SOURCE_DIR (no git binary here).
+  fetch_resource "ghostty" "ghostty.tar.gz"
+  mkdir -p ghostty-src
+  tar -zxf ghostty.tar.gz -C ghostty-src --strip-components=1
+  rm ghostty.tar.gz
+  export ghostty_source_dir="$(pwd)/ghostty-src"
+
+  cd "turborepo-${version}"
+  patch -p1 <../patchs/0001-update-package-json.patch
+  patch -p1 <../patchs/0002-openharmony-wrapper.patch
+  patch -p1 <../patchs/0005-libghostty-vt-sys-ohos-zig-target.patch
+
+  # Vendor the three crates that need OHOS fixes (same pattern bun-pty uses for
+  # portable-pty), then wire up [patch.crates-io] + Cargo.lock via 0003/0004.
+  cargo fetch
+  mkdir -p vendor
+  rm -rf vendor/nix vendor/zstd-sys vendor/aws-lc-sys
+  # Machines with a configured cargo mirror have multiple registry src dirs.
+  cp -r "$(ls -d "$HOME"/.cargo/registry/src/*/nix-0.26.2 | head -1)" vendor/nix
+  cp -r "$(ls -d "$HOME"/.cargo/registry/src/*/zstd-sys-2.0.16+zstd.1.5.7 | head -1)" vendor/zstd-sys
+  cp -r "$(ls -d "$HOME"/.cargo/registry/src/*/aws-lc-sys-0.41.0 | head -1)" vendor/aws-lc-sys
+  chmod -R u+w vendor/nix vendor/zstd-sys vendor/aws-lc-sys
+  (cd vendor/nix && patch -p1 <../../../patchs/0006-nix-0.26.2-ohos.patch)
+  (cd vendor/zstd-sys && patch -p1 <../../../patchs/0007-zstd-sys-ohos-qsort.patch)
+  (cd vendor/aws-lc-sys && patch -p1 <../../../patchs/0008-aws-lc-sys-ohos-cc-builder.patch)
+
+  patch -p1 <../patchs/0003-workspace-cargo-manifest.patch
+  patch -p1 <../patchs/0004-cargo-lock.patch
+
+  # --- build ---
+  cargo build --release --locked -p turbo
+  test -f target/release/turbo
+
+  # --- assemble the npm package ---
+  # Mirror the published `turbo` package layout. schema.json is gitignored in
+  # the repo (generated at release time); the turbo-types copy is
+  # byte-identical to the published one.
+  cd ..
+  package_dir="${pkgname}-${version}"
+  mkdir -p "${package_dir}/bin"
+  cp "turborepo-${version}/packages/turbo/package.json" \
+    "turborepo-${version}/packages/turbo/README.md" \
+    "turborepo-${version}/LICENSE" \
+    "${package_dir}/"
+  cp "turborepo-${version}/packages/turbo/bin/turbo" "${package_dir}/bin/turbo"
+  chmod +x "${package_dir}/bin/turbo"
+  cp "turborepo-${version}/packages/turbo-types/schemas/schema.json" "${package_dir}/schema.json"
+
+  llvm-strip --strip-all "turborepo-${version}/target/release/turbo" -o "${package_dir}/bin/turbo-linux-arm64"
+  chmod +x "${package_dir}/bin/turbo-linux-arm64"
+
+  cd "${package_dir}"
+
+  # --- verify package contents ---
+
+  actual_name=$(node -e "console.log(require('./package.json').name)")
+  [ "$actual_name" = "@ohos-npm-ports/turbo" ]
+
+  # toybox patch can silently no-op on a malformed header, so confirm the
+  # patches actually landed rather than trusting patch's exit code.
+  grep -q '"@ohos-npm-ports/turbo"' package.json
+  grep -q 'turbo-linux-arm64' bin/turbo
+  grep -q 'platform === "openharmony"' bin/turbo
+
+  # --- functional smoke test ---
+  # Real launcher -> embedded binary path: version check, then a minimal
+  # monorepo build — real execution on run 1, full cache hit on run 2.
+
+  version_out=$(node bin/turbo --version)
+  [ "$version_out" = "${version}" ] || {
+    echo "unexpected version: $version_out" >&2
+    exit 1
+  }
+
+  # The smoke workspace deliberately lives outside this checkout: the CI image
+  # has no git binary, and turbo's input hashing + cache persistence behave
+  # differently depending on whether it finds a .git dir above the workspace.
+  smoke_dir=$(mktemp -d)
+  log_dir="$(pwd)"
+  mkdir -p "${smoke_dir}/packages/pkg-a" "${smoke_dir}/packages/pkg-b"
+
+  cat >"${smoke_dir}/package.json" <<'EOF'
+{
+  "name": "turbo-smoke",
+  "private": true,
+  "packageManager": "npm@10.0.0",
+  "workspaces": [
+    "packages/*"
+  ]
+}
+EOF
+
+  cat >"${smoke_dir}/turbo.json" <<'EOF'
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "tasks": {
+    "build": {
+      "outputs": ["dist/**"]
+    }
+  }
+}
+EOF
+
+  # Pre-create the outputs with the exact content the build scripts produce:
+  # without git, turbo hashes every workspace file as a task input, so the
+  # first run's own dist/ output would change the second run's input hash.
+  for p in pkg-a pkg-b; do
+    mkdir -p "${smoke_dir}/packages/${p}/dist"
+    echo "built-by-${p}" >"${smoke_dir}/packages/${p}/dist/out.txt"
+  done
+
+  for p in pkg-a pkg-b; do
+    cat >"${smoke_dir}/packages/${p}/package.json" <<EOF
+{
+  "name": "${p}",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "mkdir -p dist && echo built-by-${p} > dist/out.txt"
+  }
+}
+EOF
+  done
+
+  export TURBO_TELEMETRY_DISABLED=1
+  wrapper="${log_dir}/bin/turbo"
+
+  cd "${smoke_dir}"
+  # Logs live outside the smoke workspace for the same hashing reason.
+  # The warm-up run absorbs two one-time, first-run-only transitions seen in a
+  # fresh git-less workspace (real-world repos have git and never see either):
+  # the first run's input hash differs from every later run's, and the first
+  # run doesn't persist its cache artifacts.
+  node "${wrapper}" run build >"${log_dir}/smoke-run0.log" 2>&1 || {
+    cat "${log_dir}/smoke-run0.log" >&2
+    exit 1
+  }
+
+  node "${wrapper}" run build >"${log_dir}/smoke-run1.log" 2>&1 || {
+    cat "${log_dir}/smoke-run1.log" >&2
+    exit 1
+  }
+  grep -q 'cache miss, executing' "${log_dir}/smoke-run1.log" || {
+    cat "${log_dir}/smoke-run1.log" >&2
+    exit 1
+  }
+  [ "$(cat packages/pkg-a/dist/out.txt)" = "built-by-pkg-a" ]
+  [ "$(cat packages/pkg-b/dist/out.txt)" = "built-by-pkg-b" ]
+
+  node "${wrapper}" run build >"${log_dir}/smoke-run2.log" 2>&1 || {
+    cat "${log_dir}/smoke-run2.log" >&2
+    exit 1
+  }
+  grep -q 'FULL TURBO' "${log_dir}/smoke-run2.log" || {
+    cat "${log_dir}/smoke-run2.log" >&2
+    exit 1
+  }
+  cd "${log_dir}"
+
+  rm -rf "${smoke_dir}" smoke-run0.log smoke-run1.log smoke-run2.log
+
+  echo "smoke test passed: real build executed, second run was a full cache hit"
+}

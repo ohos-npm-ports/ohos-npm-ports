@@ -1,43 +1,42 @@
 # 验证标准：怎样才算“跑通了”
 
-“`build.sh` 编译成功”不等于“这个包能用”——一个原生 addon 完全可以编译通过、签名正确，但因为 loader 分支写错而在真实 `require()` 时崩溃或走错平台分支。CI 只在这条线之前拦得住的错误，不代表用户装上就能用。本文档定义两层验证，以及它们各自覆盖到哪、不覆盖到哪。
+“构建成功”不等于“包能用”。原生 addon 可能编译和签名都正确，却因 loader 分支错误而在真实 require() 时崩溃。验证至少分为构建期自证、发布安装和 consumer 功能三层。
 
-## 1. build.sh 自验证
+## 1. 构建期自验证
 
-`build.sh` 结尾应当自己证明产物是对的，而不是只把文件放在那里就收工。参照仓库里大多数 port 的写法，一个完整的自验证至少覆盖：
+NPMBUILD 的 check() 应证明 package() 生成的产物正确，而不是只生成文件。`npm-ports check` 会自动执行 prepare()、build()、package()、check()，无需在钩子内手动串联：
 
-1. **包名/版本断言**：`node -e "if (require('./package.json').name !== '@ohos-npm-ports/<port>') throw ..."`，防止补丁改写位置错、name 字段没生效。
-2. **二进制签名与架构**（涉及 `.node`/`.so` 时）：
-   ```sh
-   readelf -h <binding>.node | grep -q 'AArch64'
-   readelf -S <binding>.node | grep -q '\.codesign'
-   ```
-   鸿蒙商用发行版（HarmonyOS）会对 ELF 做代码签名校验，没签名的产物装上也用不了。使用带签名支持的 OHOS 工具链构建，或对其他工具链产物执行 `binary-sign-tool sign -selfSign 1`。
-3. **真实加载**：入口必须用 `node -e "require('./index.js')"` 或等价方式实际加载；`node --check` 只能检查 JavaScript 语法，不能替代加载测试。有条件的话再调一次真实功能（`opentui-core` 的 dlopen 探测、`parcel-watcher-openharmony-arm64` 的 `writeSnapshot` 真实调用都是这个层级）。
-4. **loader 分支命中检查**：如果补丁给上游 loader 加了 `process.platform === 'openharmony'` 分支，就在自验证里 `grep` 一下这个分支真的进了产物文件，而不是假设补丁打上去了就万事大吉。
+1. **包名/版本断言**：检查 package.json 的 name 和裸上游 version，防止补丁未生效。此时不要断言修订号；最终 `<上游版本>-<revision>` 仅由 `npm-ports pack` 在生成 tarball 前注入。
+2. **真实加载**：用 `node -e "require('./index.js')"` 或等价方式实际加载；`node --check` 只能检查语法。有条件时再调用真实功能，例如 parcel-watcher 的 writeSnapshot。
+3. **loader 分支命中**：如果补丁增加 openharmony 分支，验证标记确实进入产物，而不是只看 patch 命令退出码。
 
-这不是选做项——CI 的 `port-lint` 会对没有任何自验证痕迹（`grep -q`/`node -e`/`readelf`）的 `build.sh` 发警告（目前非阻断，仓库里 `bufferutil`/`sqlite3` 两个包是已知的历史缺口，正在补）。
+签名及 `readelf` 检查不属于 NPMBUILD 的贡献者工作。`npm-ports pack` 统一保障 AArch64 ELF 签名，签名工具失败会中断打包。
+
+这些验证属于配方质量要求；lint 只能检查结构，不能替代它们。
 
 ## 2. CI 验证边界
 
-当前 CI 的构建验证发生在 `ci-runner` 容器里。容器通过不代表可以直接部署到真机，发布前应根据目标设备补做真机验证。
+构建发生在 ci-runner 容器中。容器通过不代表可直接部署到真机，不覆盖：
 
-**不覆盖**：
+- 商用 HarmonyOS 设备的沙箱行为差异；
+- 真机代码签名校验细节；
+- 真实业务负载下的性能和稳定性。
 
-- 真实 HarmonyOS（商用发行版，非社区版 OpenHarmony）设备上的沙箱行为差异
-- 真机上的代码签名校验细节（容器的签名校验通常比真机宽松）
-- 真实业务负载下的性能/稳定性
+发布前应根据目标设备补做真机验证。
 
-容器验证不能替代真机验证。
+## 3. 发布前私仓校验
 
-## 3. 发布前校验
+每个配方构建后，CI 对 NPMBUILD 声明的全部产物执行 `pack --no-build`，再发布到临时 Verdaccio：
 
-每个 port 构建成功后，CI 会在临时 Verdaccio 里执行该 port 的 `publish.sh`，再用 `npm install` 安装刚发布的包，检查三件事：
+- dry-run 与真实本地发布的包清单必须一致；
+- 主包和槽位包按 packages 顺序发布；
+- registry 下载的 tarball 必须来自本临时私仓，SHA-512 与 integrity 一致；
+- 在干净目录执行包含 install 脚本的 npm install。
 
-- 先 dry-run、再真正发布到临时 registry，两次得到的包清单一致。
-- 从临时 registry 下载的 tarball，其 sha512 与 registry 记录的 integrity 一致。
-- 安装（含 install 脚本）可以完成。
+这一步在 PR 和 push 上都执行，不发布到 npm 中心仓。通过后，同一 tarball 和 manifest 上传为 `port-<port>` artifact，保留 7 天。它只证明“包能发布并安装”，不能代替功能测试。
 
-这一步在 PR 和 push 上都会执行，不会发布到 npm。通过后，精确的 tarball 会上传为 artifact，名称是 `port-<名称>-<版本>`，保留 7 天。
+## 4. 多平台 consumer
 
-它只验证「发布出去的包能装上」，不验证装上之后的功能。
+全部 port 默认进入五平台通用安装矩阵，不需要 `test.js`。runner 根据构建矩阵选择 port，校验 artifact integrity 后通过临时 Verdaccio 安装主包，按 os/cpu 过滤检查槽位、实际安装版本和 bin，再执行 npm ci。全量 dispatch 覆盖全部 port，普通变更覆盖受影响 port；没有功能测试文件不会跳过安装验证。
+
+`test.js` 用于补充真实 API、CLI、加载和工程行为。已配置的 primary port 继续在 Windows x64、Linux x64/arm64、macOS arm64 和 OpenHarmony arm64 上运行；普通 OS 比较 baseline 与 overrides，OpenHarmony 验证 overrides。槽位使用同配方 artifact，不另开独立 port job。通用安装通过不等于功能正确，原生加载和关键业务行为仍应在 port 的 check() 或 test.js 中验证。

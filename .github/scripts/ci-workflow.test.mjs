@@ -16,13 +16,14 @@ test('temporary publishing and artifact upload apply to every build event', () =
   }
 });
 
-test('build step runs ./build.sh after brew update with the brew rust first on PATH', () => {
+test('build step runs npm-ports after brew update with the brew rust first on PATH', () => {
   const build = step('Build');
-  assert.match(build, /\.\/build\.sh/);
+  assert.match(build, /cli\/npm-ports check/);
   assert.match(build, /HOMEBREW_NO_AUTO_UPDATE: "1"/);
   assert.match(build, /HOMEBREW_NO_INSTALL_UPGRADE: "1"/);
   assert.match(build, /brew update/);
   assert.match(build, /brew --prefix rust/);
+  assert.doesNotMatch(build, /python_bin|PYTHON/);
   assert.doesNotMatch(build, /setup-ci-runner|sh -ex|brew (install|upgrade)/);
 });
 
@@ -31,6 +32,7 @@ test('publish runs only for pushes to main of the upstream repository', () => {
   assert.match(publish, /github\.event_name == 'push'/);
   assert.match(publish, /github\.ref == 'refs\/heads\/main'/);
   assert.match(publish, /github\.repository == 'ohos-npm-ports\/ohos-npm-ports'/);
+  assert.match(publish, /cli\/npm-ports publish/);
 });
 
 test('only pull_request runs share a concurrency group', () => {
@@ -46,9 +48,15 @@ test('tool versions are exact', () => {
   for (const [name, version] of Object.entries(versions)) assert.match(version, /^\d+\.\d+\.\d+$/, name);
 });
 
-test('workflow files that change the build are in the pull_request paths', () => {
-  const block = workflow.slice(workflow.indexOf('  pull_request:'), workflow.indexOf('\npermissions:'));
-  for (const file of ['.github/workflows/ci.yml', '.github/scripts/validate-local-publish.sh', '.github/scripts/tool-versions.json', '.github/scripts/ci-workflow.test.mjs']) {
-    assert.ok(block.includes(`"${file}"`), file);
+test('workflow files that change the build are in both push and pull_request paths', () => {
+  const blocks = [
+    workflow.slice(workflow.indexOf('  push:'), workflow.indexOf('  pull_request:')),
+    workflow.slice(workflow.indexOf('  pull_request:'), workflow.indexOf('\npermissions:')),
+  ];
+  for (const block of blocks) {
+    for (const file of ['.github/workflows/ci.yml', '.github/scripts/validate-local-publish.sh', '.github/scripts/tool-versions.json', '.github/scripts/ci-workflow.test.mjs', 'package.json']) {
+      assert.ok(block.includes(`"${file}"`), file);
+    }
+    for (const directory of ['cli', 'test']) assert.ok(block.includes(`"${directory}/**"`), directory);
   }
 });

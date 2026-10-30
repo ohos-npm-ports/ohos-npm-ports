@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+pkgname="lightningcss"
+upstream="lightningcss"
+version="1.33.0"
+revision=3
+dist_tag="latest"
+
+packages=(
+  "lightningcss-${version}"
+)
+source="https://github.com/parcel-bundler/lightningcss/archive/refs/tags/v${version}.tar.gz"
+sha256="3197aa5188b66d0d1e5026cbc8b65c4c0c53fdc949f9ed497fe75df2d13f722a"
+
+build() {
+  # Native napi-rs build: this container's rustc host triple is already
+  # aarch64-unknown-linux-ohos, so no cross-compile target/toolchain wrapper is
+  # needed — `napi build --platform` recognizes openharmony as the host and
+  # produces the correctly-named binding directly.
+
+  fetch_source lightningcss.tar.gz
+  tar -zxf lightningcss.tar.gz
+  rm lightningcss.tar.gz
+  # GitHub source archives already extract to <repo>-<version>/, which happens
+  # to equal ${pkgname}-${version} here, so no rename is needed.
+
+  cd "${pkgname}-${version}"
+  patch -p1 <../patchs/0001-update-package-json.patch
+  patch -p1 <../patchs/0002-openharmony-loader.patch
+
+  brew install -y rust
+
+  # --ignore-scripts: upstream's devDependencies include puppeteer (used only
+  # by the website/docs tooling, unrelated to the napi build path below), and
+  # its postinstall script hard-fails with "Unsupported platform: openharmony"
+  # trying to download a Chromium binary. We only need the napi build itself.
+  npm install --ignore-scripts
+
+  # scripts/build.js shells out to the bare `napi` command; node_modules/.bin
+  # is not on PATH by default in this environment.
+  export PATH="$(pwd)/node_modules/.bin:$PATH"
+  node scripts/build.js --release
+
+  test -f lightningcss.linux-arm64-ohos.node
+
+  llvm-strip --strip-all lightningcss.linux-arm64-ohos.node
+  chmod +x lightningcss.linux-arm64-ohos.node
+
+  # --- verify package contents ---
+
+  actual_name=$(node -e "console.log(require('./package.json').name)")
+  [ "$actual_name" = "@ohos-npm-ports/lightningcss" ]
+
+  node --check node/index.js
+  grep -q "process.platform === 'openharmony'" node/index.js
+
+  # optionalDependencies must track the upstream version.
+  node -e '
+  const pkg = require("./package.json");
+  const base = pkg.version;
+  for (const [name, range] of Object.entries(pkg.optionalDependencies ?? {})) {
+    if (name.startsWith("lightningcss-") && range !== base) {
+      console.error(`optionalDependencies["${name}"] = ${range}, expected ${base}`);
+      process.exit(1);
+    }
+  }
+'
+
+  # Real functional smoke test: this container IS the target platform, so
+  # actually load the addon and run a transform.
+  node -e '
+  const { transform } = require("./node/index.js");
+  const { code } = transform({
+    filename: "test.css",
+    code: Buffer.from(".a { color: red }"),
+    minify: true,
+  });
+  const out = code.toString();
+  console.log("transform() output:", out);
+  if (!out.includes(".a") || !out.includes("red")) {
+    throw new Error("unexpected transform output");
+  }
+'
+}

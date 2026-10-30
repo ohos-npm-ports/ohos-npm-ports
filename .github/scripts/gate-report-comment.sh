@@ -6,7 +6,7 @@
 # digging through job logs to find out which port(s) failed and why.
 #
 # Env in: PR, REPO (gh pr comment target), CHANGED_JSON (JSON array of
-# ports/<name>/<version> dirs), LINT_RESULT, COMMIT_RESULT ("success" or
+# ports/<letter>/<port> dirs), LINT_RESULT, COMMIT_RESULT ("success" or
 # anything else).
 set -uo pipefail
 

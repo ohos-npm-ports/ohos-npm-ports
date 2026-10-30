@@ -1,0 +1,264 @@
+#!/usr/bin/env bash
+pkgname="parcel-watcher"
+upstream="@parcel/watcher"
+version="2.5.1"
+revision=4
+source="https://registry.npmjs.org/@parcel/watcher/-/watcher-${version}.tgz"
+sha256="bf7a6b5577a287153c9a6bf7be953556b998f2a57706eb7a5371ec7eb0088d41"
+resource "upstream" \
+  "https://github.com/parcel-bundler/watcher/archive/refs/tags/v${version}.tar.gz" \
+  "8bb27ecefefeb88b6eac5358d554a93a932e4ae8518f19759c836c9c03fdb9ea"
+dist_tag="latest"
+
+packages=(
+  "slots/openharmony-arm64/parcel-watcher-openharmony-arm64-${version}"
+  "parcel-watcher-${version}"
+)
+port_dir="$NPMBUILD_DIR"
+root_dir="$port_dir"
+
+build() {
+  # Fork 重打包：官方 @parcel/watcher tgz + 源码构建的 openharmony binding。
+  # index.js 的平台解析是动态拼名（@parcel/watcher-${platform}-${arch}），
+  # OHOS 上拼出的平台包不存在，require 的 MODULE_NOT_FOUND 被上游 handleError
+  # 吞掉后回落 require('./build/Release/watcher.node')——binding 按这个官方
+  # 兜底路径内嵌，index.js 零改动。非 OHOS 平台走上游 optionalDependencies
+  # 平台包，行为不变（0002 删掉 install script：其 build-from-source 回落会
+  # 在消费者机器上触发 node-gyp 编译）。
+  #
+  # 移植改动让"动态拼名"在两类环境都能命中——
+  #   a) 普通安装：optionalDependencies 增加 openharmony 槽位包 alias
+  #      （os 平台过滤，OHOS 安装自动拉取，其他平台跳过；拉取失败仅
+  #      optional 降级，不阻塞安装）
+  #   b) bun --compile：wrapper.js 顶部静态引用该平台包（0003），bundler
+  #      把它登记进内嵌模块表，运行时动态拼名 require 按 specifier 命中
+  #      （.node 直接作 main 不进模块表，故槽位包 main 是 index.js shim）
+
+  # --- binding 源码构建（容器 clang host 即 ohos，node-gyp 直编） ---
+  cd "$root_dir"
+  fetch_resource "upstream" "watcher-${version}.tar.gz"
+  tar -zxf "watcher-${version}.tar.gz"
+  rm "watcher-${version}.tar.gz"
+  cd "watcher-${version}"
+
+  # 0001 移除 watchman 后端：OHOS 无 watchman，linux default 后端会先试它
+  # （连接探测误判成功后 BSER 解析垃圾数据 SIGABRT）；去掉后 default 恒走
+  # inotify。toybox patch 会静默 no-op，打完 grep marker。
+  patch -p1 <"${port_dir}/patchs/0001-binding-gyp-drop-watchman.patch"
+  grep -q '"src/linux/InotifyBackend.cc"' binding.gyp
+  ! grep -q 'WatchmanBackend' binding.gyp
+
+  npm install --ignore-scripts
+  npx -y node-gyp rebuild --nodedir="$(brew --prefix)"
+
+  test -f build/Release/watcher.node
+
+  # --- 官方 tgz 重打包 ---
+  cd "$root_dir"
+  fetch_source "watcher.tgz"
+  tar -zxf watcher.tgz
+  rm watcher.tgz
+  mv package "${pkgname}-${version}"
+  cp "${pkgname}-${version}/index.js" "$root_dir"/index.js.upstream
+  cp "${pkgname}-${version}/wrapper.js" "$root_dir"/wrapper.js.upstream
+  cd "${pkgname}-${version}"
+  patch -p1 <../patchs/0002-package-json.patch
+  patch -p1 <../patchs/0003-wrapper-static-slot-ref.patch
+  # 0003 marker：静态引用行必须真的打上（toybox patch 静默 no-op 防线）
+  grep -q "require('@parcel/watcher-openharmony-arm64')" wrapper.js
+  mkdir -p build/Release
+  cp "${root_dir}/watcher-${version}/build/Release/watcher.node" build/Release/watcher.node
+
+  # --- verify package contents ---
+
+  # 跨平台：index.js 与上游逐字节一致（loader 行为不变的构造性证明）
+  cmp "$root_dir"/index.js.upstream index.js && rm -f "$root_dir"/index.js.upstream &&
+    echo "index.js byte-identical to upstream"
+  # wrapper.js 仅 0003 的头部静态引用差异（头 6 行外与上游一致）
+  tail -n +7 wrapper.js | cmp - "$root_dir"/wrapper.js.upstream &&
+    rm -f "$root_dir"/wrapper.js.upstream &&
+    echo "wrapper.js identical to upstream below the 0003 header"
+
+  actual_name=$(node -e "console.log(require('./package.json').name)")
+  [ "$actual_name" = "@ohos-npm-ports/${pkgname}" ]
+
+  node -e '
+  const pkg = require("./package.json");
+  if (pkg.version !== `${process.env.NPMBUILD_VERSION}`) throw new Error(`bad version: ${pkg.version}`);
+  const n = Object.keys(pkg.optionalDependencies ?? {}).length;
+  if (n !== 14) throw new Error(`optionalDependencies count: ${n}, expected 14`);
+  if (pkg.optionalDependencies["@parcel/watcher-linux-arm64-musl"] !== process.env.NPMBUILD_VERSION)
+    throw new Error("platform subpackage version drifted");
+  const alias = pkg.optionalDependencies["@parcel/watcher-openharmony-arm64"];
+  if (alias !== `npm:@ohos-npm-ports/parcel-watcher-openharmony-arm64@${process.env.NPMBUILD_VERSION}`)
+    throw new Error(`openharmony alias drifted: ${alias}`);
+  if ("install" in (pkg.scripts ?? {})) throw new Error("install script must be dropped");
+  console.log("package.json rewrite OK");
+'
+
+  node --check index.js
+  node --check wrapper.js
+
+  # 真函数冒烟：openharmony 上 require 本包根——index.js 拼出的平台包当前
+  # 未安装（optional alias 在本构建目录里拉不到未发布的配套 port），
+  # 走官方兜底路径命中内嵌 binding；真实扫一次目录并落快照文件。
+  # 跨平台模拟：伪造 process.platform=linux 验证拼名缺失时兜底链不崩（真实
+  # linux 用户的平台包由 optionalDependencies 在 require(name) 一步命中）
+  npm install --ignore-scripts --no-audit --no-fund --silent
+  node -e '
+Object.defineProperty(process, "platform", { value: "linux" });
+const b = require("./");
+if (typeof b.writeSnapshot !== "function") throw new Error("writeSnapshot missing");
+console.log("linux platform simulation: fallback chain OK");
+'
+  node -e '
+const b = require("./");
+const fs = require("fs"), path = require("path"), os = require("os");
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pw-"));
+fs.writeFileSync(path.join(dir, "a.txt"), "x");
+const snap = path.join(os.tmpdir(), "pw-snap.txt");
+b.writeSnapshot(dir, snap, {}).then(
+  () => {
+    if (!fs.existsSync(snap)) { console.error("snapshot file missing"); process.exit(1); }
+    console.log("OK: writeSnapshot (fallback build/Release path)");
+  },
+  (e) => { console.error("writeSnapshot failed:", e.message); process.exit(1); }
+);'
+  rm -rf node_modules package-lock.json
+
+  # 消费侧冒烟：npm pack 后按名安装（file: 目录是 symlink，不装依赖）
+  cd "$root_dir"
+  rm -rf smoke && mkdir smoke && cd smoke
+  echo '{"name":"pw-smoke","private":true}' >package.json
+  npm pack --silent "../${pkgname}-${version}" >/dev/null
+  npm install --no-audit --no-fund "./ohos-npm-ports-${pkgname}-${version}.tgz" >/dev/null
+  node -e "const b = require('@ohos-npm-ports/${pkgname}'); console.log('consumer smoke:', typeof b.writeSnapshot)"
+
+  cd "$root_dir"
+  rm -rf smoke
+
+  echo "OK: @ohos-npm-ports/${pkgname}@${version}"
+}
+
+slot_openharmony_arm64_build() {
+  # 源码构建 @parcel/watcher@2.5.1 的 openharmony 平台包（binding-only）。
+  # 消费方以 alias 安装到 @parcel/watcher-openharmony-arm64 槽位：
+  #   - 普通安装（node_modules 解析）：@parcel/watcher 的 index.js 在
+  #     platform === 'openharmony' 时动态拼名 require 本包名，一步命中
+  #   - bun --compile 单二进制：消费侧 wrapper.js 的静态引用让 bundler 把
+  #     本包进内嵌模块表，运行时动态拼名按 specifier 命中
+  # main 是 index.js shim 而非 .node 直出：bundler 只把 JS 模块登记进内嵌
+  # 模块表（.node 作 main 会被当 asset 内嵌、拼名 require 命不中），shim 内
+  # 的字面量 require('./watcher.node') 负责真正加载 binding。
+  # 0001 移除 watchman 后端：OHOS 无 watchman，default 后端连接探测误判
+  # 成功后 BSER 解析垃圾数据 SIGABRT；去掉后 default 恒走 inotify。
+  pkgname=parcel-watcher-openharmony-arm64
+  port_dir="$NPMBUILD_SLOT_DIR"
+  root_dir="$port_dir"
+
+  # --- binding 源码构建（容器 clang host 即 ohos，node-gyp 直编） ---
+  brew install -y node
+
+  cd "$root_dir"
+  fetch_resource "upstream" "watcher-${version}.tar.gz"
+  tar -zxf "watcher-${version}.tar.gz"
+  rm "watcher-${version}.tar.gz"
+  cd "watcher-${version}"
+
+  # 同主配方 patchs/0001（watchman 后端移除），marker 复验
+  patch -p1 <"${port_dir}/patchs/0001-binding-gyp-drop-watchman.patch"
+  grep -q '"src/linux/InotifyBackend.cc"' binding.gyp
+  ! grep -q 'WatchmanBackend' binding.gyp
+
+  npm install --ignore-scripts
+  npx -y node-gyp rebuild --nodedir="$(brew --prefix)"
+
+  test -f build/Release/watcher.node
+
+  # --- 组包（binding-only + shim） ---
+  cd "$root_dir"
+  mkdir "${pkgname}-${version}"
+  cp "watcher-${version}/build/Release/watcher.node" "${pkgname}-${version}/watcher.node"
+  cat >"${pkgname}-${version}/index.js" <<'SHIM'
+module.exports = require('./watcher.node')
+SHIM
+  cat >"${pkgname}-${version}/package.json" <<JSON
+{
+  "name": "@ohos-npm-ports/${pkgname}",
+  "version": "${version}",
+  "description": "OpenHarmony (OHOS) arm64 platform binding for @parcel/watcher \\u2014 source-built inotify backend, main is a shim re-exporting watcher.node (bundler module-table embedding requires a JS entry)",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git",
+    "directory": "ports/${pkgname}/${version}"
+  },
+  "license": "MIT",
+  "files": [
+    "index.js",
+    "watcher.node"
+  ],
+  "engines": {
+    "node": ">= 10.0.0"
+  },
+  "os": [
+    "openharmony"
+  ],
+  "cpu": [
+    "arm64"
+  ]
+}
+JSON
+
+  # --- verify package contents ---
+  cd "${pkgname}-${version}"
+
+  actual_name=$(node -e "console.log(require('./package.json').name)")
+  [ "$actual_name" = "@ohos-npm-ports/${pkgname}" ]
+  node -e '
+  const pkg = require("./package.json");
+  if (pkg.version !== `${process.env.NPMBUILD_VERSION}`) throw new Error(`bad version: ${pkg.version}`);
+  if (pkg.main !== "index.js") throw new Error("main must be the shim");
+  console.log("package.json OK");
+'
+  node --check index.js
+  grep -q "require('./watcher.node')" index.js
+
+  # 真函数冒烟：default 后端（0001 后即 inotify）真实扫一次目录并落快照
+  node -e '
+const b = require("./");
+const fs = require("fs"), path = require("path"), os = require("os");
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pws-"));
+fs.writeFileSync(path.join(dir, "a.txt"), "x");
+const snap = path.join(os.tmpdir(), "pws-snap.txt");
+b.writeSnapshot(dir, snap, {}).then(
+  () => {
+    if (!fs.existsSync(snap)) { console.error("snapshot file missing"); process.exit(1); }
+    console.log("OK: writeSnapshot (default=inotify)");
+  },
+  (e) => { console.error("writeSnapshot failed:", e.message); process.exit(1); }
+);'
+
+  # 消费侧冒烟：npm pack 后按名安装（file: 目录是 symlink，不装依赖）
+  cd "$root_dir"
+  rm -rf smoke && mkdir smoke && cd smoke
+  echo '{"name":"pws-smoke","private":true}' >package.json
+  npm pack --silent "../${pkgname}-${version}" >/dev/null
+  npm install --no-audit --no-fund "./ohos-npm-ports-${pkgname}-${version}.tgz" >/dev/null
+  node -e "const b = require('@ohos-npm-ports/${pkgname}'); console.log('consumer smoke:', typeof b.writeSnapshot)"
+
+  # 槽位冒烟：按 @parcel/watcher 的动态拼名（alias 安装形态）require 命中
+  mkdir -p node_modules/@parcel/watcher-openharmony-arm64
+  cp -r "node_modules/@ohos-npm-ports/${pkgname}/." node_modules/@parcel/watcher-openharmony-arm64/
+  node -e '
+const name = `@parcel/watcher-${process.platform}-${process.arch}`;   // 复刻 index.js 的拼名
+const b = require(name);
+if (typeof b.writeSnapshot !== "function") throw new Error("slot require missed");
+console.log("slot-name require (dynamic name construction) OK:", name);
+'
+
+  cd "$root_dir"
+  rm -rf smoke
+
+  echo "OK: @ohos-npm-ports/${pkgname}@${version}"
+}

@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+pkgname="ast-grep-napi"
+upstream="@ast-grep/napi"
+version="0.45.3"
+revision=3
+dist_tag="latest"
+
+packages=(
+  "ast-grep-napi-${version}"
+)
+source="https://github.com/ast-grep/ast-grep/archive/refs/tags/${version}.tar.gz"
+sha256="0ad252ce2535493e105bd4b2dd6db2829439732d15599825aecb0b02fc9e606f"
+resource "npm" \
+  "https://registry.npmjs.org/@ast-grep/napi/-/napi-${version}.tgz" \
+  "2d41810c4d74fbe210446a1239a4eab831b1186c37a6db8c8f095604407834d0"
+script_dir="$NPMBUILD_DIR"
+
+build() {
+  cd "$script_dir"
+
+  brew install -y rust
+
+  fetch_source "ast-grep-${version}.tar.gz"
+  tar -zxf "ast-grep-${version}.tar.gz"
+  rm "ast-grep-${version}.tar.gz"
+
+  cd "ast-grep-${version}"
+
+  if ! curl -fsIL --max-time 8 -o /dev/null "https://index.crates.io/config.json" 2>/dev/null; then
+    export CARGO_REGISTRIES_CRATES_IO_INDEX="sparse+https://rsproxy.cn/index/"
+  fi
+
+  cargo build -p ast-grep-napi --release
+
+  node_src=$(find target/release -maxdepth 1 -name 'libast_grep_napi.so' | head -1)
+  [ -n "$node_src" ] || {
+    echo "no napi cdylib in target/release" >&2
+    exit 1
+  }
+  cp "$node_src" "../ast-grep-napi.node"
+  cd ..
+
+  fetch_resource "npm" "ast-grep-napi-${version}.tgz"
+  tar -zxf "ast-grep-napi-${version}.tgz"
+  rm "ast-grep-napi-${version}.tgz"
+  mv package "ast-grep-napi-${version}"
+
+  cd "ast-grep-napi-${version}"
+  for patch in ../patchs/*.patch; do
+    patch -p1 <"$patch"
+  done
+  grep -q '"name": "@ohos-npm-ports/ast-grep-napi"' package.json
+  grep -q "\"version\": \"${version}\"" package.json
+  grep -q '"ast-grep-napi.openharmony-arm64.node"' package.json
+  grep -q '"@ast-grep/napi-linux-arm64-gnu": "'"${version}"'"' package.json
+  if grep -q '"prepublishOnly"' package.json; then
+    echo "prepublishOnly still present" >&2
+    exit 1
+  fi
+
+  cp "../ast-grep-napi.node" "ast-grep-napi.openharmony-arm64.node"
+  chmod +x "ast-grep-napi.openharmony-arm64.node"
+
+  grep -q "process.platform === 'openharmony'" index.js
+  grep -q "./ast-grep-napi.openharmony-arm64.node" index.js
+
+  node -e "
+  const { parse, Lang } = require('./index.js');
+  const root = parse(Lang.JavaScript, 'const a = 1 + 2;').root();
+  const m = root.find('\$A + \$B');
+  if (!m || m.getMatch('A').text() !== '1' || m.getMatch('B').text() !== '2') throw new Error('napi smoke failed');
+  console.log('loader + parse smoke OK');
+"
+  echo "OK: @ohos-npm-ports/ast-grep-napi ${version}"
+}

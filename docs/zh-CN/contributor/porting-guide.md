@@ -14,7 +14,7 @@ Node.js 运行时本身已经支持鸿蒙（见 [官方文档](https://github.co
 
 ### 2.1 缺平台二进制
 
-原生 addon 只发布了 darwin/linux(glibc)/win32 的预编译产物，没有 openharmony 的。统一走**源码构建**：容器内原生编译（见下面“工具链要点”，不同构建框架的具体打法见 [build-frameworks.md](build-frameworks.md)），产物签名后塞进重打包的 npm 包里。
+原生 addon 只发布了 darwin/linux(glibc)/win32 的预编译产物，没有 openharmony 的。统一走**源码构建**：容器内原生编译（见下面“工具链要点”，不同构建框架的具体打法见 [build-frameworks.md](build-frameworks.md)），产物塞进重打包的 npm 目录，由 `npm-ports pack` 统一签名后生成 tarball。
 
 OpenHarmony 产物必须通过源码构建。其他平台的预编译产物可以在来源、ABI、签名和功能都经过验证后复用，并随包分发；不能用其他平台产物替代 OpenHarmony 目标产物。
 
@@ -22,7 +22,7 @@ OpenHarmony 产物必须通过源码构建。其他平台的预编译产物可�
 
 原生二进制存在，但加载或运行时崩溃，通常是下面几类之一：
 
-- **未签名**：鸿蒙商用发行版对 ELF 做代码签名校验，没有 `.codesign` section 的产物装上也用不了。使用带签名支持的 OHOS 工具链构建，或对其他工具链产物执行 `binary-sign-tool sign -selfSign 1`。
+- **未签名**：商用发行版 HarmonyOS 对 ELF 文件做代码签名校验，未签名的 .node 模块在鸿蒙 PC 上不能被加载。当用户或流水线执行 `npm-ports pack` 命令，管理器会对发布目录中的 AArch64 ELF 统一进行代码签名，因此常规的发布流程中不会出现未签名的文件。如果你不经 `npm-ports pack` 打包而是将中间产物直接复制到鸿蒙 PC 上使用，就有可能因缺乏代码签名而加载失败。
 - **UND 符号在 dlopen 时未能全部解析**：OHOS musl 的动态链接器不做 lazy binding——`.so`/`.node` 里凡是引用到但没定义的符号，dlopen 那一刻就必须全部能解析到，缺一个就整体加载失败（不是“没调用到就不炸”那套 glibc 习惯）。常见于 addon 依赖某个 musl 缺失的符号（如 `pthread_tryjoin_np`）；修法是给这个符号加 weak 声明 + 运行时判空回退（C/C++ 用 `__attribute__((weak))`；zig 用 `.linkage = .weak` 声明为 optional，`orelse` 兜底）。
 - **无条件探测的 syscall 直接被内核杀掉**：鸿蒙内核对某些 syscall（`fanotify_init`、`close_range` 等）返回 SIGSYS 而不是 `ENOSYS`，代码里“先探测再决定要不要用”的防御逻辑根本没机会跑到 err 分支。修法是运行时判内核类型（`uname()` 识别 HongMeng/HarmonyOS）直接跳过探测，走上游本来就有的降级路径（很多项目对 Android 已经有类似的特判，抄它的路径最省事）。
 - **dlopen 出来的模块无法回溯解析主程序符号**：鸿蒙动态链接器做了命名空间隔离，dlopen 加载的模块默认看不到主二进制导出的符号（zsh/ruby/perl 一类的插件机制都会遇到）。链接时加 `-Wl,-z,global` 恢复类似标准 Linux 的全局符号可见性。
@@ -39,7 +39,7 @@ OpenHarmony 产物必须通过源码构建。其他平台的预编译产物可�
 ## 4. npm 生态注意事项
 
 - `npm install file:<目录>` 是 symlink 安装，不会装该包自己的依赖；要正常解析依赖必须先 `npm pack` 出 tarball 再装。
-- 未签名的 `.node`/`.so`：消费方用 npm/pnpm 装的话需要额外的签名步骤（如 `ohos-signpost` 一类的 postinstall 钩子）；用 bun 安装/构建的话通常内置了签名处理。
+- 本仓库发布的 tarball 已在 `pack` 阶段统一签名，消费方不需要额外的 postinstall 签名钩子；直接使用尚未打包的构建目录则不属于已签名产物。
 - 上游 `package.json` 的 `packageManager` 字段（比如指定 `pnpm@x`）如果所指定的包管理器在 openharmony 平台没有对应发布，重打包时要把这个字段删掉，否则消费方那边会因为解析不到对应平台的可执行文件而失败。
 
 不同构建框架（node-gyp 系 / napi-rs 系 / 手写 Rust / 手写 Go）具体怎么打包见 [build-frameworks.md](build-frameworks.md)。

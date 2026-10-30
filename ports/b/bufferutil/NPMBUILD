@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+pkgname="bufferutil"
+upstream="bufferutil"
+version="4.0.9"
+revision=9
+dist_tag="latest"
+
+packages=(
+  "bufferutil-${version}"
+)
+source="https://github.com/websockets/bufferutil/archive/refs/tags/v${version}.tar.gz"
+sha256="618f86453510a508e1fb6905401f6e39d0f9571b8681b9e58775535abdc65b39"
+resource "npm" \
+  "https://registry.npmjs.org/bufferutil/-/bufferutil-${version}.tgz" \
+  "49ca055cd977fcdbef8e393cb2c51691b76ed233a3c0079227e09fbb406bf0b9"
+
+build() {
+  # 准备源码
+  fetch_source bufferutil-${version}.tar.gz
+  tar -zxf bufferutil-${version}.tar.gz
+  cd bufferutil-${version}
+  patch -p1 <../patchs/0001-update-package-json.patch
+
+  # 构建 addon
+  npm install
+  npm run prebuild
+
+  # 把其他平台的预构建产物复制到包里面一起发布
+  cd ..
+  fetch_resource "npm" bufferutil-${version}.tgz
+  tar -zxf bufferutil-${version}.tgz
+  rm bufferutil-${version}.tgz
+  cp -r package/prebuilds/* bufferutil-${version}/prebuilds/
+  cd bufferutil-${version}/prebuilds
+  mv linux-x64/bufferutil.node linux-x64/@ohos-npm-ports+bufferutil.node
+  mv win32-ia32/bufferutil.node win32-ia32/@ohos-npm-ports+bufferutil.node
+  mv win32-x64/bufferutil.node win32-x64/@ohos-npm-ports+bufferutil.node
+  for platform in darwin-x64 darwin-arm64 darwin-x64+arm64; do
+    if [ -d "$platform" ]; then
+      mv "$platform/bufferutil.node" "$platform/@ohos-npm-ports+bufferutil.node"
+    fi
+  done
+}
