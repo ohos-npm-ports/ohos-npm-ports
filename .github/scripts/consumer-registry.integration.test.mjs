@@ -7,10 +7,10 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
-import { registryConfig } from './consumer-registry.mjs';
+import { artifactsForPort, registryConfig } from './consumer-registry.mjs';
 
 const tools = process.env.CONSUMER_REGISTRY_TOOLS;
-test('local artifact publish/install succeeds when the upstream has the same version', { skip: !tools, timeout: 120000 }, async (t) => {
+for (const historical of [false, true]) test(`local artifact install preserves ${historical ? 'a different port historical version' : 'ordinary dependencies'}`, { skip: !tools, timeout: 120000 }, async (t) => {
   const root = mkdtempSync(join(tmpdir(), 'consumer-registry-test-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const command = (file, args) => new Promise((done, fail) => {
@@ -24,7 +24,7 @@ test('local artifact publish/install succeeds when the upstream has the same ver
   const npmCli = process.env.CONSUMER_REGISTRY_NPM_CLI;
   assert.ok(npmCli, 'CONSUMER_REGISTRY_NPM_CLI must name npm-cli.js');
   const name = '@ohos-npm-ports/registry-regression';
-  const dependency = 'registry-proxy-regression';
+  const dependency = historical ? '@ohos-npm-ports/history-regression' : 'registry-proxy-regression';
   const version = '1.0.0';
   async function pack(pkg, dir) {
     const path = join(root, dir);
@@ -60,7 +60,8 @@ test('local artifact publish/install succeeds when the upstream has the same ver
   await once(reservation, 'listening');
   const address = `127.0.0.1:${reservation.address().port}`;
   await new Promise((done) => reservation.close(done));
-  writeFileSync(config, registryConfig(root, address, [{ name }]).replace('https://registry.npmjs.org/', `${upstreamUrl}/`));
+  const allArtifacts = [{ name, portDir: 'ports/a/a' }, { name: dependency, version: '2.0.0', portDir: 'ports/b/b' }];
+  writeFileSync(config, registryConfig(root, address, artifactsForPort(allArtifacts, 'ports/a/a')).replace('https://registry.npmjs.org/', `${upstreamUrl}/`));
   const pkgPath = resolve(tools, 'node_modules/verdaccio');
   const pkg = JSON.parse(readFileSync(join(pkgPath, 'package.json')));
   const bin = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin.verdaccio;
@@ -96,6 +97,7 @@ test('local artifact publish/install succeeds when the upstream has the same ver
   writeFileSync(join(root, 'package.json'), JSON.stringify({ private: true, dependencies: { demo: `npm:${name}@${version}` } }));
   for (const verb of ['install', 'ci']) await npm([verb, '--no-audit', '--no-fund', '--ignore-scripts']);
   assert.equal(JSON.parse(readFileSync(join(root, 'node_modules/demo/package.json'))).name, name);
+  assert.equal(JSON.parse(readFileSync(join(root, 'node_modules', dependency, 'package.json'))).version, version);
   assert.ok(requests.some((path) => path.startsWith(`/${dependency}`)), 'ordinary dependencies must use the upstream');
   assert.ok(!requests.some((path) => path.startsWith(`/${name}`)), 'artifact packages must never use the upstream');
 });
