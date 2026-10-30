@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { registryConfig } from './consumer-registry.mjs';
 import { testSpec, closure } from './consumer-plan.mjs';
 import { installedPackage } from './installed-package.mjs';
 
@@ -197,9 +198,7 @@ try {
   mkdirSync(app);
   await retry('verdaccio install', () => npm(['install', '--prefix', app, '--no-audit', '--no-fund', `verdaccio@${versions.verdaccio}`], temporary));
   const config = join(temporary, 'config.yaml');
-  const policy = [...new Set(built.map((pkg) => pkg.name))].map((name) =>
-    `  ${JSON.stringify(name)}:\n    access: $all\n    publish: $authenticated\n`).join('');
-  writeFileSync(config, `storage: ${JSON.stringify(join(temporary, 'storage'))}\nlisten: ${registry.slice(7)}\nmax_body_size: 256mb\nauth:\n  htpasswd:\n    file: ${JSON.stringify(join(temporary, 'htpasswd'))}\n    max_users: 1\nuplinks:\n  npmjs:\n    url: https://registry.npmjs.org/\npackages:\n${policy}  '**':\n    access: $all\n    publish: $authenticated\n    proxy: npmjs\n`);
+  writeFileSync(config, registryConfig(temporary, registry.slice(7), built));
   const packageJson = JSON.parse(readFileSync(join(app, 'node_modules/verdaccio/package.json')));
   const log = registryStream = createWriteStream(registryLog);
   const verdaccioBin = typeof packageJson.bin === 'string' ? packageJson.bin : packageJson.bin.verdaccio;

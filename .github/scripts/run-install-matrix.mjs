@@ -7,6 +7,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { registryConfig } from './consumer-registry.mjs';
 import { loadPort } from '../../cli/port.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -134,7 +135,7 @@ async function main() {
     const registryAddress = `127.0.0.1:${await freePort()}`;
     const registryUrl = `http://${registryAddress}`;
     const config = join(temporary, 'config.yaml');
-    writeFileSync(config, `storage: ${join(temporary, 'storage')}\nlisten: ${registryAddress}\nmax_body_size: 256mb\nauth:\n  htpasswd:\n    file: ${join(temporary, 'htpasswd')}\n    max_users: 1\nuplinks:\n  npmjs:\n    url: https://registry.npmjs.org/\npackages:\n  '**':\n    access: $all\n    publish: $authenticated\n    proxy: npmjs\n`);
+    writeFileSync(config, registryConfig(temporary, registryAddress, artifacts));
     const registryPackage = JSON.parse(readFileSync(join(tooling, 'node_modules/verdaccio/package.json'), 'utf8'));
     const registryBin = typeof registryPackage.bin === 'string' ? registryPackage.bin : registryPackage.bin.verdaccio;
     registry = spawn(process.execPath, [join(tooling, 'node_modules/verdaccio', registryBin), '--config', config], {
