@@ -22,7 +22,7 @@ Commands:
   package <port>             Build and stage package directories
   check <port>               Run the complete lifecycle and package checks
   pack <port> [--no-build]   Check, then create exact npm tarballs
-  publish <port>             Publish packed tarballs (--dry-run, --registry URL, --skip-existing)
+  publish <port>             Publish packed tarballs (--dry-run, --registry URL, --skip-existing, --expect-sha SHA)
   bump <port|--all>          Check upstream versions (add --write to edit)
   bump-pr <port>             Bump one port and create a PR; skip if one is open
   revision <port>            Increment revision (or use --set N)
@@ -43,7 +43,7 @@ function options(args) {
 
 function selected(root, args) {
   if (args.includes('--all')) return discoverPorts(root).map((dir) => loadPort(root, dir));
-  const input = args.find((arg, index) => !arg.startsWith('--') && !['--base', '--registry', '--output', '--set'].includes(args[index - 1]));
+  const input = args.find((arg, index) => !arg.startsWith('--') && !['--base', '--registry', '--output', '--set', '--expect-sha'].includes(args[index - 1]));
   if (!input) throw new Error('Select a port or --all');
   return [loadPort(root, input)];
 }
@@ -92,7 +92,7 @@ try {
   } else if (command === 'pack') {
     for (const port of selected(root, args)) packPort(root, port, { build: !flags.has('--no-build') });
   } else if (command === 'publish') {
-    for (const port of selected(root, args)) publishPort(port, { dryRun: flags.has('--dry-run'), registry: value('--registry'), skipExisting: flags.has('--skip-existing') });
+    for (const port of selected(root, args)) publishPort(port, { dryRun: flags.has('--dry-run'), registry: value('--registry'), skipExisting: flags.has('--skip-existing'), expectSha: value('--expect-sha') });
   } else if (command === 'bump') {
     const ports = selected(root, args);
     const changed = await bumpPorts(root, ports, { write: flags.has('--write'), registry: value('--registry'), output: value('--output') });

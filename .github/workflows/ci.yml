@@ -80,6 +80,7 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       publish: ${{ steps.set-matrix.outputs.publish }}
+      publish-order: ${{ steps.set-matrix.outputs.publish-order }}
       consumer-enabled: ${{ steps.set-matrix.outputs.consumer-enabled }}
       consumer-ports: ${{ steps.set-matrix.outputs.consumer-ports }}
       generic-enabled: ${{ steps.set-matrix.outputs.generic-enabled }}
@@ -147,8 +148,8 @@ jobs:
       - name: Record approval for first-time external contributors
         run: echo 'Full builds approved for this first-time external contribution.'
 
-  # 对变化的 NPMBUILD port 统一构建、私仓验证，再按事件决定是否发布
-  build-and-publish:
+  # 对变化的 NPMBUILD port 统一构建、私仓验证并上传 artifact；发布由 conclusion 之后的 publish job 负责
+  build:
     needs: [detect-changes, external-build-approval]
     if: >
       always() &&
@@ -203,22 +204,13 @@ jobs:
           compression-level: 0
           retention-days: 7
 
-      # 只有直接 push 或 PR 被合入时才会进行发布
-      - name: Publish
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'ohos-npm-ports/ohos-npm-ports' && contains(fromJson(needs.detect-changes.outputs.publish), matrix.dir)
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-          cli/npm-ports publish "${{ matrix.dir }}" --skip-existing
-
   consumer-install:
-    needs: [detect-changes, build-and-publish]
+    needs: [detect-changes, build]
     if: >
       always() &&
       needs.detect-changes.result == 'success' &&
       needs.detect-changes.outputs.generic-enabled == 'true' &&
-      (needs.build-and-publish.result == 'success' || needs.build-and-publish.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+      (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -248,12 +240,12 @@ jobs:
           token: ${{ github.token }}
 
   consumer-install-openharmony:
-    needs: [detect-changes, build-and-publish]
+    needs: [detect-changes, build]
     if: >
       always() &&
       needs.detect-changes.result == 'success' &&
       needs.detect-changes.outputs.generic-enabled == 'true' &&
-      (needs.build-and-publish.result == 'success' || needs.build-and-publish.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+      (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
     name: consumer-install (openharmony-arm64)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
@@ -274,8 +266,8 @@ jobs:
           token: ${{ github.token }}
 
   consumer-tests-windows-x64:
-    needs: [detect-changes, build-and-publish]
-    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build-and-publish.result == 'success' || needs.build-and-publish.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    needs: [detect-changes, build]
+    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -296,8 +288,8 @@ jobs:
           token: ${{ github.token }}
 
   consumer-tests-linux-arm64:
-    needs: [detect-changes, build-and-publish]
-    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build-and-publish.result == 'success' || needs.build-and-publish.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    needs: [detect-changes, build]
+    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -318,8 +310,8 @@ jobs:
           token: ${{ github.token }}
 
   consumer-tests-linux-x64:
-    needs: [detect-changes, build-and-publish]
-    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build-and-publish.result == 'success' || needs.build-and-publish.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    needs: [detect-changes, build]
+    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
     strategy:
       fail-fast: false
       max-parallel: 6
@@ -340,8 +332,8 @@ jobs:
           token: ${{ github.token }}
 
   consumer-tests-darwin-arm64:
-    needs: [detect-changes, build-and-publish]
-    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build-and-publish.result == 'success' || needs.build-and-publish.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    needs: [detect-changes, build]
+    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -362,8 +354,8 @@ jobs:
           token: ${{ github.token }}
 
   consumer-tests-openharmony:
-    needs: [detect-changes, build-and-publish]
-    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build-and-publish.result == 'success' || needs.build-and-publish.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    needs: [detect-changes, build]
+    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
     name: consumer (${{ matrix.port }}, openharmony-arm64)
     strategy:
       fail-fast: false
@@ -435,7 +427,7 @@ jobs:
     needs:
       - detect-changes
       - external-build-approval
-      - build-and-publish
+      - build
       - consumer-install
       - consumer-install-openharmony
       - consumer-tests-windows-x64
@@ -450,7 +442,7 @@ jobs:
         env:
           DETECT: ${{ needs.detect-changes.result }}
           APPROVAL: ${{ needs.external-build-approval.result }}
-          BUILD: ${{ needs.build-and-publish.result }}
+          BUILD: ${{ needs.build.result }}
           MATRIX: ${{ needs.detect-changes.outputs.matrix }}
           GENERIC_ENABLED: ${{ needs.detect-changes.outputs.generic-enabled }}
           INSTALL_HOST: ${{ needs.consumer-install.result }}
@@ -479,3 +471,43 @@ jobs:
             if (failures.length) throw new Error(failures.join("; "));
             console.log("All required build and consumer checks passed");
           '
+
+  # 唯一持有 npm 凭据的 job：conclusion 全绿后，发布本轮已验证的同一批 tarball
+  publish:
+    needs: [detect-changes, conclusion]
+    if: >
+      needs.conclusion.result == 'success' &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      github.repository == 'ohos-npm-ports/ohos-npm-ports' &&
+      needs.detect-changes.outputs.publish != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - uses: actions/checkout@v7
+      - name: Download the verified artifacts of this run
+        uses: actions/download-artifact@v8
+        with:
+          pattern: port-*
+          path: .port-artifacts
+          github-token: ${{ github.token }}
+      # 凭据只写进文件；下面执行 NPMBUILD 的步骤环境里没有它
+      - name: Write npm credentials
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          umask 077
+          printf '//registry.npmjs.org/:_authToken=%s\n' "$NPM_TOKEN" > "$RUNNER_TEMP/publish.npmrc"
+      # 依赖先发；任何一个 port 失败就停，重跑时已发布的版本会被跳过
+      - name: Publish verified tarballs
+        env:
+          NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/publish.npmrc
+          PUBLISH_ORDER: ${{ needs.detect-changes.outputs.publish-order }}
+        run: |
+          for dir in $(printf '%s' "$PUBLISH_ORDER" | jq -r '.[]'); do
+            mkdir -p "$dir/artifacts"
+            cp -R ".port-artifacts/port-$(basename "$dir")/." "$dir/artifacts/"
+            cli/npm-ports publish "$dir" --skip-existing --expect-sha "$GITHUB_SHA"
+          done

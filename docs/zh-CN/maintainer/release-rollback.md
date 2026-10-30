@@ -32,7 +32,9 @@ CI 按 npm 上有没有这个版本来决定发不发布，而不是看这次提
 
 | 情况 | 处理 |
 |---|---|
-| 发布 job 中途失败或被取消 | 重跑该 run；或者下一次涉及该 port 的 main push 会自动补发缺的版本 |
+| `publish` job 中途失败或被取消 | 重跑该 run（已发布的版本会被跳过）；或者下一次涉及该 port 的 main push 会自动补发缺的版本 |
+| 某个构建或 consumer 失败，整轮没有发布 | 这是预期行为：重跑失败的 job，或修复后再 push，通过后会补发 |
+| 旧版本比新版本晚发布 | 不会抢 tag：dist-tag 已指向更新的版本时，旧版本以 `stale` tag 发布 |
 | 只改了 CI、test.js、文档，或批量改目录名 | 版本没变，npm 上已有，不会尝试发布 |
 | 改了 patch 或 NPMBUILD 但忘了 bump revision | 合入后不会发布。PR 的 port-lint 会给出 warning，用 `npm-ports revision <port>` 补上 |
 | `already published with different content` | 同一版本号已有不同内容。不要覆盖：bump revision 后重新发布 |

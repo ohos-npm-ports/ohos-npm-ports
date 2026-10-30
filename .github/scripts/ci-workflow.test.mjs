@@ -3,11 +3,17 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
-const step = (name) => {
-  const start = workflow.indexOf(`      - name: ${name}`);
+const job = (name) => {
+  const start = workflow.indexOf(`\n  ${name}:\n`);
+  assert.ok(start >= 0, `Missing job: ${name}`);
+  const end = workflow.slice(start + 1).search(/\n  [a-z][a-z-]*:\n/);
+  return workflow.slice(start, end >= 0 ? start + 1 + end : undefined);
+};
+const step = (name, from = workflow) => {
+  const start = from.indexOf(`      - name: ${name}`);
   assert.ok(start >= 0, `Missing step: ${name}`);
-  const end = workflow.indexOf('\n      - ', start + 1);
-  return workflow.slice(start, end > 0 ? end : undefined);
+  const end = from.indexOf('\n      - ', start + 1);
+  return from.slice(start, end > 0 ? end : undefined);
 };
 
 test('temporary publishing and artifact upload apply to every build event', () => {
@@ -27,12 +33,42 @@ test('build step runs npm-ports after brew update with the brew rust first on PA
   assert.doesNotMatch(build, /setup-ci-runner|sh -ex|brew (install|upgrade)/);
 });
 
-test('publish runs only for pushes to main of the upstream repository', () => {
-  const publish = step('Publish');
+test('the build job never publishes and never sees the npm token', () => {
+  const build = job('build');
+  assert.doesNotMatch(build, /NPM_TOKEN|npm-ports publish|name: Publish/);
+  assert.doesNotMatch(workflow, /build-and-publish/);
+});
+
+test('publish is a separate job that waits for the complete CI result', () => {
+  const publish = job('publish');
+  assert.match(publish, /needs: \[detect-changes, conclusion\]/);
+  assert.match(publish, /needs\.conclusion\.result == 'success'/);
+  assert.doesNotMatch(publish, /always\(\)/);
   assert.match(publish, /github\.event_name == 'push'/);
   assert.match(publish, /github\.ref == 'refs\/heads\/main'/);
   assert.match(publish, /github\.repository == 'ohos-npm-ports\/ohos-npm-ports'/);
-  assert.match(publish, /cli\/npm-ports publish .*--skip-existing/);
+  assert.match(publish, /needs\.detect-changes\.outputs\.publish != '\[\]'/);
+});
+
+test('publish uploads the tarballs verified in this run, in dependency order', () => {
+  const publish = job('publish');
+  assert.match(publish, /download-artifact@v8/);
+  assert.match(publish, /pattern: port-\*/);
+  assert.doesNotMatch(publish, /run-id:/);
+  const command = step('Publish verified tarballs', publish);
+  assert.match(command, /outputs\.publish-order/);
+  assert.match(command, /cli\/npm-ports publish "\$dir" --skip-existing --expect-sha "\$GITHUB_SHA"/);
+});
+
+test('the npm token is written to a file and absent from the step that runs NPMBUILD code', () => {
+  const publish = job('publish');
+  assert.match(step('Write npm credentials', publish), /NPM_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
+  assert.doesNotMatch(step('Publish verified tarballs', publish), /NPM_TOKEN|NODE_AUTH_TOKEN/);
+  assert.equal([...workflow.matchAll(/secrets\.NPM_TOKEN/g)].length, 1);
+});
+
+test('conclusion does not wait for publish, so pull requests can require it', () => {
+  assert.doesNotMatch(job('conclusion'), /- publish\b/);
 });
 
 test('the publish list is judged against npm on pushes only', () => {

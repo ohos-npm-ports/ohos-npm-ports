@@ -3,7 +3,8 @@ import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { publishedIntegrity } from './registry.mjs';
+import { distTagVersion, publishedIntegrity } from './registry.mjs';
+import { compareSemver } from './semver.mjs';
 import { signPackages } from './sign.mjs';
 
 export const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -206,20 +207,35 @@ function alreadyPublished(pkg, { registry, lookup }) {
   return true;
 }
 
-export function publishPort(port, { dryRun = false, registry = '', skipExisting = false, lookup = publishedIntegrity } = {}) {
+// A publish that finishes late (an older run, a rerun) must not pull a dist-tag back to an older version: when the
+// tag already names a newer version, the older one is published under `stale` instead.
+export const staleTag = 'stale';
+export function chooseTag(distTag, version, currentVersion) {
+  return currentVersion && compareSemver(currentVersion, version) > 0 ? staleTag : distTag;
+}
+
+// skipExisting is the rerun-safe mode used by CI: versions already on the registry are skipped (or rejected when
+// their content differs) and a dist-tag is never moved backwards. expectSha requires the artifacts to come from
+// that commit, so only tarballs built and verified in the current run can be published.
+export function publishPort(port, { dryRun = false, registry = '', skipExisting = false, expectSha = '', lookup = publishedIntegrity, tagLookup = distTagVersion } = {}) {
   const manifest = readManifest(port);
+  if (expectSha && manifest.sourceSha !== expectSha) {
+    throw new Error(`${port.relative}: artifacts were built from ${manifest.sourceSha}, expected ${expectSha}`);
+  }
   for (const pkg of publishOrder(port, manifest.packages)) {
     const tarball = join(port.dir, 'artifacts', pkg.filename);
     if (!existsSync(tarball) || basename(pkg.filename) !== pkg.filename) throw new Error(`Missing or unsafe artifact: ${pkg.filename}`);
     const integrity = `sha512-${createHash('sha512').update(readFileSync(tarball)).digest('base64')}`;
     if (integrity !== pkg.integrity) throw new Error(`Artifact integrity mismatch: ${pkg.filename}`);
     if (skipExisting && alreadyPublished(pkg, { registry, lookup })) continue;
-    console.log(`${dryRun ? 'Would publish' : 'Publishing'} ${pkg.name}@${pkg.version} (${pkg.filename}) with tag ${port.distTag}`);
+    const tag = skipExisting ? chooseTag(port.distTag, pkg.version, tagLookup(pkg.name, port.distTag, { registry })) : port.distTag;
+    if (tag !== port.distTag) console.log(`::notice::${pkg.name} tag ${port.distTag} already names a newer version; publishing ${pkg.version} as ${tag}`);
+    console.log(`${dryRun ? 'Would publish' : 'Publishing'} ${pkg.name}@${pkg.version} (${pkg.filename}) with tag ${tag}`);
     if (dryRun) {
       recordPackage(pkg);
       continue;
     }
-    const args = ['publish', tarball, '--access', 'public', '--tag', port.distTag];
+    const args = ['publish', tarball, '--access', 'public', '--tag', tag];
     if (registry) args.push('--registry', registry);
     try {
       run(npmCommand, args, { cwd: port.dir });
