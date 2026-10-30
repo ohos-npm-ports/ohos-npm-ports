@@ -16,7 +16,7 @@ RUN curl -fLO https://github.com/Harmonybrew/ohos-zsh/releases/download/5.9/zsh-
     ln -s /opt/zsh-5.9-ohos-arm64/bin/zsh /usr/bin/zsh && \
     zsh -c "$(curl -fsSL https://harmonybrew.atomgit.com/install.sh)" && \
     brew install -y gawk && \
-    brew install -y node python devel-base git rust rustup bash openssh && \
+    brew install -y node python@3.14 devel-base git rust rustup bash openssh && \
     echo 'alias ls="ls --color=auto"' >> /root/.mkshrc && \
     echo 'alias grep="grep --color=auto"' >> /root/.mkshrc && \
     cp /root/.mkshrc /root/.bashrc
