@@ -32,7 +32,12 @@ test('publish runs only for pushes to main of the upstream repository', () => {
   assert.match(publish, /github\.event_name == 'push'/);
   assert.match(publish, /github\.ref == 'refs\/heads\/main'/);
   assert.match(publish, /github\.repository == 'ohos-npm-ports\/ohos-npm-ports'/);
-  assert.match(publish, /cli\/npm-ports publish/);
+  assert.match(publish, /cli\/npm-ports publish .*--skip-existing/);
+});
+
+test('the publish list is judged against npm on pushes only', () => {
+  const detect = step('Find changed NPMBUILD ports');
+  assert.match(detect, /PUBLISH_CHECK: \$\{\{ github\.event_name == 'push' && 'true' \|\| 'false' \}\}/);
 });
 
 test('only pull_request runs share a concurrency group', () => {

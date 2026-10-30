@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { publishedIntegrity } from './registry.mjs';
 import { signPackages } from './sign.mjs';
 
 export const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -186,13 +187,33 @@ function recordPackage(pkg) {
   appendFileSync(process.env.PACKAGE_LIST, `${pkg.name}@${pkg.version}\n`);
 }
 
-export function publishPort(port, { dryRun = false, registry = '' } = {}) {
+// Slot packages go first and the main package last: if a publish stops half-way, `latest` never points at a
+// main package whose platform slots are missing.
+function publishOrder(port, packages) {
+  const main = `${portScope}${port.pkgname}`;
+  return [...packages.filter((pkg) => pkg.name !== main), ...packages.filter((pkg) => pkg.name === main)];
+}
+
+// With skipExisting, a version that is already on the registry is skipped when its integrity matches the
+// artifact (a rerun) and is an error when it differs (the same version number holds other content).
+function alreadyPublished(pkg, { registry, lookup }) {
+  const existing = lookup(pkg.name, pkg.version, { registry });
+  if (existing === null) return false;
+  if (existing !== pkg.integrity) {
+    throw new Error(`${pkg.name}@${pkg.version} is already published with different content (${existing}, artifact ${pkg.integrity}); bump the revision`);
+  }
+  console.log(`::notice::${pkg.name}@${pkg.version} is already published with identical content; skipping`);
+  return true;
+}
+
+export function publishPort(port, { dryRun = false, registry = '', skipExisting = false, lookup = publishedIntegrity } = {}) {
   const manifest = readManifest(port);
-  for (const pkg of manifest.packages) {
+  for (const pkg of publishOrder(port, manifest.packages)) {
     const tarball = join(port.dir, 'artifacts', pkg.filename);
     if (!existsSync(tarball) || basename(pkg.filename) !== pkg.filename) throw new Error(`Missing or unsafe artifact: ${pkg.filename}`);
     const integrity = `sha512-${createHash('sha512').update(readFileSync(tarball)).digest('base64')}`;
     if (integrity !== pkg.integrity) throw new Error(`Artifact integrity mismatch: ${pkg.filename}`);
+    if (skipExisting && alreadyPublished(pkg, { registry, lookup })) continue;
     console.log(`${dryRun ? 'Would publish' : 'Publishing'} ${pkg.name}@${pkg.version} (${pkg.filename}) with tag ${port.distTag}`);
     if (dryRun) {
       recordPackage(pkg);
@@ -200,7 +221,13 @@ export function publishPort(port, { dryRun = false, registry = '' } = {}) {
     }
     const args = ['publish', tarball, '--access', 'public', '--tag', port.distTag];
     if (registry) args.push('--registry', registry);
-    run(npmCommand, args, { cwd: port.dir });
+    try {
+      run(npmCommand, args, { cwd: port.dir });
+    } catch (error) {
+      // Another run may have published the same version between the check and the publish.
+      if (!skipExisting || !alreadyPublished(pkg, { registry, lookup })) throw error;
+      continue;
+    }
     recordPackage(pkg);
   }
 }

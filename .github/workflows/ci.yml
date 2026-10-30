@@ -96,6 +96,7 @@ jobs:
           CONSUMER_SELECTION: ${{ github.event_name == 'workflow_dispatch' && inputs.consumer-ports || '' }}
           ARTIFACT_RUN_ID: ${{ inputs.artifact-run-id }}
           BUILD_ALL: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+          PUBLISH_CHECK: ${{ github.event_name == 'push' && 'true' || 'false' }}
         run: |
           if [ "${{ github.event_name }}" = workflow_dispatch ]; then
             printf '.github/scripts/run-port-consumer.mjs\n' | node .github/scripts/consumer-plan.mjs >> "$GITHUB_OUTPUT"
@@ -209,7 +210,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-          cli/npm-ports publish "${{ matrix.dir }}"
+          cli/npm-ports publish "${{ matrix.dir }}" --skip-existing
 
   consumer-install:
     needs: [detect-changes, build-and-publish]

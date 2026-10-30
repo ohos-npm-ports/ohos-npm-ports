@@ -3,11 +3,17 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { test } from 'node:test';
-import { closure, infrastructure, isInfrastructure, testSpec, artifactPattern } from './consumer-plan.mjs';
+import { closure, infrastructure, isInfrastructure, missingFromRegistry, testSpec, artifactPattern } from './consumer-plan.mjs';
 import { discoverPorts, loadPort } from '../../cli/port.mjs';
 
 const directories = discoverPorts(process.cwd()).map((dir) => relative(process.cwd(), dir));
 const plan = (file, env = {}) => Object.fromEntries(execFileSync(process.execPath, ['.github/scripts/consumer-plan.mjs'], { input: `${file}\n`, env: { ...process.env, ...env }, encoding: 'utf8' }).trim().split('\n').map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
+
+// Registry state for the publish check: every port is published except the ones named.
+const published = (...unpublished) => JSON.stringify(directories
+  .filter((dir) => !unpublished.includes(dir))
+  .map((dir) => { const { pkgname, portVersion } = loadPort(process.cwd(), dir); return `@ohos-npm-ports/${pkgname}@${portVersion}`; }));
+const publishing = (file, ...unpublished) => JSON.parse(plan(file, { PUBLISH_CHECK: 'true', PUBLISHED_PACKAGES: published(...unpublished) }).publish);
 
 test('infrastructure selects all ports for generic install and primaries for functional tests', () => {
   const value = plan('.github/fixtures/consumer/test-tools.mjs');
@@ -99,18 +105,40 @@ test('every OS has its own consumer job below the matrix limit', () => {
   for (const target of ['win32-x64', 'linux-arm64', 'linux-x64', 'darwin-arm64', 'openharmony-arm64']) assert.ok(workflow.includes(`, ${target})`), target);
 });
 
-test('publish list holds only changed ports, never dependents or prerequisites', () => {
-  const changed = plan('ports/l/lightningcss@1.32/NPMBUILD');
-  assert.deepEqual(JSON.parse(changed.publish), ['ports/l/lightningcss@1.32']);
-  for (const dir of JSON.parse(changed.publish)) assert.ok(JSON.parse(changed.matrix).includes(dir));
-  assert.deepEqual(JSON.parse(plan('.github/scripts/run-port-consumer.mjs').publish), []);
-  assert.deepEqual(JSON.parse(plan('.github/fixtures/consumer/README.md').publish), []);
+test('publish list holds only versions missing from npm, never other ports in the matrix', () => {
+  assert.deepEqual(publishing('ports/l/lightningcss@1.32/NPMBUILD', 'ports/l/lightningcss@1.32'), ['ports/l/lightningcss@1.32']);
+  assert.deepEqual(publishing('ports/l/lightningcss@1.32/NPMBUILD'), []);
+  assert.deepEqual(publishing('.github/scripts/run-port-consumer.mjs'), []);
+  assert.deepEqual(publishing('.github/fixtures/consumer/README.md'), []);
+});
+
+test('infrastructure edits publish only the versions npm is missing', () => {
+  assert.deepEqual(publishing('.github/workflows/ci.yml'), []);
+  assert.deepEqual(publishing('.github/workflows/ci.yml', 'ports/d/domparser-rs', 'ports/v/vite-plus').sort(), ['ports/d/domparser-rs', 'ports/v/vite-plus']);
+});
+
+test('a version missing from npm is published even when a later push only touches test.js', () => {
+  assert.deepEqual(publishing('ports/v/vite-plus/test.js', 'ports/v/vite-plus'), ['ports/v/vite-plus']);
+});
+
+test('nothing is published unless the publish check is requested', () => {
+  const value = plan('ports/l/lightningcss@1.32/NPMBUILD', { PUBLISHED_PACKAGES: '[]' });
+  assert.deepEqual(JSON.parse(value.publish), []);
+  assert.deepEqual(JSON.parse(plan('ports/l/lightningcss@1.32/NPMBUILD', { PUBLISH_CHECK: 'false', PUBLISHED_PACKAGES: '[]' }).publish), []);
+});
+
+test('registry lookups distinguish a missing version from a published one', () => {
+  const lookups = [];
+  const lookup = (name, version) => { lookups.push(`${name}@${version}`); return name.endsWith('/domparser-rs') ? null : 'sha512-x'; };
+  assert.deepEqual(missingFromRegistry(['ports/d/domparser-rs', 'ports/u/utoo-pack'], { published: '', lookup }), ['ports/d/domparser-rs']);
+  assert.equal(lookups.length, 2);
+  assert.throws(() => missingFromRegistry(['ports/d/domparser-rs'], { published: '', lookup: () => { throw new Error('registry down'); } }), /registry down/);
 });
 
 test('changing a prerequisite builds its dependents but does not publish them', () => {
   const value = plan('ports/d/domparser-rs/NPMBUILD');
   assert.ok(JSON.parse(value.matrix).includes('ports/u/utoo-pack'));
-  assert.deepEqual(JSON.parse(value.publish), ['ports/d/domparser-rs']);
+  assert.deepEqual(publishing('ports/d/domparser-rs/NPMBUILD', 'ports/d/domparser-rs'), ['ports/d/domparser-rs']);
 });
 
 test('publish step is limited to the changed ports', () => {
@@ -137,10 +165,10 @@ test('test-only edits run consumers without republishing the port', () => {
   assert.equal(value['consumer-enabled'], 'true');
   assert.ok(JSON.parse(value['consumer-ports']).includes('ports/v/vite-plus'));
   assert.ok(JSON.parse(value.matrix).includes('ports/v/vite-plus'));
-  assert.deepEqual(JSON.parse(value.publish), []);
+  assert.deepEqual(publishing('ports/v/vite-plus/test.js'), []);
 });
 
-test('test and build edits still publish the changed port once', () => {
-  const value = plan('ports/v/vite-plus/test.js\nports/v/vite-plus/NPMBUILD');
-  assert.deepEqual(JSON.parse(value.publish), ['ports/v/vite-plus']);
+test('test and build edits publish the changed port once, and only while its version is missing', () => {
+  assert.deepEqual(publishing('ports/v/vite-plus/test.js\nports/v/vite-plus/NPMBUILD', 'ports/v/vite-plus'), ['ports/v/vite-plus']);
+  assert.deepEqual(publishing('ports/v/vite-plus/test.js\nports/v/vite-plus/NPMBUILD'), []);
 });

@@ -10,7 +10,9 @@ import { bumpPr } from '../cli/bump-pr.mjs';
 import { createPort } from '../cli/create.mjs';
 import { lintPort, lintPublishedNames } from '../cli/lint.mjs';
 import { loadPort } from '../cli/port.mjs';
+import { publishedIntegrity } from '../cli/registry.mjs';
 import { compareSemver, inVersionLine } from '../cli/semver.mjs';
+import { unbumpedPorts } from '../cli/unbumped.mjs';
 import { findAarch64ElfFiles, signPackages } from '../cli/sign.mjs';
 
 function fixture(t) {
@@ -221,6 +223,59 @@ test('pack and dry-run publish use exact versioned artifacts', (t) => {
   publishPort(port, { dryRun: true });
   const lines = readFileSync(list, 'utf8').trim().split('\n');
   assert.deepEqual(lines, ['@ohos-npm-ports/demo-openharmony-arm64@1.2.3-4', '@ohos-npm-ports/demo@1.2.3-4']);
+});
+
+function packedFixture(t) {
+  const { root, dir } = fixture(t);
+  const port = loadPort(root, dir);
+  process.env.GITHUB_SHA = 'a'.repeat(40);
+  t.after(() => delete process.env.GITHUB_SHA);
+  const manifest = packPort(root, port, { build: false, signer: () => {} });
+  const list = join(root, 'published.txt');
+  writeFileSync(list, '');
+  process.env.PACKAGE_LIST = list;
+  t.after(() => delete process.env.PACKAGE_LIST);
+  return { port, manifest, published: () => readFileSync(list, 'utf8').trim().split('\n').filter(Boolean) };
+}
+
+test('publish sends slot packages first and the main package last', (t) => {
+  const { port, manifest, published } = packedFixture(t);
+  const file = join(port.dir, 'artifacts', 'manifest.json');
+  writeFileSync(file, JSON.stringify({ ...manifest, packages: [...manifest.packages].reverse() }));
+  publishPort(port, { dryRun: true });
+  assert.deepEqual(published(), ['@ohos-npm-ports/demo-openharmony-arm64@1.2.3-4', '@ohos-npm-ports/demo@1.2.3-4']);
+});
+
+test('skip-existing skips identical versions, rejects different content and publishes the rest', (t) => {
+  const { port, manifest, published } = packedFixture(t);
+  const integrity = Object.fromEntries(manifest.packages.map((pkg) => [pkg.name, pkg.integrity]));
+  publishPort(port, { dryRun: true, skipExisting: true, lookup: (name) => integrity[name] });
+  assert.deepEqual(published(), []);
+  assert.throws(() => publishPort(port, { dryRun: true, skipExisting: true, lookup: () => 'sha512-other' }), /already published with different content/);
+  publishPort(port, { dryRun: true, skipExisting: true, lookup: (name) => (name.endsWith('-openharmony-arm64') ? integrity[name] : null) });
+  assert.deepEqual(published(), ['@ohos-npm-ports/demo@1.2.3-4']);
+  assert.throws(() => publishPort(port, { dryRun: true, skipExisting: true, lookup: () => { throw new Error('registry down'); } }), /registry down/);
+});
+
+test('registry lookups treat only E404 as an unpublished version', () => {
+  const fail = (stdout, stderr = '') => () => { throw Object.assign(new Error('exit 1'), { stdout, stderr }); };
+  assert.equal(publishedIntegrity('@ohos-npm-ports/demo', '1.0.0-1', { exec: () => '"sha512-abc"\n' }), 'sha512-abc');
+  assert.equal(publishedIntegrity('@ohos-npm-ports/demo', '1.0.0-1', { exec: fail('{"error":{"code":"E404","summary":"No match"}}') }), null);
+  assert.equal(publishedIntegrity('@ohos-npm-ports/demo', '1.0.0-1', { exec: fail('', 'npm error code E404') }), null);
+  assert.throws(() => publishedIntegrity('@ohos-npm-ports/demo', '1.0.0-1', { exec: fail('', 'npm error code ETIMEDOUT') }), /ETIMEDOUT/);
+  assert.throws(() => publishedIntegrity('@ohos-npm-ports/demo', '1.0.0-1', { exec: () => '' }), /no sha512 integrity/);
+  assert.throws(() => publishedIntegrity('@ohos-npm-ports/demo', '1.0.0-1', { exec: () => '"sha1-abc"' }), /no sha512 integrity/);
+});
+
+test('unbumped ports are changed ports that keep their version, ignoring test.js, new and deleted ports', () => {
+  const versions = { 'ports/a/same': '1.0.0-1', 'ports/b/bumped': '1.0.0-1', 'ports/c/testonly': '1.0.0-1' };
+  const bumped = { ...versions, 'ports/b/bumped': '1.0.0-2' };
+  const head = { ...bumped, 'ports/d/new': '1.0.0-1' };
+  delete head['ports/e/gone'];
+  const base = { ...versions, 'ports/e/gone': '1.0.0-1' };
+  const lookup = (table) => (dir) => table[dir] ?? null;
+  const changed = ['ports/a/same/patches/x.patch', 'ports/b/bumped/NPMBUILD', 'ports/c/testonly/test.js', 'ports/d/new/NPMBUILD', 'ports/e/gone/NPMBUILD', 'cli/build.mjs', 'ports/a/same/NPMBUILD'];
+  assert.deepEqual(unbumpedPorts(changed, { baseVersion: lookup(base), headVersion: lookup(head) }), ['ports/a/same']);
 });
 
 test('pack signing selects only regular AArch64 ELF files', (t) => {

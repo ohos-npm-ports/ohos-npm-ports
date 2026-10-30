@@ -48,6 +48,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
@@ -55,6 +57,14 @@ jobs:
         run: |
           echo '${{ needs.detect.outputs.changed }}' | jq -r '.[]' \
             | while IFS= read -r dir; do cli/npm-ports lint "$dir"; done
+      - name: Warn about changed ports that keep their version
+        continue-on-error: true
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/base" "$BASE"
+          git diff --name-only "$BASE" "$HEAD" | node .github/scripts/warn-unbumped-ports.mjs "$RUNNER_TEMP/base"
 
   lint-commits:
     runs-on: ubuntu-latest
