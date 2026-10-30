@@ -45,7 +45,7 @@ prepare() {
 build() {
   echo "=== build: 打 manifest patch + grep marker ==="
   cd "${build_dir}/src"
-  patch -p1 <"${work_dir}/patchs/0001-update-package-json.patch"
+  patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
   # toybox patch can silently no-op on a malformed header; assert it landed.
   grep -q '"name": "@ohos-npm-ports/prisma-client"' package.json
   grep -q "\"version\": \"${version}\"" package.json

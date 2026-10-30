@@ -51,7 +51,7 @@ prepare() {
     https://github.com/microsoft/typescript-go.git \
     "${build_dir}/typescript-go"
   cd "${build_dir}/typescript-go"
-  patch -p1 <"${work_dir}/patchs/0003-skip-fanotify-on-hongmeng.patch"
+  patch -p1 <"${work_dir}/patches/0003-skip-fanotify-on-hongmeng.patch"
 }
 
 build() {
@@ -76,8 +76,8 @@ build() {
 package() {
   echo "=== package: 主包打 patch（改名/槽位接线）==="
   cd "${build_dir}/typescript-${version}"
-  patch -p1 <"${work_dir}/patchs/0001-update-package-json.patch"
-  patch -p1 <"${work_dir}/patchs/0002-add-openharmony-support.patch"
+  patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
+  patch -p1 <"${work_dir}/patches/0002-add-openharmony-support.patch"
 
   echo "=== package: 组装槽位包 ==="
   cp "${build_dir}/typescript-${version}/LICENSE" "${build_dir}/${slot_name}/LICENSE"

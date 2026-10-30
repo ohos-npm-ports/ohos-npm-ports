@@ -44,9 +44,9 @@ build() {
   git config --global --add safe.directory "$repo_root"
 
   cd "$root_dir/src"
-  patch -p1 <"$root_dir/patchs/0003-turbo-tasks-fs-ohos.patch"
+  patch -p1 <"$root_dir/patches/0003-turbo-tasks-fs-ohos.patch"
   grep -q "into_os_string" turbopack/crates/turbo-tasks-fs/src/disk.rs
-  patch -p1 <"$root_dir/patchs/0004-openharmony-project-path.patch"
+  patch -p1 <"$root_dir/patches/0004-openharmony-project-path.patch"
   grep -q "into_os_string" crates/next-napi-bindings/src/next_api/project.rs
   # The upstream workspace enables nightly-only optimization flags. The build
   # image uses stable rustc, so bootstrap those flags without another toolchain.
@@ -65,8 +65,8 @@ package() {
   chmod +x next-swc-openharmony-arm64/next-swc.openharmony-arm64.node
 
   cd "$root_dir/next-$version"
-  patch -p1 <"$root_dir/patchs/0001-openharmony-loader.patch"
-  patch -p1 <"$root_dir/patchs/0002-package-json.patch"
+  patch -p1 <"$root_dir/patches/0001-openharmony-loader.patch"
+  patch -p1 <"$root_dir/patches/0002-package-json.patch"
   cd "$root_dir"
 
   cat >next-swc-openharmony-arm64/package.json <<EOF

@@ -36,8 +36,8 @@ build() {
   mv "${source_name}-${version}" src
   cd src
 
-  patch -p1 <../patchs/0001-package-json.patch
-  patch -p1 <../patchs/0002-add-openharmony-subpackage.patch
+  patch -p1 <../patches/0001-package-json.patch
+  patch -p1 <../patches/0002-add-openharmony-subpackage.patch
 
   brew install -y rust
 
@@ -56,7 +56,7 @@ build() {
   # (@tailwindcss/oxide), but our openharmony subpackages are published under
   # @ohos-npm-ports/. Patch the generated index.js so the loader finds our
   # binaries instead of the non-existent upstream @tailwindcss/oxide-openharmony-*.
-  patch -p1 <../../../patchs/0003-fix-openharmony-loader-require.patch
+  patch -p1 <../../../patches/0003-fix-openharmony-loader-require.patch
 
   # Verify the loader now points at our @ohos-npm-ports/ subpackages.
   grep -q "require('@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64')" index.js || {

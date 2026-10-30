@@ -55,12 +55,12 @@ build() {
   echo "=== build: 源树打 patch + vite-task 闸门 + 交叉编译 binding ==="
 
   cd "${stage_dir}/src"
-  patch -p1 <"${work_dir}/patchs/0002-remove-package-manager-pin.patch"
+  patch -p1 <"${work_dir}/patches/0002-remove-package-manager-pin.patch"
   if grep -q '"packageManager"' package.json; then
     echo "ERROR: 0002 did not remove packageManager" >&2
     exit 1
   fi
-  patch -p1 <"${work_dir}/patchs/0003-enable-local-vite-task-patch-section.patch"
+  patch -p1 <"${work_dir}/patches/0003-enable-local-vite-task-patch-section.patch"
   if ! grep -q '^\[patch\."https://github.com/voidzero-dev/vite-task.git"\]$' Cargo.toml; then
     echo "ERROR: 0003 did not enable the vite-task [patch] section" >&2
     exit 1
@@ -95,21 +95,21 @@ build() {
   fi
 
   cd "${vite_task_dir}"
-  patch -p1 <"${work_dir}/patchs/0004-fspy-ohos-exemption.patch"
+  patch -p1 <"${work_dir}/patches/0004-fspy-ohos-exemption.patch"
   if [ "$(grep -c 'not(target_env = "ohos")' crates/fspy_preload_unix/src/lib.rs)" -ne 4 ]; then
     echo "ERROR: 0004 did not add the ohos exemption" >&2
     exit 1
   fi
   cd "${stage_dir}/src"
 
-  patch -p1 <"${work_dir}/patchs/0005-add-ohos-port-overrides.patch"
+  patch -p1 <"${work_dir}/patches/0005-add-ohos-port-overrides.patch"
   if ! grep -q -- "- '@ohos-npm-ports/\*'" pnpm-workspace.yaml; then
     echo "ERROR: 0005 did not add the port scope to minimumReleaseAgeExclude" >&2
     exit 1
   fi
 
   node packages/tools/src/index.ts sync-remote
-  patch -p1 <"${work_dir}/patchs/0007-declare-vite-typescript.patch"
+  patch -p1 <"${work_dir}/patches/0007-declare-vite-typescript.patch"
 
   pnpm install --no-frozen-lockfile
   node "${work_dir}/verify-build-deps.cjs"
@@ -152,9 +152,9 @@ package() {
   rm -rf "${output_dir}"
   cp -a "${stage_dir}/tgz" "${output_dir}"
   cd "${output_dir}"
-  patch -p1 <"${work_dir}/patchs/0001-update-package-json.patch"
+  patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
 
-  patch -p1 <"${work_dir}/patchs/0006-fix-core-version.patch"
+  patch -p1 <"${work_dir}/patches/0006-fix-core-version.patch"
   node "${work_dir}/test.js" "${output_dir}"
 
   cp "${stage_dir}/src/packages/cli/${binding}" "${binding}"

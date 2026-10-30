@@ -23,13 +23,13 @@ function lintPatch(file, text, port) {
 }
 
 function lintImplementation(directory, source, file, port) {
-  const patches = join(directory, 'patchs');
+  const patches = join(directory, 'patches');
   if (!existsSync(patches)) return;
-  const appliesAll = /patchs\/\*\.patch|patchs\/\*[^.]/.test(source);
+  const appliesAll = /patches\/\*\.patch|patches\/\*[^.]/.test(source);
   for (const entry of readdirSync(patches)) {
     if (!entry.endsWith('.patch')) continue;
     const patch = join(patches, entry);
-    if (!appliesAll && !source.includes(entry)) throw new Error(`${file}: patchs/${entry} is never applied`);
+    if (!appliesAll && !source.includes(entry)) throw new Error(`${file}: patches/${entry} is never applied`);
     lintPatch(patch, readFileSync(patch, 'utf8'), port);
   }
 }

@@ -44,7 +44,7 @@ build() {
   # 0001 移除 watchman 后端：OHOS 无 watchman，linux default 后端会先试它
   # （连接探测误判成功后 BSER 解析垃圾数据 SIGABRT）；去掉后 default 恒走
   # inotify。toybox patch 会静默 no-op，打完 grep marker。
-  patch -p1 <"${port_dir}/patchs/0001-binding-gyp-drop-watchman.patch"
+  patch -p1 <"${port_dir}/patches/0001-binding-gyp-drop-watchman.patch"
   grep -q '"src/linux/InotifyBackend.cc"' binding.gyp
   ! grep -q 'WatchmanBackend' binding.gyp
 
@@ -62,8 +62,8 @@ build() {
   cp "${pkgname}-${version}/index.js" "$root_dir"/index.js.upstream
   cp "${pkgname}-${version}/wrapper.js" "$root_dir"/wrapper.js.upstream
   cd "${pkgname}-${version}"
-  patch -p1 <../patchs/0002-package-json.patch
-  patch -p1 <../patchs/0003-wrapper-static-slot-ref.patch
+  patch -p1 <../patches/0002-package-json.patch
+  patch -p1 <../patches/0003-wrapper-static-slot-ref.patch
   # 0003 marker：静态引用行必须真的打上（toybox patch 静默 no-op 防线）
   grep -q "require('@parcel/watcher-openharmony-arm64')" wrapper.js
   mkdir -p build/Release
@@ -165,8 +165,8 @@ slot_openharmony_arm64_build() {
   rm "watcher-${version}.tar.gz"
   cd "watcher-${version}"
 
-  # 同主配方 patchs/0001（watchman 后端移除），marker 复验
-  patch -p1 <"${port_dir}/patchs/0001-binding-gyp-drop-watchman.patch"
+  # 同主配方 patches/0001（watchman 后端移除），marker 复验
+  patch -p1 <"${port_dir}/patches/0001-binding-gyp-drop-watchman.patch"
   grep -q '"src/linux/InotifyBackend.cc"' binding.gyp
   ! grep -q 'WatchmanBackend' binding.gyp
 

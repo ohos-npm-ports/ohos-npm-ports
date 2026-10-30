@@ -188,7 +188,7 @@ test('lint separates current port revisions from cross-port dependency pins', (t
   const { root, dir } = fixture(t);
   const port = loadPort(root, dir);
   const file = join(dir, 'NPMBUILD');
-  const patches = join(dir, 'patchs');
+  const patches = join(dir, 'patches');
   const patch = join(patches, '0001-test.patch');
   mkdirSync(patches);
   writeFileSync(file, `${readFileSync(file, 'utf8')}# 0001-test.patch\n`);
@@ -291,7 +291,7 @@ test('bump updates only source and resource declarations', async (t) => {
   writeFileSync(portFile, readFileSync(portFile, 'utf8')
     .replace('"main"', '"demo-1.2.3"')
     .replace('build() { :; }', `${declarations}\nbuild() { :; }\n# demo 1.2.3\necho 1.2.3`));
-  const patches = join(dir, 'patchs');
+  const patches = join(dir, 'patches');
   const patch = join(patches, '0001-test.patch');
   const patchText = '# cross-port dependency remains 1.2.3-7\n';
   mkdirSync(patches);

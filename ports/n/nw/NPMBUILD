@@ -36,7 +36,7 @@ JS
 
 build() {
   cd "$output_dir"
-  patch -p1 <"$work_dir/patchs/0001-local-browser-backend.patch"
+  patch -p1 <"$work_dir/patches/0001-local-browser-backend.patch"
   grep -q 'openharmony' src/postinstall.js
   grep -q 'ohos.run' src/index.js
 }

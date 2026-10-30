@@ -32,7 +32,7 @@ prepare() {
 build() {
   cd "$build_dir/$source_dir"
   echo "==> applying patches"
-  for patch in "$script_dir"/patchs/*.patch; do
+  for patch in "$script_dir"/patches/*.patch; do
     echo "patch -p1 < $(basename "$patch")"
     patch -p1 <"$patch"
   done

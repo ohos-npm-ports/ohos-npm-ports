@@ -44,7 +44,7 @@ build() {
 
 package() {
   cd "$package_dir"
-  patch -p1 <"$root_dir/patchs/0001-package-json.patch"
+  patch -p1 <"$root_dir/patches/0001-package-json.patch"
   grep -q '@ohos-npm-ports/domparser-rs' package.json
   cp "$build_dir/target/release/libdomparser_napi.so" domparser.openharmony-arm64.node
 }
