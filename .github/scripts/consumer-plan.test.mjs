@@ -141,10 +141,14 @@ test('changing a prerequisite builds its dependents but does not publish them', 
   assert.deepEqual(publishing('ports/d/domparser-rs/NPMBUILD', 'ports/d/domparser-rs'), ['ports/d/domparser-rs']);
 });
 
-test('publish step is limited to the changed ports', () => {
-  const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
-  const start = workflow.indexOf('      - name: Publish');
-  assert.match(workflow.slice(start, workflow.indexOf('\n      - ', start + 1) > 0 ? workflow.indexOf('\n      - ', start + 1) : undefined), /contains\(fromJson\(needs\.detect-changes\.outputs\.publish\), matrix\.dir\)/);
+test('publish order puts prerequisites before their dependents', () => {
+  const both = plan('.github/workflows/ci.yml', { PUBLISH_CHECK: 'true', PUBLISHED_PACKAGES: published('ports/d/domparser-rs', 'ports/u/utoo-pack') });
+  const order = JSON.parse(both['publish-order']);
+  assert.deepEqual(order.slice().sort(), ['ports/d/domparser-rs', 'ports/u/utoo-pack']);
+  assert.ok(order.indexOf('ports/d/domparser-rs') < order.indexOf('ports/u/utoo-pack'));
+  const dependentOnly = plan('.github/workflows/ci.yml', { PUBLISH_CHECK: 'true', PUBLISHED_PACKAGES: published('ports/u/utoo-pack') });
+  assert.deepEqual(JSON.parse(dependentOnly['publish-order']), ['ports/u/utoo-pack']);
+  assert.deepEqual(JSON.parse(plan('.github/workflows/ci.yml')['publish-order']), []);
 });
 
 test('runner setup, including the time service compatibility library, is used only by consumer jobs', () => {

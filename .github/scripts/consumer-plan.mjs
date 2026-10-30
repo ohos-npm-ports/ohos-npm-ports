@@ -118,6 +118,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   console.log(`matrix=${JSON.stringify(matrix)}`);
   const publish = process.env.PUBLISH_CHECK === 'true' ? missingFromRegistry(matrix) : [];
   console.log(`publish=${JSON.stringify(publish)}`);
+  // Prerequisites first, so a port is never on npm before the ports its install depends on.
+  const publishing = new Set(publish);
+  console.log(`publish-order=${JSON.stringify(closure(publish).filter((dir) => publishing.has(dir)))}`);
   console.log(`generic-enabled=${matrix.length > 0 || Boolean(process.env.ARTIFACT_RUN_ID)}`);
   console.log(`generic-ports=${JSON.stringify(matrix)}`);
   console.log(`consumer-enabled=${tests.length > 0}`);

@@ -17,7 +17,7 @@
 
 - 判定新包是否符合准入规则（见 [../contributor/contributing.md](../contributor/contributing.md)）。
 - 合并前确认 port-lint 和 ci.yml 通过；CI 通过不等于批准合并，仍需检查适配范围和补丁质量。
-- 发布完全交给 CI，合并后由 `npm-ports publish` 发布已验证 tarball，不需要手动 npm publish。
+- 发布完全交给 CI：合并后整轮检查全绿，由独立的 `publish` job 发布已验证 tarball，不需要手动 npm publish。
 
 ## 自动化边界
 

@@ -4,13 +4,13 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { packPort, publishPort, runLifecycle, stagePackages } from '../cli/build.mjs';
+import { chooseTag, packPort, publishPort, runLifecycle, stagePackages } from '../cli/build.mjs';
 import { bumpPorts, updatePortText } from '../cli/bump.mjs';
 import { bumpPr } from '../cli/bump-pr.mjs';
 import { createPort } from '../cli/create.mjs';
 import { lintPort, lintPublishedNames } from '../cli/lint.mjs';
 import { loadPort } from '../cli/port.mjs';
-import { publishedIntegrity } from '../cli/registry.mjs';
+import { distTagVersion, publishedIntegrity } from '../cli/registry.mjs';
 import { compareSemver, inVersionLine } from '../cli/semver.mjs';
 import { unbumpedPorts } from '../cli/unbumped.mjs';
 import { findAarch64ElfFiles, signPackages } from '../cli/sign.mjs';
@@ -255,6 +255,39 @@ test('skip-existing skips identical versions, rejects different content and publ
   publishPort(port, { dryRun: true, skipExisting: true, lookup: (name) => (name.endsWith('-openharmony-arm64') ? integrity[name] : null) });
   assert.deepEqual(published(), ['@ohos-npm-ports/demo@1.2.3-4']);
   assert.throws(() => publishPort(port, { dryRun: true, skipExisting: true, lookup: () => { throw new Error('registry down'); } }), /registry down/);
+});
+
+test('a dist-tag is never moved back to an older version', (t) => {
+  assert.equal(chooseTag('latest', '1.2.3-4', null), 'latest');
+  assert.equal(chooseTag('latest', '1.2.3-4', '1.2.3-3'), 'latest');
+  assert.equal(chooseTag('latest', '1.2.3-4', '1.2.3-10'), 'stale');
+  assert.equal(chooseTag('latest', '1.2.3-4', '1.3.0-1'), 'stale');
+  const { port, published } = packedFixture(t);
+  const logs = [];
+  const log = console.log;
+  console.log = (line) => logs.push(line);
+  t.after(() => { console.log = log; });
+  publishPort(port, { dryRun: true, skipExisting: true, lookup: () => null, tagLookup: () => '9.0.0-1' });
+  assert.equal(published().length, 2);
+  assert.ok(logs.filter((line) => line.startsWith('Would publish')).every((line) => line.endsWith('with tag stale')));
+  logs.length = 0;
+  publishPort(port, { dryRun: true, skipExisting: true, lookup: () => null, tagLookup: () => null });
+  assert.ok(logs.filter((line) => line.startsWith('Would publish')).every((line) => line.endsWith('with tag latest')));
+});
+
+test('publish refuses artifacts built from another commit when a commit is expected', (t) => {
+  const { port } = packedFixture(t);
+  assert.throws(() => publishPort(port, { dryRun: true, expectSha: 'b'.repeat(40) }), /expected b{40}/);
+  assert.doesNotThrow(() => publishPort(port, { dryRun: true, expectSha: 'a'.repeat(40) }));
+});
+
+test('dist-tag lookups tolerate a missing package or tag but not an outage', () => {
+  const ok = (value) => () => JSON.stringify(value);
+  const fail = (stdout, stderr = '') => () => { throw Object.assign(new Error('exit 1'), { stdout, stderr }); };
+  assert.equal(distTagVersion('@ohos-npm-ports/demo', 'latest', { exec: ok({ latest: '1.0.0-2', next: '2.0.0-1' }) }), '1.0.0-2');
+  assert.equal(distTagVersion('@ohos-npm-ports/demo', 'beta', { exec: ok({ latest: '1.0.0-2' }) }), null);
+  assert.equal(distTagVersion('@ohos-npm-ports/demo', 'latest', { exec: fail('{"error":{"code":"E404"}}') }), null);
+  assert.throws(() => distTagVersion('@ohos-npm-ports/demo', 'latest', { exec: fail('', 'npm error code ECONNRESET') }), /ECONNRESET/);
 });
 
 test('registry lookups treat only E404 as an unpublished version', () => {

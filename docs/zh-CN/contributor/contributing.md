@@ -34,7 +34,7 @@ npm-ports pack ports/<port>
 2. 参照同类包的 `NPMBUILD` 生命周期钩子和 patches 编写移植；目录、版本线、revision 和槽位规范见 [port-spec.md](port-spec.md)。
 3. 在容器内构建并完成 [verification.md](verification.md) 的验证。
 4. 推到个人仓，确认 CI 的构建和临时 Verdaccio 通过。个人仓没有中心仓 NPM_TOKEN，不应进入正式发布步骤。
-5. 提 PR 到本仓库。合并后流水线自动构建并发布，无需人工执行 npm publish。
+5. 提 PR 到本仓库。合并后流水线自动构建，所有平台验证通过后再发布，无需人工执行 npm publish。
 
 新建配方可执行 `npm-ports create <upstream> [--set-name <port>] [--set-version <version>] [--no-fetch]`。默认从 npm registry 获取最新版本和 tarball 并计算 SHA-256；scoped 上游按既定规则生成扁平短名，可用 `--set-name` 覆盖。`--no-fetch` 不访问 registry，版本和摘要留待手工填写。生成后自动打开编辑器；已有 port 不会被覆盖。
 
