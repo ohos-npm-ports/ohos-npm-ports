@@ -22,7 +22,6 @@ source_dir="$build_dir/source"
 package_dir="$root_dir/domparser-rs-${version}"
 
 prepare() {
-  export PATH="$(brew --prefix rust)/bin:$PATH"
   command -v cargo >/dev/null
   [ "$(rustc -vV | sed -n 's/^host: //p')" = aarch64-unknown-linux-ohos ]
 

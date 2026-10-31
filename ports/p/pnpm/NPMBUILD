@@ -37,9 +37,6 @@ prepare() {
   echo "=== deps: toolchain ==="
   mkdir -p /data/storage/el2/base/cache /data/storage/el2/base/file
   brew install -y rust cmake pkgconf
-  # 镜像预装的 rustup shim 会按源码 rust-toolchain.toml 去拉镜像站没有的
-  # ohos host 工具链，brew rust 前置顶掉它
-  export PATH="$(brew --prefix rust)/bin:${PATH}"
   cargo --version
 
   echo "=== fetch: sources ==="

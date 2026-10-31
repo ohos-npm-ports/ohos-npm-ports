@@ -22,13 +22,22 @@ test('temporary publishing and artifact upload apply to every build event', () =
   }
 });
 
-test('the build step updates brew, puts the brew rust first on PATH and then checks the port', () => {
+test('the build step uses the image toolchain without refreshing Homebrew', () => {
   const build = step('Build', job('build'));
-  assert.match(build, /HOMEBREW_NO_INSTALL_UPGRADE: '1'/);
-  assert.doesNotMatch(build, /HOMEBREW_NO_AUTO_UPDATE/);
-  assert.ok(build.indexOf('brew update') < build.indexOf('brew --prefix rust'));
-  assert.ok(build.indexOf('brew --prefix rust') < build.indexOf('cli/npm-ports check "${{ matrix.dir }}"'));
+  assert.doesNotMatch(build, /HOMEBREW|brew (update|upgrade)|brew --prefix rust/);
+  assert.match(build, /cli\/npm-ports check "\$\{\{ matrix\.dir \}\}"/);
   assert.doesNotMatch(build, /python_bin|PYTHON|setup-ci-runner|brew (install|upgrade)/);
+  assert.doesNotMatch(workflow, /HOMEBREW_NO_INSTALL_UPGRADE/);
+  const installMatrix = readFileSync('.github/actions/install-matrix/action.yml', 'utf8');
+  assert.doesNotMatch(installMatrix, /HOMEBREW_NO_INSTALL_UPGRADE/);
+});
+
+test('consumer jobs use the image-provided defaults', () => {
+  const installMatrix = readFileSync('.github/actions/install-matrix/action.yml', 'utf8');
+  const publishValidation = readFileSync('.github/scripts/validate-local-publish.sh', 'utf8');
+  assert.doesNotMatch(workflow, /HOMEBREW_NO_AUTO_UPDATE|setup-ci-runner\.sh|ci-time-service-compat\.sh/);
+  assert.doesNotMatch(installMatrix, /HOMEBREW_NO_AUTO_UPDATE|setup-ci-runner\.sh/);
+  assert.doesNotMatch(publishValidation, /ci-time-service-compat\.sh|LD_LIBRARY_PATH/);
 });
 
 test('ports that need a build and ports fetched from npm run in separate matrices', () => {

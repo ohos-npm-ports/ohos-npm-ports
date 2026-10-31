@@ -106,7 +106,6 @@ test('workflow path filters match the infrastructure list', () => {
 test('documentation edits never select the full matrix', () => {
   assert.equal(isInfrastructure('.github/fixtures/consumer/README.md'), false);
   assert.equal(isInfrastructure('.github/scripts/tool-versions.json'), true);
-  assert.equal(isInfrastructure('.github/scripts/ci-time-service-compat.sh'), true);
   assert.equal(plan('.github/fixtures/consumer/README.md')['consumer-enabled'], 'false');
 });
 
@@ -162,17 +161,15 @@ test('publish order puts prerequisites before their dependents', () => {
   assert.deepEqual(JSON.parse(plan('.github/workflows/ci.yml')['publish-order']), []);
 });
 
-test('runner setup, including the time service compatibility library, is used only by consumer jobs', () => {
-  const source = readFileSync('.github/workflows/ci.yml', 'utf8');
-  const workflow = source.slice(source.indexOf('\njobs:'));
-  const users = [...workflow.matchAll(/setup-ci-runner\.sh/g)].map((match) => match.index);
-  const jobStarts = [...workflow.matchAll(/^  ([a-z-]+):\n/gm)].map((match) => [match.index, match[1]]);
-  assert.ok(users.length > 0);
-  for (const position of users) {
-    const job = jobStarts.filter(([index]) => index <= position).at(-1)[1];
-    assert.match(job, /^consumer-tests/, `setup-ci-runner.sh used by ${job}`);
+test('consumer jobs and publish validation use the image time service compatibility', () => {
+  const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+  const installMatrix = readFileSync('.github/actions/install-matrix/action.yml', 'utf8');
+  const publishValidation = readFileSync('.github/scripts/validate-local-publish.sh', 'utf8');
+  for (const source of [workflow, installMatrix, publishValidation]) {
+    assert.doesNotMatch(source, /setup-ci-runner\.sh|ci-time-service-compat\.sh/);
   }
-  assert.match(readFileSync('.github/scripts/setup-ci-runner.sh', 'utf8'), /ci-time-service-compat\.sh/);
+  assert.equal(existsSync('.github/scripts/setup-ci-runner.sh'), false);
+  assert.equal(existsSync('.github/scripts/ci-time-service-compat.sh'), false);
 });
 
 test('test-only edits run consumers without republishing the port', () => {
@@ -207,7 +204,7 @@ test('editing only test infrastructure rebuilds nothing: the sentinels are teste
 });
 
 test('build infrastructure rebuilds the sentinels only', () => {
-  for (const file of ['.github/workflows/ci.yml', 'cli/build.mjs', 'cli/port.mjs', 'cli/runtime.sh', 'cli/sign.mjs', 'cli/semver.mjs', 'cli/npm-ports', '.github/scripts/validate-local-publish.sh', '.github/scripts/ci-time-service-compat.sh', '.github/scripts/tool-versions.json']) {
+  for (const file of ['.github/workflows/ci.yml', 'cli/build.mjs', 'cli/port.mjs', 'cli/runtime.sh', 'cli/sign.mjs', 'cli/semver.mjs', 'cli/npm-ports', '.github/scripts/validate-local-publish.sh', '.github/scripts/tool-versions.json']) {
     const { build, fetch } = split(file);
     same(build, sentinels);
     assert.deepEqual(fetch, [], file);

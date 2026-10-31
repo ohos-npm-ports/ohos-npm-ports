@@ -37,10 +37,11 @@ test('generic bin validation accepts string and object manifests and rejects mis
   assert.throws(() => validateBins({ name: '@scope/demo', bin: { missing: 'missing.js' } }, project), /Missing installed bin/);
 });
 
-test('OpenHarmony generic install keeps the compatibility setup', async () => {
+test('OpenHarmony generic install uses the image compatibility setup', async () => {
   const { readFileSync } = await import('node:fs');
   const action = readFileSync('.github/actions/install-matrix/action.yml', 'utf8');
-  assert.match(action, /setup-ci-runner\.sh/);
+  assert.doesNotMatch(action, /setup-ci-runner\.sh/);
+  assert.match(action, /node \.github\/scripts\/run-install-matrix\.mjs/);
   assert.match(action, /pattern: 'port-\*'/);
   assert.match(action, /EXPECTED_PLATFORM/);
   const runner = readFileSync('.github/scripts/run-install-matrix.mjs', 'utf8');

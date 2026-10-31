@@ -25,7 +25,6 @@ source_dir="$build_dir/source"
 package_dir="$root_dir/utoo-pack-${version}"
 
 prepare() {
-  export PATH="$(brew --prefix rust)/bin:$PATH"
   command -v cmake >/dev/null || brew install -y cmake
   command -v pkgconf >/dev/null || brew install -y pkgconf
   [ "$(rustc -vV | sed -n 's/^host: //p')" = aarch64-unknown-linux-ohos ]

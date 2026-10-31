@@ -52,7 +52,7 @@ npm-ports check "${{ matrix.dir }}"
 注意两点：
 
 - 槽位包只存在于构建产物里，所以从已发布的主包依赖里反推（引用了本 port 同一版本的 `@ohos-npm-ports/*` 包），并要求个数等于 NPMBUILD 的 `packages`，对不上就失败，不会漏测。
-- `ci-runner:latest` 镜像和 `brew update` 的变化检测不到。镜像或工具链更新后，用手动 dispatch 做一次全量构建确认。
+- `ci-runner:latest` 镜像和 Homebrew 配方索引的变化检测不到。镜像或工具链更新后，用手动 dispatch 做一次全量构建确认。
 
 fetch 得到的包不会被发布：它们的版本已经在 npm 上，不在发布列表里，`npm-ports publish` 也会拒绝 `origin: "npm"` 的 manifest。
 
