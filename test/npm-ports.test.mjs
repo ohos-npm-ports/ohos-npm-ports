@@ -281,6 +281,13 @@ test('publish refuses artifacts built from another commit when a commit is expec
   assert.doesNotThrow(() => publishPort(port, { dryRun: true, expectSha: 'a'.repeat(40) }));
 });
 
+test('tarballs fetched from npm for testing are never published', (t) => {
+  const { port, manifest } = packedFixture(t);
+  writeFileSync(join(port.dir, 'artifacts', 'manifest.json'), JSON.stringify({ ...manifest, origin: 'npm' }));
+  assert.throws(() => publishPort(port, { dryRun: true }), /downloaded from npm, only freshly built tarballs can be published/);
+  assert.throws(() => publishPort(port, { dryRun: true, skipExisting: true, expectSha: 'a'.repeat(40) }), /downloaded from npm/);
+});
+
 test('dist-tag lookups tolerate a missing package or tag but not an outage', () => {
   const ok = (value) => () => JSON.stringify(value);
   const fail = (stdout, stderr = '') => () => { throw Object.assign(new Error('exit 1'), { stdout, stderr }); };

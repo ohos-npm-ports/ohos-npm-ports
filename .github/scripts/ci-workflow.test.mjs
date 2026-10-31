@@ -22,15 +22,55 @@ test('temporary publishing and artifact upload apply to every build event', () =
   }
 });
 
-test('build step runs npm-ports after brew update with the brew rust first on PATH', () => {
-  const build = step('Build');
-  assert.match(build, /cli\/npm-ports check/);
-  assert.match(build, /HOMEBREW_NO_AUTO_UPDATE: "1"/);
-  assert.match(build, /HOMEBREW_NO_INSTALL_UPGRADE: "1"/);
-  assert.match(build, /brew update/);
-  assert.match(build, /brew --prefix rust/);
-  assert.doesNotMatch(build, /python_bin|PYTHON/);
-  assert.doesNotMatch(build, /setup-ci-runner|sh -ex|brew (install|upgrade)/);
+test('build step runs the build script, so editing ci.yml alone cannot change a build', () => {
+  const build = step('Build', job('build'));
+  assert.match(build, /run: sh \.github\/scripts\/build-port\.sh "\$\{\{ matrix\.dir \}\}"/);
+  assert.doesNotMatch(build, /env:|brew|HOMEBREW|PATH/);
+  assert.doesNotMatch(job('build'), /brew update|HOMEBREW_NO/);
+});
+
+test('the build script updates brew, puts the brew rust first on PATH and then checks the port', () => {
+  const script = readFileSync('.github/scripts/build-port.sh', 'utf8');
+  assert.match(script, /export HOMEBREW_NO_AUTO_UPDATE=1/);
+  assert.match(script, /export HOMEBREW_NO_INSTALL_UPGRADE=1/);
+  assert.ok(script.indexOf('brew update') < script.indexOf('brew --prefix rust'));
+  assert.ok(script.indexOf('brew --prefix rust') < script.indexOf('cli/npm-ports check "$1"'));
+  assert.doesNotMatch(script, /python_bin|PYTHON|setup-ci-runner|brew (install|upgrade)/);
+});
+
+test('ports that need a build and ports fetched from npm run in separate matrices', () => {
+  assert.match(job('build'), /matrix:\n\s+dir: \$\{\{ fromJson\(needs\.detect-changes\.outputs\.build-matrix\) \}\}/);
+  assert.match(job('build'), /outputs\.build-matrix != '\[\]'/);
+  const fetch = job('fetch');
+  assert.match(fetch, /matrix:\n\s+dir: \$\{\{ fromJson\(needs\.detect-changes\.outputs\.fetch-matrix\) \}\}/);
+  assert.match(fetch, /outputs\.fetch-matrix != '\[\]'/);
+  assert.match(fetch, /needs: \[detect-changes, external-build-approval\]/);
+  assert.doesNotMatch(fetch, /container:|secrets\.|NPM_TOKEN|npm-ports publish/);
+  assert.match(step('Download the published tarballs', fetch), /fetch-published\.mjs "\$\{\{ matrix\.dir \}\}"/);
+  assert.match(step('Upload published packages', fetch), /name: \$\{\{ steps\.published\.outputs\.artifact-name \}\}/);
+});
+
+test('consumers start once build and fetch are both finished, behind the same first-time contributor approval', () => {
+  const gate = job('artifacts');
+  assert.match(gate, /needs: \[detect-changes, external-build-approval, build, fetch\]/);
+  assert.match(gate, /external-build-approval\.result == 'success' \|\| needs\.external-build-approval\.result == 'skipped'/);
+  assert.match(gate, /needs\.build\.result == 'success' \|\| needs\.build\.result == 'failure' \|\| needs\.detect-changes\.outputs\.build-matrix == '\[\]'/);
+  assert.match(gate, /needs\.fetch\.result == 'success' \|\| needs\.fetch\.result == 'failure' \|\| needs\.detect-changes\.outputs\.fetch-matrix == '\[\]'/);
+  const consumers = [...workflow.matchAll(/^  (consumer-[a-z0-9-]+):\n/gm)].map((match) => match[1]);
+  assert.equal(consumers.length, 7);
+  for (const name of consumers) {
+    const body = job(name);
+    assert.match(body, /needs: \[detect-changes, artifacts\]/, name);
+    assert.match(body, /needs\.artifacts\.result == 'success'/, name);
+    assert.doesNotMatch(body, /needs\.build\b/, name);
+  }
+});
+
+test('the replayed run clears both matrices', () => {
+  const detect = step('Find changed NPMBUILD ports');
+  assert.match(detect, /echo 'build-matrix=\[\]'/);
+  assert.match(detect, /echo 'fetch-matrix=\[\]'/);
+  assert.match(detect, /REGISTRY_CHECK: 'true'/);
 });
 
 test('the build job never publishes and never sees the npm token', () => {
@@ -95,7 +135,7 @@ test('workflow files that change the build are in both push and pull_request pat
     workflow.slice(workflow.indexOf('  pull_request:'), workflow.indexOf('\npermissions:')),
   ];
   for (const block of blocks) {
-    for (const file of ['.github/workflows/ci.yml', '.github/scripts/validate-local-publish.sh', '.github/scripts/tool-versions.json', '.github/scripts/ci-workflow.test.mjs', 'package.json']) {
+    for (const file of ['.github/workflows/ci.yml', '.github/scripts/build-port.sh', '.github/scripts/validate-local-publish.sh', '.github/scripts/tool-versions.json', '.github/scripts/ci-workflow.test.mjs', 'package.json']) {
       assert.ok(block.includes(`"${file}"`), file);
     }
     for (const directory of ['cli', 'test']) assert.ok(block.includes(`"${directory}/**"`), directory);

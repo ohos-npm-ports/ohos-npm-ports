@@ -7,7 +7,7 @@ const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 // Only a clear E404 means "not published": network, auth and registry failures throw, so callers never
 // mistake an outage for a missing version.
 function view(spec, field, { registry = '', exec = execFileSync } = {}) {
-  const args = ['view', spec, field, '--json'];
+  const args = ['view', spec, ...(field ? [field] : []), '--json'];
   if (registry) args.push('--registry', registry);
   let output;
   try {
@@ -33,4 +33,12 @@ export function publishedIntegrity(name, version, options) {
 export function distTagVersion(name, tag, options) {
   const tags = view(name, 'dist-tags', options);
   return tags && typeof tags[tag] === 'string' ? tags[tag] : null;
+}
+
+// Returns the full registry document of name@version, or null when that exact version is not published.
+export function packageMetadata(name, version, options) {
+  const metadata = view(`${name}@${version}`, '', options);
+  if (metadata === undefined) return null;
+  if (metadata === null || typeof metadata !== 'object') throw new Error(`npm view ${name}@${version} returned no metadata`);
+  return metadata;
 }

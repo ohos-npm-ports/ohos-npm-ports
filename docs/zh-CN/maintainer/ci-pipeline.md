@@ -5,10 +5,10 @@
 | workflow | 触发 | 职责 |
 |---|---|---|
 | `port-lint.yml` | ports 变更的 PR | NPMBUILD、辅助脚本、patch 和 commit message 检查 |
-| `ci.yml` | ports/基础设施变更、main push、手动 | 自动构建、临时 Verdaccio、artifact、五平台 consumer；`conclusion` 全绿后，白名单 main 由独立的 `publish` job 正式发布 |
+| `ci.yml` | ports/基础设施变更、main push、手动 | 自动构建（输入没变的 port 取 npm 上已发布的 tarball）、临时 Verdaccio、artifact、五平台 consumer；`conclusion` 全绿后，白名单 main 由独立的 `publish` job 正式发布 |
 | `bump.yml` | 每日调度、手动 | 逐个 port 执行 `npm-ports bump-pr`，无开放 PR 时创建独立 PR |
 
-port 目录为 `ports/<首字母>/<name>` 或 `ports/<首字母>/<name>@<版本线>`。变更检测按这一级建立矩阵。手动 dispatch 默认构建全部 port，artifact replay 仍按 sourceSha 和输入不变性复用。
+port 目录为 `ports/<首字母>/<name>` 或 `ports/<首字母>/<name>@<版本线>`。变更检测按这一级建立矩阵。手动 dispatch 默认构建全部 port（要强制重建时用它），artifact replay 仍按 sourceSha 和输入不变性复用。
 
 ## 2. 先验证，批准后发布
 
@@ -39,6 +39,22 @@ npm-ports check "${{ matrix.dir }}"
 
 随后 `validate-local-publish.sh` 执行 `pack --no-build`。打包器先注入 revision，再使用 `/storage/Users/currentUser/.harmonybrew/opt/ohos-selfsign/bin/selfsign --force` 统一为发布目录中的 AArch64 ELF 签名；随后生成 tarball，启动临时 Verdaccio，真实发布并安装全部主包和槽位包。上传的是私仓实际导出且通过 integrity 校验的 tarball，不另做 bottle。
 
+### 哪些 port 构建，哪些直接取 npm 上的包
+
+`detect-changes` 先决定本轮哪些 port 需要产出 tarball（`matrix`：改动的 port、它们的依赖者，基础设施变化时是全部 port），再把它们分成两路：
+
+- `build-matrix`：现场构建。条件是任意一条成立：port 目录（test.js 除外）有改动；`build-infrastructure.json` 里的文件有改动；这个版本在 npm 上还没有；手动 dispatch。
+- `fetch-matrix`：其余 port。`fetch` job 用 `fetch-published.mjs` 下载已发布的主包和槽位包，核对 registry 的 integrity，写出和构建产物同格式的 manifest（`origin: "npm"`），再以同样的 `port-<name>` artifact 名上传，consumer 不需要区分来源。
+
+`infrastructure.json` 是会触发 CI 的全部文件，`build-infrastructure.json` 是其中会改变构建产物的子集（`cli/` 里的构建代码、`build-port.sh`、`validate-local-publish.sh`、`tool-versions.json` 等）。其余部分，包括 `ci.yml`、consumer 脚本、用例目录，只改变测试方式：改它们时所有 port 仍然在五个平台上测试，但测的是 npm 上已发布的包，不重新构建。构建命令因此放在 `.github/scripts/build-port.sh` 里，而不是 `ci.yml` 里。
+
+注意两点：
+
+- 槽位包只存在于构建产物里，所以从已发布的主包依赖里反推（引用了本 port 同一版本的 `@ohos-npm-ports/*` 包），并要求个数等于 NPMBUILD 的 `packages`，对不上就失败，不会漏测。
+- `ci-runner:latest` 镜像和 `brew update` 的变化检测不到。镜像或工具链更新后，用手动 dispatch 做一次全量构建确认。
+
+fetch 得到的包不会被发布：它们的版本已经在 npm 上，不在发布列表里，`npm-ports publish` 也会拒绝 `origin: "npm"` 的 manifest。
+
 main push 上的发布列表按 npm 现状判定：构建矩阵里主包版本在 npm 上返回 404 的 port 才发布，PR 和手动触发不发布。`detect-changes` 同时输出 `publish-order`，被依赖的 port 排在前面。
 
 发布由独立的 `publish` job 完成，不在构建 job 里：
@@ -53,6 +69,8 @@ main push 上的发布列表按 npm 现状判定：构建矩阵里主包版本�
 manifest 记录 `sourceSha`、`portDir` 和每个包的名称、版本、文件名与 SHA-512。test.js 单独变化不触发重新发布。
 
 ## 6. 五平台 consumer 与 conclusion
+
+`artifacts` job 等 `build` 和 `fetch` 都结束，并且首次外部贡献者审批通过之后，才放行 consumer；个别 port 构建失败时，其余 consumer 照常运行。
 
 通用安装验证不再要求 `test.js`：`consumer-install` 在 Windows x64、Linux x64/arm64 和 macOS arm64 上形成矩阵，`consumer-install-openharmony` 在 ci-runner 中运行。它们根据构建矩阵自动选择 port，下载本轮 artifact，在各平台的临时 Verdaccio 中发布并安装主包，按 os/cpu 检查槽位、所有应安装的包、版本和 bin，再执行 npm ci。全量 dispatch 覆盖所有 port，普通变更覆盖受影响 port，artifact replay 同样启用，不需要任何 port 专属入口。
 

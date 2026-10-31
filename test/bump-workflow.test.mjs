@@ -47,7 +47,7 @@ test('ordinary PRs build before review and only main can publish', () => {
 
 test('conclusion covers the build, approval and all five consumer platforms', () => {
   const conclusion = ci.slice(ci.indexOf('  conclusion:'));
-  for (const need of ['external-build-approval', 'build', 'consumer-install', 'consumer-install-openharmony', 'consumer-tests-windows-x64', 'consumer-tests-linux-arm64', 'consumer-tests-linux-x64', 'consumer-tests-darwin-arm64', 'consumer-tests-openharmony']) {
+  for (const need of ['external-build-approval', 'build', 'fetch', 'consumer-install', 'consumer-install-openharmony', 'consumer-tests-windows-x64', 'consumer-tests-linux-arm64', 'consumer-tests-linux-x64', 'consumer-tests-darwin-arm64', 'consumer-tests-openharmony']) {
     assert.ok(conclusion.includes(`- ${need}`), need);
   }
   assert.match(conclusion, /GENERIC_ENABLED/);

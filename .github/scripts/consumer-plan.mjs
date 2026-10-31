@@ -8,8 +8,13 @@ import { publishedIntegrity } from '../../cli/registry.mjs';
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const excluded = JSON.parse(readFileSync(join(repo, '.github/fixtures/consumer/excluded-ports.json'), 'utf8'));
 export const infrastructure = JSON.parse(readFileSync(join(repo, '.github/fixtures/consumer/infrastructure.json'), 'utf8'));
-export const isInfrastructure = (file) => !file.endsWith('.md')
-  && infrastructure.some((entry) => entry.endsWith('/') ? file.startsWith(entry) : file === entry);
+const listed = (entries) => (file) => !file.endsWith('.md')
+  && entries.some((entry) => entry.endsWith('/') ? file.startsWith(entry) : file === entry);
+export const isInfrastructure = listed(infrastructure);
+// The part of the infrastructure that changes what a build produces; a subset of `infrastructure`. Everything
+// else in it only changes how built tarballs are tested, so ports whose own files did not change are not rebuilt.
+export const buildInfrastructure = JSON.parse(readFileSync(join(repo, '.github/fixtures/consumer/build-infrastructure.json'), 'utf8'));
+export const isBuildInfrastructure = listed(buildInfrastructure);
 const isExcluded = (dir) => Object.hasOwn(excluded, basename(dir));
 const ports = new Map();
 function port(dir) {
@@ -115,8 +120,16 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const expanded = closure(selected);
   const tests = selected.filter((dir) => testSpec(dir)?.role === 'primary');
   const matrix = [...new Set([...dirs, ...expanded])].sort();
+  // The matrix lists every port that needs tarballs; build-matrix is the part that must be built, the rest is
+  // fetched from npm. Without REGISTRY_CHECK nothing is known about npm, so everything is built.
+  const sourceChanged = (dir) => changed.some((file) => file.startsWith(`${dir}/`) && file !== `${dir}/test.js`);
+  const buildAll = process.env.REGISTRY_CHECK !== 'true' || process.env.BUILD_ALL === 'true' || changed.some(isBuildInfrastructure);
+  const missing = buildAll && process.env.PUBLISH_CHECK !== 'true' ? [] : missingFromRegistry(matrix);
+  const buildMatrix = buildAll ? matrix : matrix.filter((dir) => sourceChanged(dir) || missing.includes(dir));
   console.log(`matrix=${JSON.stringify(matrix)}`);
-  const publish = process.env.PUBLISH_CHECK === 'true' ? missingFromRegistry(matrix) : [];
+  console.log(`build-matrix=${JSON.stringify(buildMatrix)}`);
+  console.log(`fetch-matrix=${JSON.stringify(matrix.filter((dir) => !buildMatrix.includes(dir)))}`);
+  const publish = process.env.PUBLISH_CHECK === 'true' ? missing : [];
   console.log(`publish=${JSON.stringify(publish)}`);
   // Prerequisites first, so a port is never on npm before the ports its install depends on.
   const publishing = new Set(publish);

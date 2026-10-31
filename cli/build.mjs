@@ -219,6 +219,7 @@ export function chooseTag(distTag, version, currentVersion) {
 // that commit, so only tarballs built and verified in the current run can be published.
 export function publishPort(port, { dryRun = false, registry = '', skipExisting = false, expectSha = '', lookup = publishedIntegrity, tagLookup = distTagVersion } = {}) {
   const manifest = readManifest(port);
+  if (manifest.origin === 'npm') throw new Error(`${port.relative}: artifacts were downloaded from npm, only freshly built tarballs can be published`);
   if (expectSha && manifest.sourceSha !== expectSha) {
     throw new Error(`${port.relative}: artifacts were built from ${manifest.sourceSha}, expected ${expectSha}`);
   }

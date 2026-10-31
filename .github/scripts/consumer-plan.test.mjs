@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { test } from 'node:test';
-import { closure, infrastructure, isInfrastructure, missingFromRegistry, testSpec, artifactPattern } from './consumer-plan.mjs';
+import { artifactPattern, buildInfrastructure, closure, infrastructure, isBuildInfrastructure, isInfrastructure, missingFromRegistry, testSpec } from './consumer-plan.mjs';
 import { discoverPorts, loadPort } from '../../cli/port.mjs';
 
 const directories = discoverPorts(process.cwd()).map((dir) => relative(process.cwd(), dir));
@@ -175,4 +175,84 @@ test('test-only edits run consumers without republishing the port', () => {
 test('test and build edits publish the changed port once, and only while its version is missing', () => {
   assert.deepEqual(publishing('ports/v/vite-plus/test.js\nports/v/vite-plus/NPMBUILD', 'ports/v/vite-plus'), ['ports/v/vite-plus']);
   assert.deepEqual(publishing('ports/v/vite-plus/test.js\nports/v/vite-plus/NPMBUILD'), []);
+});
+
+// What gets built and what is fetched from npm, with every port published except the ones named.
+const split = (files, { env = {}, unpublished = [] } = {}) => {
+  const value = plan(files, { REGISTRY_CHECK: 'true', PUBLISHED_PACKAGES: published(...unpublished), ...env });
+  return { value, matrix: JSON.parse(value.matrix), build: JSON.parse(value['build-matrix']), fetch: JSON.parse(value['fetch-matrix']) };
+};
+const same = (actual, expected) => assert.deepEqual([...actual].sort(), [...expected].sort());
+
+test('editing only test infrastructure rebuilds nothing: every port is tested from npm', () => {
+  for (const file of ['.github/workflows/ci.yml', '.github/scripts/run-port-consumer.mjs', '.github/actions/install-matrix/action.yml', '.github/fixtures/consumer/test-tools.mjs', 'cli/bump.mjs', 'test/npm-ports.test.mjs']) {
+    const { value, matrix, build, fetch } = split(file);
+    same(matrix, directories);
+    assert.deepEqual(build, [], file);
+    same(fetch, directories);
+    assert.equal(value['generic-enabled'], 'true');
+    same(JSON.parse(value['consumer-ports']), directories.filter((dir) => testSpec(dir)?.role === 'primary'));
+  }
+});
+
+test('build infrastructure rebuilds every port', () => {
+  for (const file of ['cli/build.mjs', 'cli/port.mjs', 'cli/runtime.sh', 'cli/sign.mjs', 'cli/semver.mjs', 'cli/npm-ports', '.github/scripts/build-port.sh', '.github/scripts/validate-local-publish.sh', '.github/scripts/ci-time-service-compat.sh', '.github/scripts/tool-versions.json']) {
+    const { build, fetch } = split(file);
+    same(build, directories);
+    assert.deepEqual(fetch, [], file);
+  }
+});
+
+test('a version npm does not have is built even when only test infrastructure changed', () => {
+  const { build, fetch } = split('.github/workflows/ci.yml', { unpublished: ['ports/v/vite-plus'] });
+  assert.deepEqual(build, ['ports/v/vite-plus']);
+  assert.ok(!fetch.includes('ports/v/vite-plus'));
+  assert.equal(fetch.length, directories.length - 1);
+});
+
+test('a changed port is rebuilt while the ports that depend on it are fetched', () => {
+  const { matrix, build, fetch } = split('ports/d/domparser-rs/NPMBUILD');
+  assert.deepEqual(build, ['ports/d/domparser-rs']);
+  assert.ok(matrix.includes('ports/u/utoo-pack'));
+  assert.deepEqual(fetch, ['ports/u/utoo-pack']);
+  const unchangedVersion = split('ports/d/domparser-rs/patches/0001-x.patch');
+  assert.deepEqual(unchangedVersion.build, ['ports/d/domparser-rs']);
+});
+
+test('a test.js edit tests the port from npm instead of rebuilding it', () => {
+  const { value, build, fetch } = split('ports/v/vite-plus/test.js');
+  assert.deepEqual(build, []);
+  assert.ok(fetch.includes('ports/v/vite-plus'));
+  assert.ok(JSON.parse(value['consumer-ports']).includes('ports/v/vite-plus'));
+  assert.deepEqual(split('ports/v/vite-plus/test.js\nports/v/vite-plus/NPMBUILD').build, ['ports/v/vite-plus']);
+});
+
+test('without registry knowledge and for manual full builds everything is built', () => {
+  const unknown = plan('.github/workflows/ci.yml');
+  assert.deepEqual(JSON.parse(unknown['build-matrix']), JSON.parse(unknown.matrix));
+  assert.deepEqual(JSON.parse(unknown['fetch-matrix']), []);
+  const manual = split('.github/scripts/run-port-consumer.mjs', { env: { BUILD_ALL: 'true' } });
+  same(manual.build, directories);
+  assert.deepEqual(manual.fetch, []);
+});
+
+test('everything published is built in the same run, and fetched tarballs are never published', () => {
+  const { value, build, fetch } = split('.github/workflows/ci.yml', { env: { PUBLISH_CHECK: 'true' }, unpublished: ['ports/d/domparser-rs', 'ports/v/vite-plus'] });
+  same(JSON.parse(value.publish), ['ports/d/domparser-rs', 'ports/v/vite-plus']);
+  for (const dir of JSON.parse(value.publish)) assert.ok(build.includes(dir) && !fetch.includes(dir), dir);
+  assert.deepEqual(JSON.parse(split('.github/workflows/ci.yml', { env: { PUBLISH_CHECK: 'true' } }).value.publish), []);
+});
+
+test('build infrastructure is the part of the infrastructure that shapes build output', () => {
+  assert.ok(buildInfrastructure.length > 0);
+  for (const entry of buildInfrastructure) {
+    assert.ok(existsSync(entry), `Missing build infrastructure file: ${entry}`);
+    assert.ok(isInfrastructure(entry), `${entry} must also be listed as infrastructure so that it triggers CI`);
+    assert.ok(isBuildInfrastructure(entry), entry);
+  }
+  for (const file of ['.github/workflows/ci.yml', '.github/workflows/bump.yml', '.github/scripts/consumer-plan.mjs', '.github/scripts/run-install-matrix.mjs', '.github/scripts/fetch-published.mjs', '.github/actions/consumer-job/action.yml', '.github/fixtures/consumer/test-tools.mjs', 'cli/bump.mjs', 'cli/lint.mjs', 'cli/registry.mjs', 'test/npm-ports.test.mjs', 'package.json']) {
+    assert.ok(isInfrastructure(file), file);
+    assert.ok(!isBuildInfrastructure(file), `${file} only changes how tarballs are tested`);
+  }
+  assert.ok(!isBuildInfrastructure('cli/build.mjs.md'));
 });
