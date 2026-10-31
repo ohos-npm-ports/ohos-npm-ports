@@ -4,7 +4,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
-    paths: ["ports/**"]
+    paths:
+      - "ports/**"
+      - ".github/workflows/port-lint.yml"
+      - ".github/scripts/**"
 
 defaults:
   run:
@@ -72,11 +75,13 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Test lint and reporting scripts
+        run: node --test .github/scripts/lint-commit-messages.test.mjs .github/scripts/gate-report-comment.test.mjs
       - name: Lint commit messages
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
-        run: .github/scripts/lint-commit-messages.sh
+        run: node .github/scripts/lint-commit-messages.mjs
 
   gate-report:
     needs: [detect, lint, lint-commits]
@@ -93,4 +98,4 @@ jobs:
           CHANGED_JSON: ${{ needs.detect.outputs.changed }}
           LINT_RESULT: ${{ needs.lint.result }}
           COMMIT_RESULT: ${{ needs.lint-commits.result }}
-        run: .github/scripts/gate-report-comment.sh
+        run: node .github/scripts/gate-report-comment.mjs
