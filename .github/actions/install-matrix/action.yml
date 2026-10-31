@@ -50,9 +50,8 @@ runs:
           -w "$GITHUB_WORKSPACE" \
           -e EXPECTED_PLATFORM -e EXPECTED_ARCH -e CONSUMER_PORTS -e REPLAY_ARTIFACTS \
           -e GITHUB_SHA -e GITHUB_STEP_SUMMARY \
-          -e HOMEBREW_NO_AUTO_UPDATE=1 -e HOMEBREW_NO_INSTALL_UPGRADE=1 \
           ghcr.io/ohos-npm-ports/ci-runner:latest \
-          sh -ec '. .github/scripts/setup-ci-runner.sh; exec node .github/scripts/run-install-matrix.mjs'
+          node .github/scripts/run-install-matrix.mjs
     - name: Restore workspace ownership
       if: inputs.platform == 'openharmony'
       shell: bash

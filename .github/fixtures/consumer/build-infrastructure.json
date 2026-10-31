@@ -7,6 +7,5 @@
   "cli/sign.mjs",
   "cli/npm-ports",
   ".github/scripts/validate-local-publish.sh",
-  ".github/scripts/ci-time-service-compat.sh",
   ".github/scripts/tool-versions.json"
 ]

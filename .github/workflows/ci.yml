@@ -31,10 +31,8 @@ on:
       - ".github/scripts/installed-package.mjs"
       - ".github/scripts/consumer-coverage.mjs"
       - ".github/scripts/consumer-browser.mjs"
-      - ".github/scripts/setup-ci-runner.sh"
       - ".github/actions/consumer-job/action.yml"
       - ".github/actions/install-matrix/action.yml"
-      - ".github/scripts/ci-time-service-compat.sh"
       - ".github/fixtures/consumer/**"
       - "cli/**"
       - "test/**"
@@ -57,10 +55,8 @@ on:
       - ".github/scripts/installed-package.mjs"
       - ".github/scripts/consumer-coverage.mjs"
       - ".github/scripts/consumer-browser.mjs"
-      - ".github/scripts/setup-ci-runner.sh"
       - ".github/actions/consumer-job/action.yml"
       - ".github/actions/install-matrix/action.yml"
-      - ".github/scripts/ci-time-service-compat.sh"
       - ".github/fixtures/consumer/**"
       - "cli/**"
       - "test/**"
@@ -191,11 +187,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Build
-        env:
-          HOMEBREW_NO_INSTALL_UPGRADE: '1'
-        run: |
-          brew update
-          PATH="$(brew --prefix rust)/bin:$PATH" cli/npm-ports check "${{ matrix.dir }}"
+        run: cli/npm-ports check "${{ matrix.dir }}"
 
       - name: Validate publish through temporary Verdaccio
         id: registry
@@ -448,9 +440,8 @@ jobs:
             -w "$GITHUB_WORKSPACE" \
             -e CONSUMER_PORT -e REPLAY_ARTIFACTS -e EXPECTED_PLATFORM -e EXPECTED_ARCH \
             -e GITHUB_SHA -e GITHUB_STEP_SUMMARY -e PORT_TEST_BROWSER_ENDPOINT \
-            -e HOMEBREW_NO_AUTO_UPDATE=1 -e HOMEBREW_NO_INSTALL_UPGRADE=1 \
             ghcr.io/ohos-npm-ports/ci-runner:latest \
-            sh -ec '. .github/scripts/setup-ci-runner.sh; exec node .github/scripts/run-port-consumer.mjs .port-artifacts'
+            node .github/scripts/run-port-consumer.mjs .port-artifacts
 
       - name: Upload diagnostic logs
         if: failure()

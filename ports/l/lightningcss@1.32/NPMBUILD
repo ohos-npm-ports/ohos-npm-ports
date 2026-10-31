@@ -46,9 +46,8 @@ JS
   rust_prefix=$(brew --prefix rust)
   if ! "$rust_prefix/bin/rustc" -vV 2>/dev/null |
     grep -q '^host: aarch64-unknown-linux-ohos$'; then
-    HOMEBREW_NO_AUTO_UPDATE=1 brew install -y rust
+    brew install -y rust
   fi
-  export PATH="$rust_prefix/bin:$PATH"
   rustc -vV
   cargo --version
   rustc -vV | grep -q '^host: aarch64-unknown-linux-ohos$'

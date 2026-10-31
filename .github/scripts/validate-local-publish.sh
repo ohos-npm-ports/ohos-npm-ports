@@ -11,7 +11,6 @@ if command -v brew >/dev/null 2>&1; then
 fi
 
 repo=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
-sh "$repo/.github/scripts/ci-time-service-compat.sh"
 port_dir=$(cd "$1" && pwd)
 port_rel=$(node -e 'process.stdout.write(require("path").relative(process.argv[1],process.argv[2]))' "$repo" "$port_dir")
 registry=http://127.0.0.1:4873
@@ -108,9 +107,6 @@ if [ "$ready" != true ]; then
   exit 1
 fi
 
-if [ -d /system/lib64/ndk ]; then
-  export LD_LIBRARY_PATH="/system/lib64/ndk${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-fi
 export NPM_CONFIG_USERCONFIG="$temporary/npmrc"
 user=ci-publisher
 registration=$(curl -fsS -X PUT \
