@@ -1,4 +1,4 @@
 [
   "ports/d/domparser-rs",
-  "ports/l/lightningcss@1.32"
+  "ports/p/parcel-watcher"
 ]

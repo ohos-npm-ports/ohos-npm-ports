@@ -52,7 +52,8 @@ test('artifact replay enables generic install even without a build matrix', () =
 test('merged slots build and upload with their parent port', () => {
   const value = plan('ports/p/parcel-watcher/NPMBUILD');
   assert.deepEqual(JSON.parse(value.matrix), ['ports/p/parcel-watcher']);
-  assert.equal(value['consumer-enabled'], 'false');
+  assert.equal(value['consumer-enabled'], 'true');
+  assert.deepEqual(JSON.parse(value['consumer-ports']), ['ports/p/parcel-watcher']);
   assert.equal(value['generic-enabled'], 'true');
   assert.deepEqual(JSON.parse(value['generic-ports']), ['ports/p/parcel-watcher']);
   assert.equal(loadPort(process.cwd(), 'ports/p/parcel-watcher').packages.length, 2);
@@ -78,7 +79,7 @@ test('debug selection is explicit and rejects non-primary roots', () => {
   const env = { ...process.env, CONSUMER_SELECTION: JSON.stringify(['ports/l/lightningcss@1.32']) };
   const value = execFileSync(process.execPath, ['.github/scripts/consumer-plan.mjs'], { input: '.github/scripts/consumer-plan.mjs\n', env, encoding: 'utf8' });
   assert.ok(value.includes('consumer-ports=["ports/l/lightningcss@1.32"]'));
-  assert.throws(() => execFileSync(process.execPath, ['.github/scripts/consumer-plan.mjs'], { input: '', env: { ...env, CONSUMER_SELECTION: '["ports/p/parcel-watcher"]' }, stdio: ['pipe', 'pipe', 'pipe'] }));
+  assert.throws(() => execFileSync(process.execPath, ['.github/scripts/consumer-plan.mjs'], { input: '', env: { ...env, CONSUMER_SELECTION: '["ports/b/bufferutil"]' }, stdio: ['pipe', 'pipe', 'pipe'] }));
 });
 
 test('every declared test parses in its selected module format', () => {
