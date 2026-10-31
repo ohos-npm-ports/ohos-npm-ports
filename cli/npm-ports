@@ -8,6 +8,7 @@ import { bumpPr } from './bump-pr.mjs';
 import { createPort } from './create.mjs';
 import { discoverPorts, findRoot, loadPort } from './port.mjs';
 import { lintPort, lintPublishedNames } from './lint.mjs';
+import { validatePublish } from './validate-publish.mjs';
 
 const usage = `Usage: npm-ports <command> [port|--all] [options]
 
@@ -23,6 +24,7 @@ Commands:
   check <port>               Run the complete lifecycle and package checks
   pack <port> [--no-build]   Check, then create exact npm tarballs
   publish <port>             Publish packed tarballs (--dry-run, --registry URL, --skip-existing, --expect-sha SHA)
+  validate-publish <port>    Validate publish through a temporary Verdaccio
   bump <port|--all>          Check upstream versions (add --write to edit)
   bump-pr <port>             Bump one port and create a PR; skip if one is open
   revision <port>            Increment revision (or use --set N)
@@ -93,6 +95,8 @@ try {
     for (const port of selected(root, args)) packPort(root, port, { build: !flags.has('--no-build') });
   } else if (command === 'publish') {
     for (const port of selected(root, args)) publishPort(port, { dryRun: flags.has('--dry-run'), registry: value('--registry'), skipExisting: flags.has('--skip-existing'), expectSha: value('--expect-sha') });
+  } else if (command === 'validate-publish') {
+    for (const port of selected(root, args)) await validatePublish(port.relative);
   } else if (command === 'bump') {
     const ports = selected(root, args);
     const changed = await bumpPorts(root, ports, { write: flags.has('--write'), registry: value('--registry'), output: value('--output') });

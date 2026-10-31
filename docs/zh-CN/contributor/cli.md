@@ -25,7 +25,7 @@ npm-ports create <upstream> [--set-name <port>] [--set-version <version>] [--no-
 npm-ports edit <port>
 ```
 
-`create` 接受 npm 上游包名，例如 `is-number` 或 `@parcel/watcher`：
+`npm-ports create` 接受 npm 上游包名，例如 `is-number` 或 `@parcel/watcher`：
 
 - 默认查询 registry，取得最新版本和 tarball，并下载计算 SHA-256。
 - `--set-name` 覆盖默认发布短名。scoped 上游默认按 `scope/name` → `scope-name` 扁平化。
@@ -34,7 +34,7 @@ npm-ports edit <port>
 - 生成 `ports/<首字母>/<port>/NPMBUILD`，已有 port 不会被覆盖。
 - 骨架包含下载校验、解包和基础发布短名改写。移植补丁和实际构建逻辑需要继续完善。
 
-`create` 和 `edit` 都会打开 NPMBUILD。编辑器依次取 `VISUAL`、`EDITOR`，未设置时使用 vim。`edit` 一次只接受一个 port，可直接使用版本线短名定位目标配方。
+`npm-ports create` 和 `npm-ports edit` 都会打开 NPMBUILD。编辑器依次取 `VISUAL`、`EDITOR`，未设置时使用 vim。`npm-ports edit` 一次只接受一个 port，可直接使用版本线短名定位目标配方。
 
 ## 查询与静态检查
 
@@ -44,9 +44,9 @@ npm-ports info <port|--all> [--json]
 npm-ports lint [port|--all]
 ```
 
-`list` 列出全部 port。`info` 查看上游、版本、dist-tag 和产物。
+`npm-ports list` 列出全部 port。`npm-ports info` 查看上游、版本、dist-tag 和产物。
 
-`lint` 检查元数据、首字母目录、发布短名冲突、产物路径、Bash 语法、孤立 patch、遗留 publish.sh、旧元数据别名、版本字面量、重复全局声明、重复 SHA-256、readelf、签名逻辑、连续空行和构建内直接发布等现行规则。lint 不能替代真实构建，也不能证明上游 patch 仍然兼容。
+`npm-ports lint` 检查元数据、首字母目录、发布短名冲突、产物路径、Bash 语法、孤立 patch、遗留 publish.sh、旧元数据别名、版本字面量、重复全局声明、重复 SHA-256、readelf、签名逻辑、连续空行和构建内直接发布等现行规则。`npm-ports lint` 不能替代真实构建，也不能证明上游 patch 仍然兼容。
 
 ## 构建、检查与打包
 
@@ -60,11 +60,11 @@ npm-ports pack <port> [--no-build]
 
 这些命令按 `prepare() → build() → package() → check()` 的顺序自动执行到对应阶段：
 
-- `prepare`：执行 `prepare()`。
-- `build`：自动执行 `prepare()` 和 `build()`。
-- `package`：再执行 `package()`，主包与槽位保持裸上游版本。
-- `check`：再执行 `check()`，验证实际发布目录。
-- `pack`：执行完整生命周期，注入 revision 并同步同 port 槽位引用，统一为发布目录中的 AArch64 ELF 签名，然后生成 npm tarball。`--no-build` 只复用已经通过检查的发布目录。
+- `npm-ports prepare`：执行 `prepare()`。
+- `npm-ports build`：自动执行 `prepare()` 和 `build()`。
+- `npm-ports package`：再执行 `package()`，主包与槽位保持裸上游版本。
+- `npm-ports check`：再执行 `check()`，验证实际发布目录。
+- `npm-ports pack`：执行完整生命周期，注入 revision 并同步同 port 槽位引用，统一为发布目录中的 AArch64 ELF 签名，然后生成 npm tarball。`--no-build` 只复用已经通过检查的发布目录。
 
 同一主包或槽位的钩子在同一 Bash 进程内执行，主包和槽位之间隔离。槽位在同一 NPMBUILD 中声明，不另建独立 port。字段、钩子和执行契约的详细规范见 [port-spec.md](port-spec.md)。
 
@@ -76,11 +76,11 @@ npm-ports bump-pr <port> [--no-draft] [--base main]
 npm-ports revision <port> [--set N]
 ```
 
-- `bump` 根据 `upstream` 查询 npm registry 的 dist-tags 和版本列表。主 port 跟随指定 dist-tag，`@` port 只选择版本线内最高 semver。预览线可通过 `upstream_tag` 指定上游标签。
-- `bump --write` 精确修改 `version`、主 `source` / `sha256` 及所有引用 `${version}` 的 `resource` 声明，重新计算下载摘要并将 revision 重置为 1。含独立版本变量、固定工具链版本或 commit 的资源保持锁定。注释、普通构建参数和补丁不做全局替换。
+- `npm-ports bump` 根据 `upstream` 查询 npm registry 的 dist-tags 和版本列表。主 port 跟随指定 dist-tag，`@` port 只选择版本线内最高 semver。预览线可通过 `upstream_tag` 指定上游标签。
+- `npm-ports bump --write` 精确修改 `version`、主 `source` / `sha256` 及所有引用 `${version}` 的 `resource` 声明，重新计算下载摘要并将 revision 重置为 1。含独立版本变量、固定工具链版本或 commit 的资源保持锁定。注释、普通构建参数和补丁不做全局替换。
 - 当 npm 预览版本与源码 tag 或 commit 没有可靠映射时，配方必须设置 `bump=false`，防止自动升级生成错配 PR。
-- `bump-pr` 一次只处理一个 port，完成更新、按目标版本命名分支、提交、普通推送和 PR 创建。默认草稿，`--no-draft` 用于已配置的 GitHub App。只要已有开放 PR 修改同一 port，无论是同版本还是旧版本、机器人还是人工提交，都会跳过，绝不强推或覆盖原 PR。
-- `revision` 在上游版本不变时递增移植修订号，最终版本为 `<上游版本>-<revision>`。
+- `npm-ports bump-pr` 一次只处理一个 port，完成更新、按目标版本命名分支、提交、普通推送和 PR 创建。默认草稿，`--no-draft` 用于已配置的 GitHub App。只要已有开放 PR 修改同一 port，无论是同版本还是旧版本、机器人还是人工提交，都会跳过，绝不强推或覆盖原 PR。
+- `npm-ports revision` 在上游版本不变时递增移植修订号，最终版本为 `<上游版本>-<revision>`。
 - revision 是发布版本号，不是触发重新编译的开关。只有需要发布新产物时才递增。纯格式调整不需要递增。需要重新发布同一上游版本的新产物时必须递增，npm 不允许覆盖已发布版本。
 
 升级或修订后必须执行真实构建，不能只修改元数据。补丁兼容性仍需人工审查和验证。
@@ -89,8 +89,9 @@ npm-ports revision <port> [--set N]
 
 ```sh
 npm-ports publish <port> [--dry-run] [--registry URL]
+npm-ports validate-publish <port>
 ```
 
-`publish` 只发布通过检查的 tarball，不重新执行生命周期。日常验证使用 `--dry-run` 或临时 Verdaccio。正式发布由发布工作流完成，不要在 NPMBUILD 内执行 `npm publish`。
+`npm-ports publish` 只发布通过检查的 tarball，不重新执行生命周期。日常验证使用 `--dry-run` 或临时 Verdaccio。正式发布由发布工作流完成，不要在 NPMBUILD 内执行 `npm publish`。
 
-本地私仓验证脚本和推荐检查顺序见 [verification.md](verification.md)。命令总览可随时通过 `npm-ports --help` 查看。
+`npm-ports validate-publish` 打包全部产物，发布到临时 Verdaccio，校验 tarball 和 integrity，并在干净目录实际安装。推荐检查顺序见 [verification.md](verification.md)。命令总览可随时通过 `npm-ports --help` 查看。

@@ -18,7 +18,6 @@ on:
       - "ports/**"
       - ".github/workflows/ci.yml"
       - ".github/workflows/bump.yml"
-      - ".github/scripts/validate-local-publish.mjs"
       - ".github/scripts/fetch-published.mjs"
       - ".github/scripts/fetch-published.test.mjs"
       - ".github/scripts/tool-versions.json"
@@ -42,7 +41,6 @@ on:
       - "ports/**"
       - ".github/workflows/ci.yml"
       - ".github/workflows/bump.yml"
-      - ".github/scripts/validate-local-publish.mjs"
       - ".github/scripts/fetch-published.mjs"
       - ".github/scripts/fetch-published.test.mjs"
       - ".github/scripts/tool-versions.json"
@@ -191,7 +189,7 @@ jobs:
 
       - name: Validate publish through temporary Verdaccio
         id: registry
-        run: node .github/scripts/validate-local-publish.mjs "${{ matrix.dir }}"
+        run: cli/npm-ports validate-publish "${{ matrix.dir }}"
 
       - name: Upload exact pre-release packages
         uses: actions/upload-artifact@v7

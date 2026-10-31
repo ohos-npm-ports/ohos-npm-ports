@@ -12,7 +12,7 @@ NPMBUILD 的 `check()` 应证明 `package()` 生成的产物正确，而不是�
 
 签名及 `readelf` 检查不属于 NPMBUILD 的贡献者工作。`npm-ports pack` 统一保障 AArch64 ELF 签名，签名工具失败会中断打包。
 
-这些验证属于配方质量要求。lint 只能检查结构，不能替代它们。
+这些验证属于配方质量要求。`npm-ports lint` 只能检查结构，不能替代它们。
 
 ## 2. 本地提交前验证
 
@@ -21,12 +21,12 @@ NPMBUILD 的 `check()` 应证明 `package()` 生成的产物正确，而不是�
 ```sh
 npm-ports lint <port>
 npm-ports check <port>
-node .github/scripts/validate-local-publish.mjs ports/<首字母>/<port>
+npm-ports validate-publish <port>
 ```
 
-- `lint` 检查配方结构和静态约束。
-- `check` 执行完整生命周期并运行配方的 `check()`。
-- `validate-local-publish.mjs` 打包全部产物、发布到临时 Verdaccio、校验 tarball 和 integrity，并在干净目录实际安装。
+- `npm-ports lint` 检查配方结构和静态约束。
+- `npm-ports check` 执行完整生命周期并运行配方的 `check()`。
+- `npm-ports validate-publish` 打包全部产物、发布到临时 Verdaccio、校验 tarball 和 integrity，并在干净目录实际安装。
 
 需要跨平台验证时，同时保留或更新 port 的 `test.js`。日常发布检查使用 `npm-ports publish --dry-run` 或临时 Verdaccio，不发布到 npm 中心仓。
 
@@ -42,7 +42,7 @@ node .github/scripts/validate-local-publish.mjs ports/<首字母>/<port>
 
 ## 4. CI 发布前私仓校验
 
-每个配方构建后，CI 对 NPMBUILD 声明的全部产物执行 `pack --no-build`，再发布到临时 Verdaccio：
+每个配方构建后，CI 对 NPMBUILD 声明的全部产物执行 `npm-ports pack --no-build`，再发布到临时 Verdaccio：
 
 - dry-run 与真实本地发布的包清单必须一致。
 - 主包和槽位包按 packages 顺序发布。

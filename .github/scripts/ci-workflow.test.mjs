@@ -34,7 +34,7 @@ test('the build step uses the image toolchain without refreshing Homebrew', () =
 
 test('consumer jobs use the image-provided defaults', () => {
   const installMatrix = readFileSync('.github/actions/install-matrix/action.yml', 'utf8');
-  const publishValidation = readFileSync('.github/scripts/validate-local-publish.mjs', 'utf8');
+  const publishValidation = readFileSync('cli/validate-publish.mjs', 'utf8');
   assert.doesNotMatch(workflow, /HOMEBREW_NO_AUTO_UPDATE|setup-ci-runner\.sh|ci-time-service-compat\.sh/);
   assert.doesNotMatch(installMatrix, /HOMEBREW_NO_AUTO_UPDATE|setup-ci-runner\.sh/);
   assert.doesNotMatch(publishValidation, /ci-time-service-compat\.sh|LD_LIBRARY_PATH/);
@@ -137,7 +137,7 @@ test('workflow files that change the build are in both push and pull_request pat
     workflow.slice(workflow.indexOf('  pull_request:'), workflow.indexOf('\npermissions:')),
   ];
   for (const block of blocks) {
-    for (const file of ['.github/workflows/ci.yml', '.github/scripts/validate-local-publish.mjs', '.github/scripts/tool-versions.json', '.github/scripts/ci-workflow.test.mjs']) {
+    for (const file of ['.github/workflows/ci.yml', '.github/scripts/tool-versions.json', '.github/scripts/ci-workflow.test.mjs']) {
       assert.ok(block.includes(`"${file}"`), file);
     }
     for (const directory of ['cli', 'test']) assert.ok(block.includes(`"${directory}/**"`), directory);
