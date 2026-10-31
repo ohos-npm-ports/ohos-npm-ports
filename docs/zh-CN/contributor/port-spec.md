@@ -1,6 +1,6 @@
 # NPMBUILD 配方规范
 
-本文定义 port 目录、NPMBUILD 字段、生命周期和产物必须遵守的规则。命令的完整用法见 [cli.md](cli.md)，验证要求见 [verification.md](verification.md)。
+本文定义 port 目录、NPMBUILD 字段、生命周期和产物必须遵守的规则。命令的完整用法见 [npm-ports 命令行工具](cli.md)，验证要求见 [验证标准](verification.md)。
 
 ## 1. port 目录与命名
 
@@ -78,7 +78,7 @@ prepare() {
 
 预览线可设置 `upstream_tag`。当 npm 预览版本与源码 tag 或 commit 没有可靠映射时，必须设置 `bump=false` 并说明耦合原因，避免自动升级生成错配 PR。独立版本变量、固定工具链版本或 commit 锁定的资源由维护者配套升级，不能随主版本误更新。
 
-## 4. 生命周期与执行契约
+## 4. 生命周期与执行规则
 
 生命周期顺序为 `prepare() → build() → package() → check()`：
 
@@ -102,7 +102,7 @@ NPMBUILD 中禁止执行 `npm publish`。npm tarball 的生成和发布由 `npm-
 - 全局 `revision` 是当前 port 修订版本号的唯一来源，仅供 `npm-ports` 使用。禁止在 NPMBUILD 的任何位置复制或使用这个变量，构建脚本不感知修订号。
 - 当前 port 的主包、槽位、构建期断言和补丁只使用裸 `${version}`。补丁不得修改自身 package.json 的版本字段。
 - 跨 port 依赖是独立锁定的外部坐标，必须保留对方完整的已发布版本，包括对方的 revision。
-- 上游升级后将 revision 重置为 1。只修复移植问题时递增 revision。对应命令见 [cli.md](cli.md#上游升级与修订)。
+- 上游升级后将 revision 重置为 1。只修复移植问题时递增 revision。对应命令见 [npm-ports 命令行工具](cli.md#上游升级与修订)。
 
 所有产物必须位于 `@ohos-npm-ports/` scope，主包名必须是 `@ohos-npm-ports/<pkgname>`。`repository.directory` 由打包器设置为当前 port 目录。
 
@@ -126,5 +126,5 @@ slot_openharmony_arm64_build() {
 
 - patch 使用 `NNNN-描述.patch`，并由 NPMBUILD 的钩子实际应用。
 - 修改 patch 应重新生成 diff，并在应用后验证关键标记。
-- 配方必须通过 `npm-ports lint` 的静态检查。具体检查范围见 [cli.md](cli.md#查询与静态检查)。
-- lint 不能证明上游 patch 仍兼容。新增、升级或修订后必须按 [verification.md](verification.md) 完成真实构建和验证。
+- 配方必须通过 `npm-ports lint` 的静态检查。具体检查范围见 [npm-ports 命令行工具](cli.md#查询与静态检查)。
+- lint 不能证明上游 patch 仍兼容。新增、升级或修订后必须按 [验证标准](verification.md) 完成真实构建和验证。

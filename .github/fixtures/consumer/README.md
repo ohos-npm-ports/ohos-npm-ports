@@ -63,7 +63,7 @@ runner 不调用前端 build/start，也不读取 scenario.json。test.js 自己
 
 `PORT_TEST_NPM_CLI` 指向该 job 的 npm CLI JS 文件，可用于跨平台执行 npm 命令（用 process.execPath 启动，避免依赖 npm.cmd 的 shell 行为）。
 
-OpenHarmony consumer 使用 ci-runner 镜像自带的 NDK 库目录；该目录加入运行时动态库搜索路径。验证结果不证明真实设备上的系统服务行为，尤其不将 CI 库提供的时区结果作为系统服务验收。
+真实设备上的系统服务、签名和沙箱行为仍需在目标设备上验证。
 
 `@test-setup: true` 声明安装前准备阶段：runner 在 npm install/npm ci 前执行同一 test.js，传入 PORT_TEST_PHASE=setup；正常功能阶段传入 test。setup 不要求报告，但异常和超时仍失败。系统依赖及准备逻辑留在 port 内，不在 runner 中写包名分支。
 

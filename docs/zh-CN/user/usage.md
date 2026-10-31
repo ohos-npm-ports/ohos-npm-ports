@@ -1,6 +1,6 @@
 # 使用方法
 
-已收录的包清单见仓库根目录 [README.md](../../../README.md)。
+已收录的包清单见 [项目主页](https://ohos-npm-ports.github.io/)。
 
 ## 直接依赖：用 npm alias 替换包名
 

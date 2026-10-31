@@ -1,6 +1,6 @@
 # 贡献指南
 
-本仓库把 npm 三方包移植到 OpenHarmony。本文按一次普通贡献的顺序说明从准备环境到创建 PR 的流程。配方规范、命令用法和验证标准分别见 [port-spec.md](port-spec.md)、[cli.md](cli.md) 和 [verification.md](verification.md)。
+本仓库把 npm 三方包移植到 OpenHarmony。本文按一次普通贡献的顺序说明从准备环境到创建 PR 的流程。配方规范、命令用法和验证标准分别见 [NPMBUILD 配方规范](port-spec.md)、[npm-ports 命令行工具](cli.md) 和 [验证标准](verification.md)。
 
 ## 1. 确认贡献内容
 
@@ -10,7 +10,7 @@
 - 移植不能破坏其他平台行为。只能在鸿蒙上使用的包无法支撑真实生产工程。
 - 不得改动原作者与开源许可证信息。
 
-选择移植路径见 [porting-guide.md](porting-guide.md)。发布包名、版本线、revision、槽位和 patch 的详细规则见 [port-spec.md](port-spec.md)。
+选择移植路径见 [移植路径判定](porting-guide.md)。发布包名、版本线、revision、槽位和 patch 的详细规则见 [NPMBUILD 配方规范](port-spec.md)。
 
 ## 2. 准备分支和开发环境
 
@@ -40,11 +40,11 @@ export PATH="$PWD/cli:$PATH"
 - **升级上游版本**：执行 `npm-ports bump <port> --write`，升级后按需重新生成补丁。
 - **只修复移植问题**：执行 `npm-ports revision <port>` 增加修订号。
 
-这些命令的参数和更新规则见 [cli.md](cli.md)。新增或修改后的配方必须符合 [port-spec.md](port-spec.md)，不能只修改元数据后直接提交。
+这些命令的参数和更新规则见 [npm-ports 命令行工具](cli.md)。新增或修改后的配方必须符合 [NPMBUILD 配方规范](port-spec.md)，不能只修改元数据后直接提交。
 
 ## 4. 完成验证
 
-在容器内按 [verification.md](verification.md) 完成静态检查、真实构建、发布安装和必要的功能验证。升级或修订后必须真实构建。需要跨平台验证时，同时保留或更新 port 的 `test.js`。
+在容器内按 [验证标准](verification.md) 完成静态检查、真实构建、发布安装和必要的功能验证。升级或修订后必须真实构建。需要跨平台验证时，同时保留或更新 port 的 `test.js`。
 
 容器验证不能替代所有真机场景。如果改动可能影响其他平台，还应确认没有破坏包在 darwin、linux-glibc、win32 等平台上的正常使用。
 
@@ -63,7 +63,7 @@ export PATH="$PWD/cli:$PATH"
 
 ## 6. 创建并更新 PR
 
-将分支推送到个人仓库，然后向社区仓库的 `main` 分支创建 PR。PR 的构建、临时 Verdaccio 和跨平台验证由社区仓库的流水线执行。个人仓库没有中心仓 `NPM_TOKEN`，不会进入正式发布步骤。完整门禁说明见 [CI 流水线](../maintainer/ci-pipeline.md)。
+将分支推送到个人仓库，然后向社区仓库的 `main` 分支创建 PR。PR 的构建、临时 Verdaccio 和跨平台验证由社区仓库的流水线执行。个人仓库没有中心仓 `NPM_TOKEN`，不会进入正式发布步骤。完整门禁说明见 [流水线](../maintainer/pipeline.md)。
 
 创建 PR 后如需继续修改，使用 `git commit --amend` 或将多个提交 squash 为一个，再对自己的源分支执行 `git push --force-with-lease`。不要通过追加新 commit 保留开发历史。`PR commit count` 会在创建 PR 和源分支后续推送时重新检查，超过一个 commit 就会失败。
 
