@@ -22,20 +22,13 @@ test('temporary publishing and artifact upload apply to every build event', () =
   }
 });
 
-test('build step runs the build script, so editing ci.yml alone cannot change a build', () => {
+test('the build step updates brew, puts the brew rust first on PATH and then checks the port', () => {
   const build = step('Build', job('build'));
-  assert.match(build, /run: sh \.github\/scripts\/build-port\.sh "\$\{\{ matrix\.dir \}\}"/);
-  assert.doesNotMatch(build, /env:|brew|HOMEBREW|PATH/);
-  assert.doesNotMatch(job('build'), /brew update|HOMEBREW_NO/);
-});
-
-test('the build script updates brew, puts the brew rust first on PATH and then checks the port', () => {
-  const script = readFileSync('.github/scripts/build-port.sh', 'utf8');
-  assert.match(script, /export HOMEBREW_NO_AUTO_UPDATE=1/);
-  assert.match(script, /export HOMEBREW_NO_INSTALL_UPGRADE=1/);
-  assert.ok(script.indexOf('brew update') < script.indexOf('brew --prefix rust'));
-  assert.ok(script.indexOf('brew --prefix rust') < script.indexOf('cli/npm-ports check "$1"'));
-  assert.doesNotMatch(script, /python_bin|PYTHON|setup-ci-runner|brew (install|upgrade)/);
+  assert.match(build, /HOMEBREW_NO_INSTALL_UPGRADE: '1'/);
+  assert.doesNotMatch(build, /HOMEBREW_NO_AUTO_UPDATE/);
+  assert.ok(build.indexOf('brew update') < build.indexOf('brew --prefix rust'));
+  assert.ok(build.indexOf('brew --prefix rust') < build.indexOf('cli/npm-ports check "${{ matrix.dir }}"'));
+  assert.doesNotMatch(build, /python_bin|PYTHON|setup-ci-runner|brew (install|upgrade)/);
 });
 
 test('ports that need a build and ports fetched from npm run in separate matrices', () => {
@@ -135,7 +128,7 @@ test('workflow files that change the build are in both push and pull_request pat
     workflow.slice(workflow.indexOf('  pull_request:'), workflow.indexOf('\npermissions:')),
   ];
   for (const block of blocks) {
-    for (const file of ['.github/workflows/ci.yml', '.github/scripts/build-port.sh', '.github/scripts/validate-local-publish.sh', '.github/scripts/tool-versions.json', '.github/scripts/ci-workflow.test.mjs']) {
+    for (const file of ['.github/workflows/ci.yml', '.github/scripts/validate-local-publish.sh', '.github/scripts/tool-versions.json', '.github/scripts/ci-workflow.test.mjs']) {
       assert.ok(block.includes(`"${file}"`), file);
     }
     for (const directory of ['cli', 'test']) assert.ok(block.includes(`"${directory}/**"`), directory);

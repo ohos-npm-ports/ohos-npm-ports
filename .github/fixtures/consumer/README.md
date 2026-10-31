@@ -4,7 +4,7 @@
 
 - `.github/scripts/run-install-matrix.mjs`：全部 port 的默认安装验证，不需要 test.js；自动校验 artifact、主包与槽位、安装版本和 bin。
 - `ports/<首字母>/<port>/test.js`：可选的真实功能断言及工程场景。新增 port 测试不需要修改 runner 的包名清单；上游默认版本读取 NPMBUILD。
-- `.github/scripts/consumer-plan.mjs`：自动发现测试、选择变化的 port、展开配套构建依赖，同时输出通用安装选择。CI 基础设施变化时验证全部已接入测试的 port。
+- `.github/scripts/consumer-plan.mjs`：自动发现测试、选择变化的 port、展开配套构建依赖，同时输出通用安装选择。CI 基础设施变化时只验证 `sentinel-ports.json` 里的哨兵 port。
 - `.github/scripts/run-port-consumer.mjs`：artifact 校验、临时 Verdaccio、真实 npm alias overrides、安装/`npm ci`、执行 test.js 和 baseline 结果对比。没有针对 Next、Lightning CSS 等包的特殊分支。
 - `projects/node/`：默认最小 npm 工程，不安装前端框架、不自动 build/start。`projects/react-assets/` 仅是可选 React/Webpack 样例。Next 各版本共用 `projects/next-react/`，通过 `@test-project: next-react` 选择。
 
@@ -79,7 +79,7 @@ OpenHarmony consumer 使用 ci-runner 镜像自带的 NDK 库目录；该目录�
 ## CI 基础设施约定
 
 - `infrastructure.json` 是「改动后需全量验证」的唯一清单；`ci.yml` 的 `paths` 必须与之一致（`consumer-plan.test.mjs` 校验）。`*.md` 不触发全量。
-- `build-infrastructure.json` 是其中会改变构建产物的子集（构建代码、构建脚本、工具版本），必须同时列在 `infrastructure.json`。只改清单里其余的文件时，全部 port 照常测试，但取 npm 上已发布的 tarball，不重新构建；改了这个子集里的文件才全量重建。
+- `build-infrastructure.json` 是其中会改变构建产物的子集（构建代码、构建脚本、工具版本），必须同时列在 `infrastructure.json`。只改清单里其余的文件时，只有哨兵 port 测试，且取 npm 上已发布的 tarball，不重新构建；改了这个子集里的文件，哨兵 port 重新构建。全部 port 的验证用手动 dispatch。`sentinel-ports.json` 里的 port 必须带 primary `test.js` 且构建轻量。
 - `.github/scripts/tool-versions.json` 固定 npm、Verdaccio、playwright-core 的精确版本；升级需单独提交。npm 安装带 `fetch-retries` 并对工具安装重试 3 次。
 - 每个 OS 一个独立 consumer job（`consumer-tests-<os>-<arch>`），避免单个 matrix 超过 GitHub 的 256 项上限；共用步骤在 `.github/actions/consumer-job`。
 - 失败时 runner 写 `FAIL ...` 到 step summary，并把 Verdaccio 日志、npm `_logs`、`.port-tests` 保存到 `.consumer-logs/`，由 `consumer-logs-*` artifact 上传（保留 3 天）。

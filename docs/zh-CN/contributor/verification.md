@@ -53,6 +53,6 @@ sh .github/scripts/validate-local-publish.sh ports/<首字母>/<port>
 
 ## 5. 多平台 consumer
 
-全部 port 默认进入五平台通用安装矩阵，不需要 `test.js`。runner 根据构建矩阵选择 port，校验 artifact integrity 后通过临时 Verdaccio 安装主包，按 os/cpu 过滤检查槽位、实际安装版本和 bin，再执行 npm ci。全量 dispatch 覆盖全部 port，普通变更覆盖受影响 port。只改 CI 或 consumer 脚本时不重建，测试的是 npm 上已发布的包。没有功能测试文件不会跳过安装验证。
+全部 port 默认进入五平台通用安装矩阵，不需要 `test.js`。runner 根据构建矩阵选择 port，校验 artifact integrity 后通过临时 Verdaccio 安装主包，按 os/cpu 过滤检查槽位、实际安装版本和 bin，再执行 npm ci。全量 dispatch 覆盖全部 port，普通变更覆盖受影响 port。只改 CI 或 consumer 脚本时只测 `sentinel-ports.json` 里的哨兵 port，全量验证用手动 dispatch；改 consumer 脚本时哨兵不重建，测试的是 npm 上已发布的包。没有功能测试文件不会跳过安装验证。
 
 `test.js` 用于补充真实 API、CLI、加载和工程行为。已配置的 primary port 继续在 Windows x64、Linux x64/arm64、macOS arm64 和 OpenHarmony arm64 上运行。普通 OS 比较 baseline 与 overrides，OpenHarmony 验证 overrides。槽位使用同配方 artifact，不另开独立 port job。通用安装通过不等于功能正确，原生加载和关键业务行为仍应在 port 的 `check()` 或 `test.js` 中验证。

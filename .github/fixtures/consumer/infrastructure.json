@@ -16,7 +16,6 @@
   ".github/scripts/validate-local-publish.sh",
   ".github/scripts/tool-versions.json",
   ".github/scripts/ci-workflow.test.mjs",
-  ".github/scripts/build-port.sh",
   ".github/scripts/fetch-published.mjs",
   ".github/scripts/fetch-published.test.mjs",
   ".github/fixtures/consumer/",

@@ -15,6 +15,8 @@ export const isInfrastructure = listed(infrastructure);
 // else in it only changes how built tarballs are tested, so ports whose own files did not change are not rebuilt.
 export const buildInfrastructure = JSON.parse(readFileSync(join(repo, '.github/fixtures/consumer/build-infrastructure.json'), 'utf8'));
 export const isBuildInfrastructure = listed(buildInfrastructure);
+// Ports that stand in for the whole repository when only infrastructure changed.
+export const sentinels = JSON.parse(readFileSync(join(repo, '.github/fixtures/consumer/sentinel-ports.json'), 'utf8'));
 const isExcluded = (dir) => Object.hasOwn(excluded, basename(dir));
 const ports = new Map();
 function port(dir) {
@@ -109,7 +111,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   for (const [port, reason] of Object.entries(excluded)) console.error(`::notice::Excluded port ${port}: ${reason}`);
   const infrastructureChanged = changed.some(isInfrastructure);
   const candidates = allTests();
-  const selected = infrastructureChanged ? allPortDirs() : candidates.filter((dir) => closure([dir]).some((input) => dirs.includes(input)));
+  const affected = candidates.filter((dir) => closure([dir]).some((input) => dirs.includes(input)));
+  // Infrastructure edits test only the sentinels. On a push, ports whose version npm lacks are added so that
+  // publishing still heals itself.
+  const healing = process.env.PUBLISH_CHECK === 'true' && infrastructureChanged ? missingFromRegistry(allPortDirs().filter((dir) => !isExcluded(dir) && existsSync(join(repo, dir, 'NPMBUILD')))) : [];
+  const selected = process.env.BUILD_ALL === 'true'
+    ? allPortDirs()
+    : [...new Set([...affected, ...(infrastructureChanged ? sentinels : []), ...healing])];
   if (process.env.CONSUMER_SELECTION) {
     const requested = JSON.parse(process.env.CONSUMER_SELECTION);
     assert.ok(Array.isArray(requested) && requested.length > 0, 'Consumer selection must be a nonempty JSON array');

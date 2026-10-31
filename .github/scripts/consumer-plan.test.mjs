@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { test } from 'node:test';
-import { artifactPattern, buildInfrastructure, closure, infrastructure, isBuildInfrastructure, isInfrastructure, missingFromRegistry, testSpec } from './consumer-plan.mjs';
+import { artifactPattern, buildInfrastructure, closure, infrastructure, isBuildInfrastructure, isInfrastructure, missingFromRegistry, sentinels, testSpec } from './consumer-plan.mjs';
 import { discoverPorts, loadPort } from '../../cli/port.mjs';
 
 const directories = discoverPorts(process.cwd()).map((dir) => relative(process.cwd(), dir));
@@ -15,14 +15,25 @@ const published = (...unpublished) => JSON.stringify(directories
   .map((dir) => { const { pkgname, portVersion } = loadPort(process.cwd(), dir); return `@ohos-npm-ports/${pkgname}@${portVersion}`; }));
 const publishing = (file, ...unpublished) => JSON.parse(plan(file, { PUBLISH_CHECK: 'true', PUBLISHED_PACKAGES: published(...unpublished) }).publish);
 
-test('infrastructure selects all ports for generic install and primaries for functional tests', () => {
+test('infrastructure edits select only the sentinel ports', () => {
   const value = plan('.github/fixtures/consumer/test-tools.mjs');
-  const primaries = directories.filter((dir) => testSpec(dir)?.role === 'primary');
-  assert.deepEqual(new Set(JSON.parse(value.matrix)), new Set(directories));
-  assert.deepEqual(new Set(JSON.parse(value['generic-ports'])), new Set(directories));
+  assert.deepEqual(new Set(JSON.parse(value.matrix)), new Set(sentinels));
+  assert.deepEqual(new Set(JSON.parse(value['generic-ports'])), new Set(sentinels));
   assert.equal(value['generic-enabled'], 'true');
-  assert.deepEqual(new Set(JSON.parse(value['consumer-ports'])), new Set(primaries));
-  assert.ok(JSON.parse(value['consumer-ports']).includes('ports/l/lightningcss@1.32'));
+  assert.deepEqual(new Set(JSON.parse(value['consumer-ports'])), new Set(sentinels));
+  for (const file of ['.github/workflows/ci.yml', 'cli/bump.mjs', 'test/npm-ports.test.mjs']) {
+    const matrix = JSON.parse(plan(file).matrix);
+    assert.ok(!matrix.includes('ports/v/vite-plus'), file);
+    assert.ok(matrix.length <= sentinels.length + 1, file);
+  }
+});
+
+test('sentinels exist, are not excluded and carry a primary test', () => {
+  assert.ok(sentinels.length > 0);
+  for (const dir of sentinels) {
+    assert.ok(directories.includes(dir), dir);
+    assert.equal(testSpec(dir)?.role, 'primary', dir);
+  }
 });
 
 test('manual full builds select every port, including ports without consumers', () => {
@@ -184,30 +195,31 @@ const split = (files, { env = {}, unpublished = [] } = {}) => {
 };
 const same = (actual, expected) => assert.deepEqual([...actual].sort(), [...expected].sort());
 
-test('editing only test infrastructure rebuilds nothing: every port is tested from npm', () => {
-  for (const file of ['.github/workflows/ci.yml', '.github/scripts/run-port-consumer.mjs', '.github/actions/install-matrix/action.yml', '.github/fixtures/consumer/test-tools.mjs', 'cli/bump.mjs', 'test/npm-ports.test.mjs']) {
+test('editing only test infrastructure rebuilds nothing: the sentinels are tested from npm', () => {
+  for (const file of ['.github/scripts/run-port-consumer.mjs', '.github/actions/install-matrix/action.yml', '.github/fixtures/consumer/test-tools.mjs', 'cli/bump.mjs', 'test/npm-ports.test.mjs']) {
     const { value, matrix, build, fetch } = split(file);
-    same(matrix, directories);
+    same(matrix, sentinels);
     assert.deepEqual(build, [], file);
-    same(fetch, directories);
+    same(fetch, sentinels);
     assert.equal(value['generic-enabled'], 'true');
-    same(JSON.parse(value['consumer-ports']), directories.filter((dir) => testSpec(dir)?.role === 'primary'));
+    same(JSON.parse(value['consumer-ports']), sentinels);
   }
 });
 
-test('build infrastructure rebuilds every port', () => {
-  for (const file of ['cli/build.mjs', 'cli/port.mjs', 'cli/runtime.sh', 'cli/sign.mjs', 'cli/semver.mjs', 'cli/npm-ports', '.github/scripts/build-port.sh', '.github/scripts/validate-local-publish.sh', '.github/scripts/ci-time-service-compat.sh', '.github/scripts/tool-versions.json']) {
+test('build infrastructure rebuilds the sentinels only', () => {
+  for (const file of ['.github/workflows/ci.yml', 'cli/build.mjs', 'cli/port.mjs', 'cli/runtime.sh', 'cli/sign.mjs', 'cli/semver.mjs', 'cli/npm-ports', '.github/scripts/validate-local-publish.sh', '.github/scripts/ci-time-service-compat.sh', '.github/scripts/tool-versions.json']) {
     const { build, fetch } = split(file);
-    same(build, directories);
+    same(build, sentinels);
     assert.deepEqual(fetch, [], file);
   }
 });
 
-test('a version npm does not have is built even when only test infrastructure changed', () => {
-  const { build, fetch } = split('.github/workflows/ci.yml', { unpublished: ['ports/v/vite-plus'] });
-  assert.deepEqual(build, ['ports/v/vite-plus']);
-  assert.ok(!fetch.includes('ports/v/vite-plus'));
-  assert.equal(fetch.length, directories.length - 1);
+test('on a push, a version npm does not have is built after an infrastructure edit; a pull request leaves it alone', () => {
+  const push = split('.github/workflows/ci.yml', { unpublished: ['ports/v/vite-plus'], env: { PUBLISH_CHECK: 'true' } });
+  assert.ok(push.build.includes('ports/v/vite-plus'));
+  same(push.matrix, [...sentinels, 'ports/v/vite-plus']);
+  const pullRequest = split('.github/workflows/ci.yml', { unpublished: ['ports/v/vite-plus'] });
+  assert.ok(!pullRequest.matrix.includes('ports/v/vite-plus'));
 });
 
 test('a changed port is rebuilt while the ports that depend on it are fetched', () => {
@@ -250,7 +262,7 @@ test('build infrastructure is the part of the infrastructure that shapes build o
     assert.ok(isInfrastructure(entry), `${entry} must also be listed as infrastructure so that it triggers CI`);
     assert.ok(isBuildInfrastructure(entry), entry);
   }
-  for (const file of ['.github/workflows/ci.yml', '.github/workflows/bump.yml', '.github/scripts/consumer-plan.mjs', '.github/scripts/run-install-matrix.mjs', '.github/scripts/fetch-published.mjs', '.github/actions/consumer-job/action.yml', '.github/fixtures/consumer/test-tools.mjs', 'cli/bump.mjs', 'cli/lint.mjs', 'cli/registry.mjs', 'test/npm-ports.test.mjs']) {
+  for (const file of ['.github/workflows/bump.yml', '.github/scripts/consumer-plan.mjs', '.github/scripts/run-install-matrix.mjs', '.github/scripts/fetch-published.mjs', '.github/actions/consumer-job/action.yml', '.github/fixtures/consumer/test-tools.mjs', 'cli/bump.mjs', 'cli/lint.mjs', 'cli/registry.mjs', 'test/npm-ports.test.mjs']) {
     assert.ok(isInfrastructure(file), file);
     assert.ok(!isBuildInfrastructure(file), `${file} only changes how tarballs are tested`);
   }
