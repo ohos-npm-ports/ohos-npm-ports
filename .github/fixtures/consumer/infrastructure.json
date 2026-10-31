@@ -11,7 +11,7 @@
   ".github/scripts/run-install-matrix.mjs",
   ".github/scripts/run-port-consumer.mjs",
   ".github/actions/install-matrix/action.yml",
-  ".github/scripts/validate-local-publish.sh",
+  ".github/scripts/validate-local-publish.mjs",
   ".github/scripts/tool-versions.json",
   ".github/scripts/ci-workflow.test.mjs",
   ".github/scripts/fetch-published.mjs",

@@ -164,7 +164,7 @@ test('publish order puts prerequisites before their dependents', () => {
 test('consumer jobs and publish validation use the image time service compatibility', () => {
   const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
   const installMatrix = readFileSync('.github/actions/install-matrix/action.yml', 'utf8');
-  const publishValidation = readFileSync('.github/scripts/validate-local-publish.sh', 'utf8');
+  const publishValidation = readFileSync('.github/scripts/validate-local-publish.mjs', 'utf8');
   for (const source of [workflow, installMatrix, publishValidation]) {
     assert.doesNotMatch(source, /setup-ci-runner\.sh|ci-time-service-compat\.sh/);
   }
@@ -204,7 +204,7 @@ test('editing only test infrastructure rebuilds nothing: the sentinels are teste
 });
 
 test('build infrastructure rebuilds the sentinels only', () => {
-  for (const file of ['.github/workflows/ci.yml', 'cli/build.mjs', 'cli/port.mjs', 'cli/runtime.sh', 'cli/sign.mjs', 'cli/semver.mjs', 'cli/npm-ports', '.github/scripts/validate-local-publish.sh', '.github/scripts/tool-versions.json']) {
+  for (const file of ['.github/workflows/ci.yml', 'cli/build.mjs', 'cli/port.mjs', 'cli/runtime.sh', 'cli/sign.mjs', 'cli/semver.mjs', 'cli/npm-ports', '.github/scripts/validate-local-publish.mjs', '.github/scripts/tool-versions.json']) {
     const { build, fetch } = split(file);
     same(build, sentinels);
     assert.deepEqual(fetch, [], file);

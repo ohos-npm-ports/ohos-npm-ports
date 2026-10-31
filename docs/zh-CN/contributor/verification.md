@@ -21,12 +21,12 @@ NPMBUILD 的 `check()` 应证明 `package()` 生成的产物正确，而不是�
 ```sh
 npm-ports lint <port>
 npm-ports check <port>
-sh .github/scripts/validate-local-publish.sh ports/<首字母>/<port>
+node .github/scripts/validate-local-publish.mjs ports/<首字母>/<port>
 ```
 
 - `lint` 检查配方结构和静态约束。
 - `check` 执行完整生命周期并运行配方的 `check()`。
-- `validate-local-publish.sh` 打包全部产物、发布到临时 Verdaccio、校验 tarball 和 integrity，并在干净目录实际安装。
+- `validate-local-publish.mjs` 打包全部产物、发布到临时 Verdaccio、校验 tarball 和 integrity，并在干净目录实际安装。
 
 需要跨平台验证时，同时保留或更新 port 的 `test.js`。日常发布检查使用 `npm-ports publish --dry-run` 或临时 Verdaccio，不发布到 npm 中心仓。
 

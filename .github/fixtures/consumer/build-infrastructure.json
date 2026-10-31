@@ -6,6 +6,6 @@
   "cli/semver.mjs",
   "cli/sign.mjs",
   "cli/npm-ports",
-  ".github/scripts/validate-local-publish.sh",
+  ".github/scripts/validate-local-publish.mjs",
   ".github/scripts/tool-versions.json"
 ]
