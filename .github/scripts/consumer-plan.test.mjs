@@ -250,7 +250,7 @@ test('build infrastructure is the part of the infrastructure that shapes build o
     assert.ok(isInfrastructure(entry), `${entry} must also be listed as infrastructure so that it triggers CI`);
     assert.ok(isBuildInfrastructure(entry), entry);
   }
-  for (const file of ['.github/workflows/ci.yml', '.github/workflows/bump.yml', '.github/scripts/consumer-plan.mjs', '.github/scripts/run-install-matrix.mjs', '.github/scripts/fetch-published.mjs', '.github/actions/consumer-job/action.yml', '.github/fixtures/consumer/test-tools.mjs', 'cli/bump.mjs', 'cli/lint.mjs', 'cli/registry.mjs', 'test/npm-ports.test.mjs', 'package.json']) {
+  for (const file of ['.github/workflows/ci.yml', '.github/workflows/bump.yml', '.github/scripts/consumer-plan.mjs', '.github/scripts/run-install-matrix.mjs', '.github/scripts/fetch-published.mjs', '.github/actions/consumer-job/action.yml', '.github/fixtures/consumer/test-tools.mjs', 'cli/bump.mjs', 'cli/lint.mjs', 'cli/registry.mjs', 'test/npm-ports.test.mjs']) {
     assert.ok(isInfrastructure(file), file);
     assert.ok(!isBuildInfrastructure(file), `${file} only changes how tarballs are tested`);
   }

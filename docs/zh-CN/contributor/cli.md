@@ -4,11 +4,10 @@
 
 ## 安装与 port 参数
 
-在仓库根目录选择一种方式：
+在仓库根目录执行：
 
 ```sh
 export PATH="$PWD/cli:$PATH"
-# 或者：npm link
 ```
 
 之后直接使用 `npm-ports <command>`，不需要输入 `node cli/npm-ports`。`<port>` 可以是发布短名、带版本线的短名或完整 port 目录，例如：

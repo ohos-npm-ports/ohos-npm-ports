@@ -52,7 +52,7 @@ check() {
 
 配方自己的局部变量使用 `lower_snake_case`，例如 `build_dir`、`source_dir`、`archive_dir` 和 `slot_name`。只有管理器提供的 `NPMBUILD_*`、外部工具或子进程明确要求的环境变量使用大写，例如 `PATH`、`CARGO_HOME`、`CC`；不要为了风格统一而改写这些环境变量。
 
-本项目配套提供了一个 [命令行工具](cli.md)。这个命令行工具也被称为“管理器”，它对外暴露的命令名为 `npm-ports`。在仓库根目录执行 `export PATH="$PWD/cli:$PATH"` 或 `npm link` 后，即可使用这个命令。
+本项目配套提供了一个 [命令行工具](cli.md)。这个命令行工具也被称为“管理器”，它对外暴露的命令名为 `npm-ports`。在仓库根目录执行 `export PATH="$PWD/cli:$PATH"` 后，即可使用这个命令。
 
 管理器执行命令时会自动调用这些 NPMBUILD 钩子函数：
 
