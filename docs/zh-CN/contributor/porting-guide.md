@@ -14,7 +14,7 @@ Node.js 运行时本身已经支持鸿蒙（见 [官方文档](https://github.co
 
 ### 2.1 缺平台二进制
 
-原生 addon 只发布了 darwin/linux(glibc)/win32 的预编译产物，没有 openharmony 的。统一走**源码构建**：容器内原生编译（见下面“工具链要点”，不同构建框架的具体打法见 [build-frameworks.md](build-frameworks.md)），产物塞进重打包的 npm 目录，由 `npm-ports pack` 统一签名后生成 tarball。
+原生 addon 只发布了 darwin/linux(glibc)/win32 的预编译产物，没有 openharmony 的。统一走**源码构建**：容器内原生编译（见下面“工具链要点”，不同构建框架的具体打法见 [原生 npm 包的 port 制作方式](build-frameworks.md)），产物塞进重打包的 npm 目录，由 `npm-ports pack` 统一签名后生成 tarball。
 
 OpenHarmony 产物必须通过源码构建。其他平台的预编译产物可以在来源、ABI、签名和功能都经过验证后复用，并随包分发。不能用其他平台产物替代 OpenHarmony 目标产物。
 
@@ -42,4 +42,4 @@ OpenHarmony 产物必须通过源码构建。其他平台的预编译产物可�
 - 本仓库发布的 tarball 已在 `pack` 阶段统一签名，消费方不需要额外的 postinstall 签名钩子。直接使用尚未打包的构建目录则不属于已签名产物。
 - 上游 `package.json` 的 `packageManager` 字段（比如指定 `pnpm@x`）如果所指定的包管理器在 openharmony 平台没有对应发布，重打包时要把这个字段删掉，否则消费方那边会因为解析不到对应平台的可执行文件而失败。
 
-不同构建框架（node-gyp 系 / napi-rs 系 / 手写 Rust / 手写 Go）具体怎么打包见 [build-frameworks.md](build-frameworks.md)。
+不同构建框架（node-gyp 系 / napi-rs 系 / 手写 Rust / 手写 Go）具体怎么打包见 [原生 npm 包的 port 制作方式](build-frameworks.md)。

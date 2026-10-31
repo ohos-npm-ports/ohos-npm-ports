@@ -66,7 +66,7 @@ npm-ports pack <port> [--no-build]
 - `npm-ports check`：再执行 `check()`，验证实际发布目录。
 - `npm-ports pack`：执行完整生命周期，注入 revision 并同步同 port 槽位引用，统一为发布目录中的 AArch64 ELF 签名，然后生成 npm tarball。`--no-build` 只复用已经通过检查的发布目录。
 
-同一主包或槽位的钩子在同一 Bash 进程内执行，主包和槽位之间隔离。槽位在同一 NPMBUILD 中声明，不另建独立 port。字段、钩子和执行契约的详细规范见 [port-spec.md](port-spec.md)。
+同一主包或槽位的钩子在同一 Bash 进程内执行，主包和槽位之间隔离。槽位在同一 NPMBUILD 中声明，不另建独立 port。字段、钩子和执行规则的详细规范见 [NPMBUILD 配方规范](port-spec.md)。
 
 ## 上游升级与修订
 
@@ -94,4 +94,4 @@ npm-ports validate-publish <port>
 
 `npm-ports publish` 只发布通过检查的 tarball，不重新执行生命周期。日常验证使用 `--dry-run` 或临时 Verdaccio。正式发布由发布工作流完成，不要在 NPMBUILD 内执行 `npm publish`。
 
-`npm-ports validate-publish` 打包全部产物，发布到临时 Verdaccio，校验 tarball 和 integrity，并在干净目录实际安装。推荐检查顺序见 [verification.md](verification.md)。命令总览可随时通过 `npm-ports --help` 查看。
+`npm-ports validate-publish` 打包全部产物，发布到临时 Verdaccio，校验 tarball 和 integrity，并在干净目录实际安装。推荐检查顺序见 [验证标准](verification.md)。命令总览可随时通过 `npm-ports --help` 查看。

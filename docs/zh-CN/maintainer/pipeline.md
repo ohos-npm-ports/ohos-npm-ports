@@ -1,4 +1,4 @@
-# CI 流水线
+# 流水线
 
 ## 1. 触发与整体形状
 
@@ -7,7 +7,7 @@
 | `pr-commit-count.yml` | 目标为 main 的 PR（创建及后续更新） | 检查每个 PR 只能有一个 commit。源分支后续推送会重新检查 |
 | `port-lint.yml` | ports 变更的 PR | NPMBUILD、辅助脚本、patch 和 commit message 检查 |
 | `ci.yml` | ports/基础设施变更、main push、手动 | 自动构建（输入没变的 port 取 npm 上已发布的 tarball）、临时 Verdaccio、artifact、五平台 consumer。`conclusion` 全绿后，白名单 main 由独立的 `publish` job 正式发布 |
-| `bump.yml` | 每日调度、手动 | 逐个 port 执行 `npm-ports bump-pr`，无开放 PR 时创建独立 PR |
+| `bump.yml` | 每周日 00:00 UTC 定时触发，也可手动触发 | 逐个 port 执行 `npm-ports bump-pr`，无开放 PR 时创建独立 PR |
 
 port 目录为 `ports/<首字母>/<name>` 或 `ports/<首字母>/<name>@<版本线>`。变更检测按这一级建立矩阵。手动 dispatch 默认构建全部 port（要强制重建时用它），artifact replay 仍按 sourceSha 和输入不变性复用。
 
@@ -63,7 +63,7 @@ main push 上的发布列表按 npm 现状判定：构建矩阵里主包版本�
 - 它依赖 `conclusion`，所以任何一个构建或 consumer 失败，本轮都不发布。flaky 的失败用 “Re-run failed jobs” 重跑。真失败修复后再 push，发布列表按 npm 现状判定，漏发的版本会自动补上。
 - 它下载本轮上传的 `port-*` artifact，发布的是验证过的同一批 tarball，不重新构建。`--expect-sha` 要求 manifest 的 `sourceSha` 等于当前 commit。
 - `NPM_TOKEN` 只在这个 job 里，先写入文件。执行 NPMBUILD 的发布步骤环境里没有它。
-- 依赖先发，任何一个 port 失败就停止。每个 port 内 slot 先发、主包最后发。发布命令带 `--skip-existing`：已存在且内容一致的版本跳过，内容不同则报错。dist-tag 已指向更新的版本时，旧版本以 `stale` tag 发布，不会把 `latest` 拨回去。详见 [发布出问题了怎么办](release-rollback.md)。
+- 依赖先发，任何一个 port 失败就停止。每个 port 内 slot 先发、主包最后发。发布命令带 `--skip-existing`：已存在且内容一致的版本跳过，内容不同则报错。dist-tag 已指向更新的版本时，旧版本以 `stale` tag 发布，不会把 `latest` 拨回去。详见 [发布故障处理](release-rollback.md)。
 
 
 

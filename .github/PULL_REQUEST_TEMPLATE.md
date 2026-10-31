@@ -1,3 +1,4 @@
+**检查项**：
 <!-- 不要勾选你实际没有做过的项。 -->
 
 - [ ] Commit message 符合仓库规范（`docs/zh-CN/contributor/contributing.md` 的「整理 commit」一节，CI 的 `lint-commits` 会自动检查）
