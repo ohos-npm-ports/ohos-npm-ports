@@ -21,6 +21,5 @@
   ".github/scripts/fetch-published.test.mjs",
   ".github/fixtures/consumer/",
   "cli/",
-  "test/",
-  "package.json"
+  "test/"
 ]

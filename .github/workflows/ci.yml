@@ -39,7 +39,6 @@ on:
       - ".github/fixtures/consumer/**"
       - "cli/**"
       - "test/**"
-      - "package.json"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -67,7 +66,6 @@ on:
       - ".github/fixtures/consumer/**"
       - "cli/**"
       - "test/**"
-      - "package.json"
 
 permissions:
   contents: read

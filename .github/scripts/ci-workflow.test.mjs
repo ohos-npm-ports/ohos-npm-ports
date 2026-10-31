@@ -135,7 +135,7 @@ test('workflow files that change the build are in both push and pull_request pat
     workflow.slice(workflow.indexOf('  pull_request:'), workflow.indexOf('\npermissions:')),
   ];
   for (const block of blocks) {
-    for (const file of ['.github/workflows/ci.yml', '.github/scripts/build-port.sh', '.github/scripts/validate-local-publish.sh', '.github/scripts/tool-versions.json', '.github/scripts/ci-workflow.test.mjs', 'package.json']) {
+    for (const file of ['.github/workflows/ci.yml', '.github/scripts/build-port.sh', '.github/scripts/validate-local-publish.sh', '.github/scripts/tool-versions.json', '.github/scripts/ci-workflow.test.mjs']) {
       assert.ok(block.includes(`"${file}"`), file);
     }
     for (const directory of ['cli', 'test']) assert.ok(block.includes(`"${directory}/**"`), directory);
