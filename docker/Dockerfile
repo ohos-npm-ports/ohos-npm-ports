@@ -1,4 +1,4 @@
-FROM ghcr.io/hqzing/dockerharmony:6.1
+FROM ghcr.io/hqzing/dockerharmony:7.0
 
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
@@ -16,13 +16,12 @@ RUN curl -fLO https://github.com/Harmonybrew/ohos-zsh/releases/download/5.9/zsh-
     ln -s /opt/zsh-5.9-ohos-arm64/bin/zsh /usr/bin/zsh && \
     zsh -c "$(curl -fsSL https://harmonybrew.atomgit.com/install.sh)" && \
     brew install -y gawk && \
-    brew install -y node python@3.14 devel-base git rust rustup bash openssh ohos-selfsign && \
+    brew install -y node python@3.14 devel-base git rust bash openssh ohos-selfsign && \
     echo 'alias ls="ls --color=auto"' >> /root/.mkshrc && \
     echo 'alias grep="grep --color=auto"' >> /root/.mkshrc && \
     cp /root/.mkshrc /root/.bashrc
 
-# 将 rustup 路径加入 PATH
-ENV PATH="/storage/Users/currentUser/.harmonybrew/opt/rustup/bin:${PATH}"
+ENV HOMEBREW_NO_INSTALL_UPGRADE="1"
 
 WORKDIR /root
 
