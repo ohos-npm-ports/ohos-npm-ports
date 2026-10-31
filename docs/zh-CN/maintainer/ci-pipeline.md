@@ -38,7 +38,7 @@ port 目录为 `ports/<首字母>/<name>` 或 `ports/<首字母>/<name>@<版本�
 npm-ports check "${{ matrix.dir }}"
 ```
 
-随后 `validate-local-publish.mjs` 执行 `pack --no-build`。打包器先注入 revision，再使用 `/storage/Users/currentUser/.harmonybrew/opt/ohos-selfsign/bin/selfsign --force` 统一为发布目录中的 AArch64 ELF 签名。随后生成 tarball，启动临时 Verdaccio，真实发布并安装全部主包和槽位包。上传的是私仓实际导出且通过 integrity 校验的 tarball，不另做 bottle。
+随后 `npm-ports validate-publish` 执行 `npm-ports pack --no-build`。打包器先注入 revision，再使用 `/storage/Users/currentUser/.harmonybrew/opt/ohos-selfsign/bin/selfsign --force` 统一为发布目录中的 AArch64 ELF 签名。随后生成 tarball，启动临时 Verdaccio，真实发布并安装全部主包和槽位包。上传的是私仓实际导出且通过 integrity 校验的 tarball，不另做 bottle。
 
 ### 哪些 port 构建，哪些直接取 npm 上的包
 
@@ -47,7 +47,7 @@ npm-ports check "${{ matrix.dir }}"
 - `build-matrix`：现场构建。条件是任意一条成立：port 目录（test.js 除外）有改动。`build-infrastructure.json` 里的文件有改动（此时矩阵里只有哨兵和改动的 port）。这个版本在 npm 上还没有。手动 dispatch（全部 port）。
 - `fetch-matrix`：其余 port。`fetch` job 用 `fetch-published.mjs` 下载已发布的主包和槽位包，核对 registry 的 integrity，写出和构建产物同格式的 manifest（`origin: "npm"`），再以同样的 `port-<name>` artifact 名上传，consumer 不需要区分来源。
 
-`infrastructure.json` 是会触发 CI 的全部文件，`build-infrastructure.json` 是其中会改变构建产物的子集（`ci.yml` 的构建步骤、`cli/` 里的构建代码、`validate-local-publish.mjs`、`tool-versions.json` 等）。只改基础设施时不再测试全部 port，只测 `sentinel-ports.json` 里的哨兵 port（需要是带 primary `test.js` 的轻量 port）：改的是构建基础设施，哨兵重新构建；改的是 consumer 脚本等测试基础设施，哨兵取 npm 上已发布的包。需要全量验证时手动 dispatch。
+`infrastructure.json` 是会触发 CI 的全部文件，`build-infrastructure.json` 是其中会改变构建产物的子集（`ci.yml` 的构建步骤、`cli/` 里的构建代码、`tool-versions.json` 等）。只改基础设施时不再测试全部 port，只测 `sentinel-ports.json` 里的哨兵 port（需要是带 primary `test.js` 的轻量 port）：改的是构建基础设施，哨兵重新构建；改的是 consumer 脚本等测试基础设施，哨兵取 npm 上已发布的包。需要全量验证时手动 dispatch。
 
 注意两点：
 

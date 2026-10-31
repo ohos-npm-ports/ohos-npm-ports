@@ -6,9 +6,9 @@ import { appendFileSync, closeSync, existsSync, mkdirSync, mkdtempSync, openSync
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { registryConfig } from './consumer-registry.mjs';
+import { registryConfig } from '../.github/scripts/consumer-registry.mjs';
 
-const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const registry = 'http://127.0.0.1:4873';
 const delay = (ms) => new Promise((done) => setTimeout(done, ms));
 
@@ -59,7 +59,7 @@ function commandExists(command) {
   }
 }
 
-export async function validateLocalPublish(portArg) {
+export async function validatePublish(portArg) {
   const temporary = mkdtempSync(join(tmpdir(), 'ohos-port-registry-'));
   let verdaccio;
   const abort = () => {
@@ -216,7 +216,7 @@ exec "$REAL_NPM" "$@"
 }
 
 if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
-  validateLocalPublish(process.argv[2]).catch((error) => {
+  validatePublish(process.argv[2]).catch((error) => {
     console.error(error);
     process.exitCode = 1;
   });
