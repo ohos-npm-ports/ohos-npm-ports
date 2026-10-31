@@ -1,0 +1,12 @@
+[
+  "cli/build.mjs",
+  "cli/port.mjs",
+  "cli/runtime.sh",
+  "cli/semver.mjs",
+  "cli/sign.mjs",
+  "cli/npm-ports",
+  ".github/scripts/build-port.sh",
+  ".github/scripts/validate-local-publish.sh",
+  ".github/scripts/ci-time-service-compat.sh",
+  ".github/scripts/tool-versions.json"
+]

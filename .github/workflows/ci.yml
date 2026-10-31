@@ -19,6 +19,9 @@ on:
       - ".github/workflows/ci.yml"
       - ".github/workflows/bump.yml"
       - ".github/scripts/validate-local-publish.sh"
+      - ".github/scripts/build-port.sh"
+      - ".github/scripts/fetch-published.mjs"
+      - ".github/scripts/fetch-published.test.mjs"
       - ".github/scripts/tool-versions.json"
       - ".github/scripts/ci-workflow.test.mjs"
       - ".github/scripts/run-port-consumer.mjs"
@@ -44,6 +47,9 @@ on:
       - ".github/workflows/ci.yml"
       - ".github/workflows/bump.yml"
       - ".github/scripts/validate-local-publish.sh"
+      - ".github/scripts/build-port.sh"
+      - ".github/scripts/fetch-published.mjs"
+      - ".github/scripts/fetch-published.test.mjs"
       - ".github/scripts/tool-versions.json"
       - ".github/scripts/ci-workflow.test.mjs"
       - ".github/scripts/run-port-consumer.mjs"
@@ -79,6 +85,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      build-matrix: ${{ steps.set-matrix.outputs.build-matrix }}
+      fetch-matrix: ${{ steps.set-matrix.outputs.fetch-matrix }}
       publish: ${{ steps.set-matrix.outputs.publish }}
       publish-order: ${{ steps.set-matrix.outputs.publish-order }}
       consumer-enabled: ${{ steps.set-matrix.outputs.consumer-enabled }}
@@ -97,12 +105,15 @@ jobs:
           CONSUMER_SELECTION: ${{ github.event_name == 'workflow_dispatch' && inputs.consumer-ports || '' }}
           ARTIFACT_RUN_ID: ${{ inputs.artifact-run-id }}
           BUILD_ALL: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+          REGISTRY_CHECK: 'true'
           PUBLISH_CHECK: ${{ github.event_name == 'push' && 'true' || 'false' }}
         run: |
           if [ "${{ github.event_name }}" = workflow_dispatch ]; then
             printf '.github/scripts/run-port-consumer.mjs\n' | node .github/scripts/consumer-plan.mjs >> "$GITHUB_OUTPUT"
             if [ -n "$ARTIFACT_RUN_ID" ]; then
               echo 'matrix=[]' >> "$GITHUB_OUTPUT"
+              echo 'build-matrix=[]' >> "$GITHUB_OUTPUT"
+              echo 'fetch-matrix=[]' >> "$GITHUB_OUTPUT"
               echo 'replay=true' >> "$GITHUB_OUTPUT"
             else
               echo 'replay=false' >> "$GITHUB_OUTPUT"
@@ -127,6 +138,9 @@ jobs:
       - name: Test consumer planning
         run: node --test .github/scripts/consumer-plan.test.mjs
 
+      - name: Test published tarball fetching
+        run: node --test .github/scripts/fetch-published.test.mjs
+
       - name: Test NPMBUILD manager and all port metadata
         run: |
           node --test test/*.test.mjs
@@ -148,18 +162,18 @@ jobs:
       - name: Record approval for first-time external contributors
         run: echo 'Full builds approved for this first-time external contribution.'
 
-  # 对变化的 NPMBUILD port 统一构建、私仓验证并上传 artifact；发布由 conclusion 之后的 publish job 负责
+  # 构建输入变了或 npm 上还没有这个版本的 port：构建、私仓验证并上传 artifact；发布由 conclusion 之后的 publish job 负责
   build:
     needs: [detect-changes, external-build-approval]
     if: >
       always() &&
       needs.detect-changes.result == 'success' &&
       (needs.external-build-approval.result == 'success' || needs.external-build-approval.result == 'skipped') &&
-      needs.detect-changes.outputs.matrix != '[]'
+      needs.detect-changes.outputs.build-matrix != '[]'
     strategy:
       max-parallel: 20
       matrix:
-        dir: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+        dir: ${{ fromJson(needs.detect-changes.outputs.build-matrix) }}
       fail-fast: false
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 360
@@ -181,15 +195,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Build
-        # Avoid implicit upgrades during NPMBUILD builds and prefer brew rust,
-        # whose toolchain includes the OpenHarmony host target.
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
-          HOMEBREW_NO_INSTALL_UPGRADE: "1"
-        run: |
-          brew update
-          export PATH="$(brew --prefix rust)/bin:$PATH"
-          cli/npm-ports check "${{ matrix.dir }}"
+        run: sh .github/scripts/build-port.sh "${{ matrix.dir }}"
 
       - name: Validate publish through temporary Verdaccio
         id: registry
@@ -204,13 +210,57 @@ jobs:
           compression-level: 0
           retention-days: 7
 
-  consumer-install:
-    needs: [detect-changes, build]
+  # 构建输入没变、版本已在 npm 上的 port 不重建：直接取已发布的 tarball，让 consumer 测的正是用户会装到的包
+  fetch:
+    needs: [detect-changes, external-build-approval]
     if: >
       always() &&
       needs.detect-changes.result == 'success' &&
-      needs.detect-changes.outputs.generic-enabled == 'true' &&
-      (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+      (needs.external-build-approval.result == 'success' || needs.external-build-approval.result == 'skipped') &&
+      needs.detect-changes.outputs.fetch-matrix != '[]'
+    strategy:
+      max-parallel: 20
+      matrix:
+        dir: ${{ fromJson(needs.detect-changes.outputs.fetch-matrix) }}
+      fail-fast: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - uses: actions/checkout@v7
+      - name: Download the published tarballs
+        id: published
+        run: node .github/scripts/fetch-published.mjs "${{ matrix.dir }}"
+      - name: Upload published packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.published.outputs.artifact-name }}
+          path: ${{ matrix.dir }}/artifacts/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  # build 和 fetch 都结束后 consumer 才开始；个别 port 构建失败时，其余 consumer 照常运行
+  artifacts:
+    needs: [detect-changes, external-build-approval, build, fetch]
+    if: >
+      always() &&
+      needs.detect-changes.result == 'success' &&
+      (needs.external-build-approval.result == 'success' || needs.external-build-approval.result == 'skipped') &&
+      (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.build-matrix == '[]') &&
+      (needs.fetch.result == 'success' || needs.fetch.result == 'failure' || needs.detect-changes.outputs.fetch-matrix == '[]')
+    runs-on: ubuntu-slim
+    steps:
+      - run: echo 'The artifacts of this run are uploaded.'
+
+  consumer-install:
+    needs: [detect-changes, artifacts]
+    if: >
+      always() &&
+      needs.artifacts.result == 'success' &&
+      needs.detect-changes.outputs.generic-enabled == 'true'
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -240,12 +290,11 @@ jobs:
           token: ${{ github.token }}
 
   consumer-install-openharmony:
-    needs: [detect-changes, build]
+    needs: [detect-changes, artifacts]
     if: >
       always() &&
-      needs.detect-changes.result == 'success' &&
-      needs.detect-changes.outputs.generic-enabled == 'true' &&
-      (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+      needs.artifacts.result == 'success' &&
+      needs.detect-changes.outputs.generic-enabled == 'true'
     name: consumer-install (openharmony-arm64)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 180
@@ -266,8 +315,8 @@ jobs:
           token: ${{ github.token }}
 
   consumer-tests-windows-x64:
-    needs: [detect-changes, build]
-    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    needs: [detect-changes, artifacts]
+    if: always() && needs.artifacts.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true'
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -288,8 +337,8 @@ jobs:
           token: ${{ github.token }}
 
   consumer-tests-linux-arm64:
-    needs: [detect-changes, build]
-    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    needs: [detect-changes, artifacts]
+    if: always() && needs.artifacts.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true'
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -310,8 +359,8 @@ jobs:
           token: ${{ github.token }}
 
   consumer-tests-linux-x64:
-    needs: [detect-changes, build]
-    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    needs: [detect-changes, artifacts]
+    if: always() && needs.artifacts.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true'
     strategy:
       fail-fast: false
       max-parallel: 6
@@ -332,8 +381,8 @@ jobs:
           token: ${{ github.token }}
 
   consumer-tests-darwin-arm64:
-    needs: [detect-changes, build]
-    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    needs: [detect-changes, artifacts]
+    if: always() && needs.artifacts.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true'
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -354,8 +403,8 @@ jobs:
           token: ${{ github.token }}
 
   consumer-tests-openharmony:
-    needs: [detect-changes, build]
-    if: always() && needs.detect-changes.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true' && (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.replay == 'true')
+    needs: [detect-changes, artifacts]
+    if: always() && needs.artifacts.result == 'success' && needs.detect-changes.outputs.consumer-enabled == 'true'
     name: consumer (${{ matrix.port }}, openharmony-arm64)
     strategy:
       fail-fast: false
@@ -428,6 +477,7 @@ jobs:
       - detect-changes
       - external-build-approval
       - build
+      - fetch
       - consumer-install
       - consumer-install-openharmony
       - consumer-tests-windows-x64
@@ -443,7 +493,9 @@ jobs:
           DETECT: ${{ needs.detect-changes.result }}
           APPROVAL: ${{ needs.external-build-approval.result }}
           BUILD: ${{ needs.build.result }}
-          MATRIX: ${{ needs.detect-changes.outputs.matrix }}
+          BUILD_MATRIX: ${{ needs.detect-changes.outputs.build-matrix }}
+          FETCH: ${{ needs.fetch.result }}
+          FETCH_MATRIX: ${{ needs.detect-changes.outputs.fetch-matrix }}
           GENERIC_ENABLED: ${{ needs.detect-changes.outputs.generic-enabled }}
           INSTALL_HOST: ${{ needs.consumer-install.result }}
           INSTALL_OHOS: ${{ needs.consumer-install-openharmony.result }}
@@ -459,8 +511,10 @@ jobs:
             const require = (condition, message) => { if (!condition) failures.push(message); };
             require(process.env.DETECT === "success", `detect-changes: ${process.env.DETECT}`);
             require(["success", "skipped"].includes(process.env.APPROVAL), `external approval: ${process.env.APPROVAL}`);
-            if (process.env.MATRIX && process.env.MATRIX !== "[]") require(process.env.BUILD === "success", `build: ${process.env.BUILD}`);
+            if (process.env.BUILD_MATRIX && process.env.BUILD_MATRIX !== "[]") require(process.env.BUILD === "success", `build: ${process.env.BUILD}`);
             else require(["success", "skipped"].includes(process.env.BUILD), `build: ${process.env.BUILD}`);
+            if (process.env.FETCH_MATRIX && process.env.FETCH_MATRIX !== "[]") require(process.env.FETCH === "success", `fetch: ${process.env.FETCH}`);
+            else require(["success", "skipped"].includes(process.env.FETCH), `fetch: ${process.env.FETCH}`);
             if (process.env.GENERIC_ENABLED === "true") {
               for (const name of ["INSTALL_HOST", "INSTALL_OHOS"]) require(process.env[name] === "success", `${name}: ${process.env[name]}`);
             }

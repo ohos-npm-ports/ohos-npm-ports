@@ -79,6 +79,7 @@ OpenHarmony consumer 使用 ci-runner 镜像自带的 NDK 库目录；该目录�
 ## CI 基础设施约定
 
 - `infrastructure.json` 是「改动后需全量验证」的唯一清单；`ci.yml` 的 `paths` 必须与之一致（`consumer-plan.test.mjs` 校验）。`*.md` 不触发全量。
+- `build-infrastructure.json` 是其中会改变构建产物的子集（构建代码、构建脚本、工具版本），必须同时列在 `infrastructure.json`。只改清单里其余的文件时，全部 port 照常测试，但取 npm 上已发布的 tarball，不重新构建；改了这个子集里的文件才全量重建。
 - `.github/scripts/tool-versions.json` 固定 npm、Verdaccio、playwright-core 的精确版本；升级需单独提交。npm 安装带 `fetch-retries` 并对工具安装重试 3 次。
 - 每个 OS 一个独立 consumer job（`consumer-tests-<os>-<arch>`），避免单个 matrix 超过 GitHub 的 256 项上限；共用步骤在 `.github/actions/consumer-job`。
 - 失败时 runner 写 `FAIL ...` 到 step summary，并把 Verdaccio 日志、npm `_logs`、`.port-tests` 保存到 `.consumer-logs/`，由 `consumer-logs-*` artifact 上传（保留 3 天）。
