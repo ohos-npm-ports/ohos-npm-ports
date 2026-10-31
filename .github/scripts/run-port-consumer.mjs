@@ -161,7 +161,7 @@ async function portTests(project, specs, mode, primary, phase = 'test') {
     const report = join(testDir, `${phase}-${index}.json`);
     cpSync(spec.file, test);
     console.log(`Port ${phase}: ${spec.portDir} (${mode})`);
-    await run([test], project, false, { PORT_TEST_PHASE: phase, PORT_TEST_MODE: mode, PORT_TEST_REPORT: report, PORT_TEST_PRIMARY: String(spec.portDir === primary), PORT_TEST_PORT_VERSION: spec.portVersion, PORT_TEST_NPM_CLI: npmCli, PORT_TEST_FRONTEND_HELPER: pathToFileURL(join(fixture, 'verify-frontend.mjs')).href, PORT_TEST_HELPER: pathToFileURL(join(fixture, 'test-tools.mjs')).href }, spec.timeout * 1000);
+    await run([test], project, false, { PORT_TEST_PHASE: phase, PORT_TEST_MODE: mode, PORT_TEST_REPORT: report, PORT_TEST_PRIMARY: String(spec.portDir === primary), PORT_TEST_PORT_VERSION: spec.portVersion, PORT_TEST_NPM_CLI: npmCli, PORT_TEST_HELPER: pathToFileURL(join(fixture, 'test-tools.mjs')).href }, spec.timeout * 1000);
     if (phase === 'setup') continue;
     const result = JSON.parse(readFileSync(report));
     assert.ok(result.result && typeof result.result === 'object', `Invalid report from ${spec.portDir}`);

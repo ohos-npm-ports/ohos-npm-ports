@@ -1,7 +1,0 @@
-{
-  "htmlIncludes": ["Overrides frontend", "registry-overrides-ready"],
-  "assets": [
-    { "path": "/app.js", "minBytes": 100 },
-    { "path": "/style.css", "includes": ".app" }
-  ]
-}
