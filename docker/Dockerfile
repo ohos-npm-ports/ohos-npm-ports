@@ -23,6 +23,28 @@ RUN curl -fLO https://github.com/Harmonybrew/ohos-zsh/releases/download/5.9/zsh-
 
 ENV HOMEBREW_NO_INSTALL_UPGRADE="1"
 
+# 预置时间服务桩，使容器环境更接近真机。
+RUN <<'EOF'
+set -eu
+mkdir -p /system
+if [ ! -e /system/lib64 ]; then
+  ln -s /lib64 /system/lib64
+fi
+mkdir -p /system/lib64/ndk
+cat > /tmp/time_service.c <<'C_EOF'
+#include <stdint.h>
+#include <stdio.h>
+uint32_t OH_TimeService_GetTimeZone(char *timeZone, uint32_t len) {
+    if (timeZone != 0 && len > 0) {
+        snprintf(timeZone, len, "Asia/Shanghai");
+    }
+    return 0;
+}
+C_EOF
+clang -shared -fPIC /tmp/time_service.c -o /system/lib64/ndk/libtime_service_ndk.so
+rm /tmp/time_service.c
+EOF
+
 WORKDIR /root
 
 CMD ["/bin/sh"]
