@@ -19,7 +19,6 @@ on:
       - ".github/workflows/ci.yml"
       - ".github/workflows/bump.yml"
       - ".github/scripts/validate-local-publish.sh"
-      - ".github/scripts/build-port.sh"
       - ".github/scripts/fetch-published.mjs"
       - ".github/scripts/fetch-published.test.mjs"
       - ".github/scripts/tool-versions.json"
@@ -46,7 +45,6 @@ on:
       - ".github/workflows/ci.yml"
       - ".github/workflows/bump.yml"
       - ".github/scripts/validate-local-publish.sh"
-      - ".github/scripts/build-port.sh"
       - ".github/scripts/fetch-published.mjs"
       - ".github/scripts/fetch-published.test.mjs"
       - ".github/scripts/tool-versions.json"
@@ -193,7 +191,11 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Build
-        run: sh .github/scripts/build-port.sh "${{ matrix.dir }}"
+        env:
+          HOMEBREW_NO_INSTALL_UPGRADE: '1'
+        run: |
+          brew update
+          PATH="$(brew --prefix rust)/bin:$PATH" cli/npm-ports check "${{ matrix.dir }}"
 
       - name: Validate publish through temporary Verdaccio
         id: registry
