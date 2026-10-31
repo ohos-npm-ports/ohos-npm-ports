@@ -16,30 +16,30 @@ Node.js 运行时本身已经支持鸿蒙（见 [官方文档](https://github.co
 
 原生 addon 只发布了 darwin/linux(glibc)/win32 的预编译产物，没有 openharmony 的。统一走**源码构建**：容器内原生编译（见下面“工具链要点”，不同构建框架的具体打法见 [build-frameworks.md](build-frameworks.md)），产物塞进重打包的 npm 目录，由 `npm-ports pack` 统一签名后生成 tarball。
 
-OpenHarmony 产物必须通过源码构建。其他平台的预编译产物可以在来源、ABI、签名和功能都经过验证后复用，并随包分发；不能用其他平台产物替代 OpenHarmony 目标产物。
+OpenHarmony 产物必须通过源码构建。其他平台的预编译产物可以在来源、ABI、签名和功能都经过验证后复用，并随包分发。不能用其他平台产物替代 OpenHarmony 目标产物。
 
 ### 2.2 `dlopen` 失败 / SIGSYS 崩溃
 
 原生二进制存在，但加载或运行时崩溃，通常是下面几类之一：
 
-- **未签名**：商用发行版 HarmonyOS 对 ELF 文件做代码签名校验，未签名的 .node 模块在鸿蒙 PC 上不能被加载。当用户或流水线执行 `npm-ports pack` 命令，管理器会对发布目录中的 AArch64 ELF 统一进行代码签名，因此常规的发布流程中不会出现未签名的文件。如果你不经 `npm-ports pack` 打包而是将中间产物直接复制到鸿蒙 PC 上使用，就有可能因缺乏代码签名而加载失败。
-- **UND 符号在 dlopen 时未能全部解析**：OHOS musl 的动态链接器不做 lazy binding——`.so`/`.node` 里凡是引用到但没定义的符号，dlopen 那一刻就必须全部能解析到，缺一个就整体加载失败（不是“没调用到就不炸”那套 glibc 习惯）。常见于 addon 依赖某个 musl 缺失的符号（如 `pthread_tryjoin_np`）；修法是给这个符号加 weak 声明 + 运行时判空回退（C/C++ 用 `__attribute__((weak))`；zig 用 `.linkage = .weak` 声明为 optional，`orelse` 兜底）。
+- **未签名**：商用发行版 HarmonyOS 对 ELF 文件做代码签名校验，未签名的 .node 模块在鸿蒙 PC 上不能被加载。`npm-ports pack` 会对发布目录中的 AArch64 ELF 统一进行代码签名，因此常规的发布流程中不会出现未签名的文件。如果你不经 `npm-ports pack` 打包而是将中间产物直接复制到鸿蒙 PC 上使用，就有可能因缺乏代码签名而加载失败。
+- **UND 符号在 dlopen 时未能全部解析**：OHOS musl 的动态链接器不做 lazy binding——`.so`/`.node` 里凡是引用到但没定义的符号，dlopen 那一刻就必须全部能解析到，缺一个就整体加载失败（不是“没调用到就不炸”那套 glibc 习惯）。常见于 addon 依赖某个 musl 缺失的符号（如 `pthread_tryjoin_np`）。修法是给这个符号加 weak 声明 + 运行时判空回退（C/C++ 用 `__attribute__((weak))`，zig 用 `.linkage = .weak` 声明为 optional，`orelse` 兜底）。
 - **无条件探测的 syscall 直接被内核杀掉**：鸿蒙内核对某些 syscall（`fanotify_init`、`close_range` 等）返回 SIGSYS 而不是 `ENOSYS`，代码里“先探测再决定要不要用”的防御逻辑根本没机会跑到 err 分支。修法是运行时判内核类型（`uname()` 识别 HongMeng/HarmonyOS）直接跳过探测，走上游本来就有的降级路径（很多项目对 Android 已经有类似的特判，抄它的路径最省事）。
 - **dlopen 出来的模块无法回溯解析主程序符号**：鸿蒙动态链接器做了命名空间隔离，dlopen 加载的模块默认看不到主二进制导出的符号（zsh/ruby/perl 一类的插件机制都会遇到）。链接时加 `-Wl,-z,global` 恢复类似标准 Linux 的全局符号可见性。
 - **C++ ABI 边界**：调用方和宿主必须是同一套 C++ 标准库实现（都是 libstdc++ 或都是 libc++），mangled name 不同没有编译选项能桥接——静态链了某个 libstdc++ 版本的 Node.js 无法加载 libc++ 编译的 addon，反之亦然。
 
 ## 3. 工具链要点
 
-- **Rust**：容器里 `rustc` 的 host triple 本身就是 `aarch64-unknown-linux-ohos`，`cargo`/`napi build --platform` 原生构建即可，不需要配交叉 target。`napi-rs` 不同大版本对 openharmony host 的支持程度不一样——2.x 系可能不认 openharmony host（这时候绕开 `napi build`，直接 `cargo build --release` 再把产物改名成 loader 认的文件名），3.x 系平台名固定 `openharmony-arm64`；各家 loader 命名也不统一（有的用 `openharmony-arm64`，有的走自定义的 `linux-arm64-ohos`），动手前先读目标包的 loader 源码确认它实际认哪个名字。
-- **Zig**：交叉编译选 `aarch64-linux-musl` target，不要选 `aarch64-linux-ohos`——后者的产物会引用 OHOS libc 没有的 `__emutls_get_address`，反而跑不起来；`aarch64-linux-musl` 产物和上游官方发布的 musl 版本结构一致，能直接复用。
-- **Go**：无 cgo 且依赖允许时可以静态编译；存在 cgo 或动态依赖时，需要额外处理库路径和签名。`-ldflags="-s -w" -trimpath` 可用于减小体积。
+- **Rust**：容器里 `rustc` 的 host triple 本身就是 `aarch64-unknown-linux-ohos`，`cargo`/`napi build --platform` 原生构建即可，不需要配交叉 target。`napi-rs` 不同大版本对 openharmony host 的支持程度不一样——2.x 系可能不认 openharmony host（这时候绕开 `napi build`，直接 `cargo build --release` 再把产物改名成 loader 认的文件名），3.x 系平台名固定 `openharmony-arm64`。各家 loader 命名也不统一（有的用 `openharmony-arm64`，有的走自定义的 `linux-arm64-ohos`），动手前先读目标包的 loader 源码确认它实际认哪个名字。
+- **Zig**：交叉编译选 `aarch64-linux-musl` target，不要选 `aarch64-linux-ohos`——后者的产物会引用 OHOS libc 没有的 `__emutls_get_address`，反而跑不起来。`aarch64-linux-musl` 产物和上游官方发布的 musl 版本结构一致，能直接复用。
+- **Go**：无 cgo 且依赖允许时可以静态编译。存在 cgo 或动态依赖时，需要额外处理库路径和签名。`-ldflags="-s -w" -trimpath` 可用于减小体积。
 - **vendored 依赖打补丁**：Rust 生态里一些老版本 crate（如某些版本的 `nix`）没有 OHOS target 支持，而项目又用 `^0.x` semver 锁死版本导致无法直接升级——这时改走 vendor 一份新版本源码，用 `[patch.crates-io]` 或直接替换 vendor 目录里的版本号来打补丁（`[patch.crates-io]` 本身跨不了 0.x 的 minor 版本边界，不能只改 `Cargo.toml` 里的版本号了事）。
-- `ci-runner` 镜像已经包含 `git`，`git clone`/`git submodule` 都能用（`oxlint-tsgolint` 就是这么拉 `typescript-go` 子模块的）；但没有子模块、只是拉一份 tag 源码的场景，`curl` 直接拉 GitHub 的 `codeload.github.com` tarball 更快也更省——两种方式都合理，按实际需要选。
+- `ci-runner` 镜像已经包含 `git`，`git clone`/`git submodule` 都能用（`oxlint-tsgolint` 就是这么拉 `typescript-go` 子模块的）。但没有子模块、只是拉一份 tag 源码的场景，`curl` 直接拉 GitHub 的 `codeload.github.com` tarball 更快也更省——两种方式都合理，按实际需要选。
 
 ## 4. npm 生态注意事项
 
-- `npm install file:<目录>` 是 symlink 安装，不会装该包自己的依赖；要正常解析依赖必须先 `npm pack` 出 tarball 再装。
-- 本仓库发布的 tarball 已在 `pack` 阶段统一签名，消费方不需要额外的 postinstall 签名钩子；直接使用尚未打包的构建目录则不属于已签名产物。
+- `npm install file:<目录>` 是 symlink 安装，不会装该包自己的依赖。要正常解析依赖必须先 `npm pack` 出 tarball 再装。
+- 本仓库发布的 tarball 已在 `pack` 阶段统一签名，消费方不需要额外的 postinstall 签名钩子。直接使用尚未打包的构建目录则不属于已签名产物。
 - 上游 `package.json` 的 `packageManager` 字段（比如指定 `pnpm@x`）如果所指定的包管理器在 openharmony 平台没有对应发布，重打包时要把这个字段删掉，否则消费方那边会因为解析不到对应平台的可执行文件而失败。
 
 不同构建框架（node-gyp 系 / napi-rs 系 / 手写 Rust / 手写 Go）具体怎么打包见 [build-frameworks.md](build-frameworks.md)。

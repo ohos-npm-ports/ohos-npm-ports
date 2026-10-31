@@ -1,6 +1,6 @@
 <!-- 不要勾选你实际没有做过的项。 -->
 
-- [ ] Commit message 符合仓库规范（`docs/zh-CN/contributor/contributing.md` 的 「Commit 规范」一节，CI 的 `lint-commits` 会自动检查）
+- [ ] Commit message 符合仓库规范（`docs/zh-CN/contributor/contributing.md` 的「整理 commit」一节，CI 的 `lint-commits` 会自动检查）
 - [ ] 已在 `ci-runner` 容器内跑通 `npm-ports pack <port>`（而非在宿主机上直接跑）
 - [ ] NPMBUILD 的 `version` / `revision` 正确，打包后的 `name` 是 `@ohos-npm-ports/<port>`、`version` 是 `<上游版本>-<修订号>`
 - [ ] `patches/` 里的每个 patch 都被 `NPMBUILD` 实际应用（没有孤立补丁文件）
