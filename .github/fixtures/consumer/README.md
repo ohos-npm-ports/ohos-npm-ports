@@ -6,13 +6,12 @@
 - `ports/<首字母>/<port>/test.js`：可选的真实功能断言及工程场景。新增 port 测试不需要修改 runner 的包名清单；上游默认版本读取 NPMBUILD。
 - `.github/scripts/consumer-plan.mjs`：自动发现测试、选择变化的 port、展开配套构建依赖，同时输出通用安装选择。CI 基础设施变化时只验证 `sentinel-ports.json` 里的哨兵 port。
 - `.github/scripts/run-port-consumer.mjs`：artifact 校验、临时 Verdaccio、真实 npm alias overrides、安装/`npm ci`、执行 test.js 和 baseline 结果对比。没有针对 Next、Lightning CSS 等包的特殊分支。
-- `projects/node/`：默认最小 npm 工程，不安装前端框架、不自动 build/start。`projects/react-assets/` 仅是可选 React/Webpack 样例。Next 各版本共用 `projects/next-react/`，通过 `@test-project: next-react` 选择。
+- `projects/node/`：默认最小 npm 工程，不安装前端框架，不自动 build/start。需要专属工程时，使用配方内的 fixture，而不是在 runner 中维护包名分支。
 
 ## test.js 协议
 
 ```js
 // @test-package: @upstream/package
-// @test-project: react-assets
 // @test-prerequisite: ports/companion
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -25,7 +24,7 @@ fs.writeFileSync(process.env.PORT_TEST_REPORT, JSON.stringify({
 }));
 ```
 
-`@test-package` 必填，包含完整上游 scope。上游版本默认读取 NPMBUILD，可用 `@test-upstream-version` 覆盖；发布包名默认 `@ohos-npm-ports/<pkgname>`，可用 `@test-port-package` 覆盖。`@test-project` 默认 `node`。要使用可选前端样例须显式写 `@test-project: react-assets`；专属工程可通过 `@test-fixture: test-fixture` 指向该配方内的目录，目录须包含 package.json。可重复的 `@test-prerequisite` 用于其他配方；其 test.js 也会进入该消费工程测试，没有时仅带入构建产物。主配方的 packages 已包含槽位，不要再把 slots/ 子目录写成独立 prerequisite。
+`@test-package` 必填，包含完整上游 scope。上游版本默认读取 NPMBUILD，可用 `@test-upstream-version` 覆盖；发布包名默认 `@ohos-npm-ports/<pkgname>`，可用 `@test-port-package` 覆盖。`@test-project` 默认 `node`。专属工程可通过 `@test-fixture: test-fixture` 指向配方内的目录，目录须包含 package.json。可重复的 `@test-prerequisite` 用于其他配方；其 test.js 也会进入该消费工程测试，没有时仅带入构建产物。主配方的 packages 已包含槽位，不要再把 slots/ 子目录写成独立 prerequisite。
 
 测试被复制到消费工程，默认以 ESM（.mjs）执行；仅显式声明 `@test-format: cjs` 时以 .cjs 执行，cwd 是工程根目录；用上游原名 require。`PORT_TEST_MODE` 为 `baseline` 或 `overrides`。`PORT_TEST_REPORT` 是必须写入的 JSON 报告路径。`result` 放跨模式可比较的功能结果；`assets` 放工程生成并要通过 HTTP 验证的资源，如 `{path:'/image.png',magic:'89504e470d0a1a0a'}` 或 `{path:'/style.css',includes:'.app{'}`。生成资源放到工程 `public/` 下。
 
@@ -62,15 +61,7 @@ Linux x86 指 x86_64，不包含 ia32。HTTP 检查覆盖生产页面、JS/CSS/�
 
 runner 不调用前端 build/start，也不读取 scenario.json。test.js 自己决定检查内容；默认 Node 工程可执行 API、CLI、数据库等测试。报告的 result 必填，assets 仅是可选的前端检查数据。
 
-当前需要前端集成验证的 test.js 显式选择 react-assets，并在完成自己的 API 断言后调用：
-
-```js
-if (process.env.PORT_TEST_PRIMARY === 'true') {
-  await (await import(process.env.PORT_TEST_FRONTEND_HELPER)).verifyFrontend(report);
-}
-```
-
-该可选共享工具负责 build/start/HTTP/资源检查，只有 test.js 调用才执行。prerequisite 测试会收到 PORT_TEST_PRIMARY=false，避免辅助包替主包决定工程流程。PORT_TEST_NPM_CLI 指向该 job 的 npm CLI JS 文件，可用于跨平台执行 npm 命令（用 process.execPath 启动，避免依赖 npm.cmd 的 shell 行为）。
+`PORT_TEST_NPM_CLI` 指向该 job 的 npm CLI JS 文件，可用于跨平台执行 npm 命令（用 process.execPath 启动，避免依赖 npm.cmd 的 shell 行为）。
 
 OpenHarmony consumer 使用 ci-runner 镜像自带的 NDK 库目录；该目录加入运行时动态库搜索路径。验证结果不证明真实设备上的系统服务行为，尤其不将 CI 库提供的时区结果作为系统服务验收。
 
