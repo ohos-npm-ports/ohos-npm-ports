@@ -35,7 +35,6 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           dirs=$(git diff --name-only --diff-filter=d "$BASE" "$HEAD" \
-                 | grep '^ports/' \
                  | sed -nE 's|^(ports/[^/]+/[^/]+)/.*|\1|p' \
                  | sort -u \
                  | jq -R -s -c 'split("\n")[:-1]')
