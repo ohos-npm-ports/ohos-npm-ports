@@ -4,8 +4,8 @@
  {
 -  "name": "turbo",
 +  "name": "@ohos-npm-ports/turbo",
-   "version": "2.10.10",
-   "description": "Turborepo is a high-performance build system for JavaScript and TypeScript codebases.",
+   "version": "2.11.10",
+   "description": "Turborepo is the build system for coding agents.",
    "homepage": "https://turborepo.dev",
    "bugs": "https://github.com/vercel/turborepo/issues",
    "license": "MIT",
