@@ -6,7 +6,7 @@
 +  "name": "@ohos-npm-ports/testcafe",
    "description": "Automated browser testing for the modern web development stack.",
    "license": "MIT",
-   "version": "3.7.6",
+   "version": "3.7.7",
    "author": {
      "name": "Developer Express Inc.",
      "url": "https://www.devexpress.com/"
