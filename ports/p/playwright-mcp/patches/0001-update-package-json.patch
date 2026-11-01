@@ -4,13 +4,13 @@
  {
 -  "name": "@playwright/mcp",
 +  "name": "@ohos-npm-ports/playwright-mcp",
-   "version": "0.0.83",
+   "version": "0.0.84",
    "description": "Playwright Tools for MCP",
    "repository": {
      "type": "git",
 -    "url": "git+https://github.com/microsoft/playwright-mcp.git"
 +    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports",
-+    "directory": "ports/playwright-mcp/0.0.83"
++    "directory": "ports/playwright-mcp/0.0.84"
    },
    "homepage": "https://playwright.dev",
    "engines": {
@@ -18,8 +18,8 @@
      }
    },
    "dependencies": {
--    "playwright": "1.64.0-alpha-1790635538000",
--    "playwright-core": "1.64.0-alpha-1790635538000"
+-    "playwright": "1.65.0-alpha-2026-10-30",
+-    "playwright-core": "1.65.0-alpha-2026-10-30"
 +    "playwright-core": "npm:@ohos-npm-ports/playwright-core@1.64.1-1"
    },
    "devDependencies": {
