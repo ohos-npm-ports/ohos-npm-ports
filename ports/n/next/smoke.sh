@@ -7,14 +7,14 @@
 set -eu
 
 SLOT_DIR="$(pwd)"
-MAIN_DIR="$(dirname "$PWD")/next-16.3.5"
+MAIN_DIR="$(dirname "$PWD")/next-16.4.3"
 NODE=next-swc.openharmony-arm64.node
 SLOT_PKG="@ohos-npm-ports/next-swc-openharmony-arm64"
 
 TGZ="$(npm pack --silent --ignore-scripts | tail -1)"
 [ -f "${TGZ}" ] || { echo "error: npm pack produced nothing" >&2; exit 1; }
-MAIN_TGZ="$(cd ../next-16.3.5 && npm pack --silent --ignore-scripts | tail -1)"
-MAIN_TGZ="$(cd ../next-16.3.5 && pwd)/${MAIN_TGZ}"
+MAIN_TGZ="$(cd ../next-16.4.3 && npm pack --silent --ignore-scripts | tail -1)"
+MAIN_TGZ="$(cd ../next-16.4.3 && pwd)/${MAIN_TGZ}"
 SCRATCH="$(mktemp -d)"
 trap 'rm -f "${SLOT_DIR}/${TGZ}" "${MAIN_TGZ}"; rm -rf "${SCRATCH}"' EXIT
 
