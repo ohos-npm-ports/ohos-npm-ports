@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 pkgname="turbo"
 upstream="turbo"
-version="2.10.10"
-revision=3
+version="2.11.10"
+revision=1
 dist_tag="latest"
 
 packages=(
   "turbo-${version}"
 )
-ghostty_commit=a887df42c56f6de86c0fe6da9c4eeca37931e083
-rust_nightly=2026-05-22
+ghostty_commit=5147c0a503cdeed7615cce245cdd815ed7a6b692
+rust_nightly=2026-07-03
 source="https://codeload.github.com/vercel/turborepo/tar.gz/refs/tags/v${version}"
-sha256="f232d3972e0e74ad0c067291e5605bce399451d5ced50a6226b2c87246edc5bf"
+sha256="a9786d3236e75aa32aac690018e6282952f9ef252f541274798c181dc1550b64"
 resource "zig" \
-  "https://ziglang.org/download/0.15.2/zig-aarch64-linux-0.15.2.tar.xz" \
-  "958ed7d1e00d0ea76590d27666efbf7a932281b3d7ba0c6b01b0ff26498f667f"
+  "https://ziglang.org/download/0.17.0/zig-aarch64-linux-0.17.0.tar.xz" \
+  "9e8d11661d4ae3bd57702a3832781e23ad151dde5798e16a5ccd503f65234ff8"
 resource "rust_nightly" \
   "https://static.rust-lang.org/dist/${rust_nightly}/rust-nightly-aarch64-unknown-linux-ohos.tar.gz" \
-  "b0f0ee13f8d6e4ebd2937886806b5444e2d09668af82979b3124546a6816a146"
+  "3191de904f37ab70d64fe7b125b7d0f77ed5f6570ca409582f6966d1672174d9"
 resource "ghostty" \
   "https://codeload.github.com/ghostty-org/ghostty/tar.gz/${ghostty_commit}" \
-  "fb4b2f9ffa0af125983041fdbe4ef94d3fa79fb9f2d22b9c213c0e3847a866b6"
+  "71c5b5d2ad2a2351dba79725c428a3065b51addc533ca8ec88114f1a9cfa7b10"
 
 build() {
   # Source build of turbo for OpenHarmony (no prebuilt binaries): the Rust CLI
@@ -39,9 +39,9 @@ build() {
   brew install -y protobuf capnp openssl@3 libxml2 zlib
 
   # zig for the TUI's libghostty-vt (ghostty's pinned commit requires
-  # >= 0.15.2). Official static tarball; zig finds its lib/ via its own
+  # >= 0.17.0). Official static tarball; zig finds its lib/ via its own
   # realpath, so keep the extracted tree intact.
-  zig_version=0.15.2
+  zig_version=0.17.0
   zig_dir="zig-aarch64-linux-${zig_version}"
   fetch_resource "zig" "zig.tar.xz"
   tar -xJf zig.tar.xz
@@ -98,7 +98,7 @@ build() {
   # Machines with a configured cargo mirror have multiple registry src dirs.
   cp -r "$(ls -d "$HOME"/.cargo/registry/src/*/nix-0.26.2 | head -1)" vendor/nix
   cp -r "$(ls -d "$HOME"/.cargo/registry/src/*/zstd-sys-2.0.16+zstd.1.5.7 | head -1)" vendor/zstd-sys
-  cp -r "$(ls -d "$HOME"/.cargo/registry/src/*/aws-lc-sys-0.41.0 | head -1)" vendor/aws-lc-sys
+  cp -r "$(ls -d "$HOME"/.cargo/registry/src/*/aws-lc-sys-0.46.0 | head -1)" vendor/aws-lc-sys
   chmod -R u+w vendor/nix vendor/zstd-sys vendor/aws-lc-sys
   (cd vendor/nix && patch -p1 <../../../patches/0006-nix-0.26.2-ohos.patch)
   (cd vendor/zstd-sys && patch -p1 <../../../patches/0007-zstd-sys-ohos-qsort.patch)

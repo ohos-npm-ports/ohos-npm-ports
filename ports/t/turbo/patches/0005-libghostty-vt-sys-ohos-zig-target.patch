@@ -1,24 +1,18 @@
 --- a/crates/libghostty-vt-sys/build.rs
 +++ b/crates/libghostty-vt-sys/build.rs
-@@ -168,12 +168,11 @@
-             .arg(&zig_global_cache_dir);
-     }
- 
--    // Only pass -Dtarget when cross-compiling. For native builds, let zig
--    // auto-detect the host (matches how ghostty's own CMakeLists.txt works).
--    if target != host {
--        let zig_target = zig_target(&target);
--        build.arg(format!("-Dtarget={zig_target}"));
--    }
-+    // OHOS port: always pass -Dtarget, even for "native" builds — zig's
-+    // native auto-detect on OHOS mixes its bundled headers with the ohos-sdk
-+    // sysroot via include_next and dies on missing bits/alltypes.h.
-+    let zig_target = zig_target(&target);
-+    build.arg(format!("-Dtarget={zig_target}"));
- 
-     run(build, "zig build");
- 
-@@ -409,6 +408,10 @@
+@@ -191,7 +191,10 @@
+         build.arg(format!(
+             "-Dtarget={architecture}-macos.{deployment_target}-none"
+         ));
+-    } else if target.contains("windows") || target != host {
++    } else if target.contains("windows") || target.contains("ohos") || target != host {
++        // OHOS port: always pass -Dtarget, even for "native" builds — zig's
++        // native auto-detect on OHOS mixes its bundled headers with the ohos-sdk
++        // sysroot via include_next and dies on missing bits/alltypes.h.
+         // Rust's HOST describes rustc, which may differ from the Zig compiler
+         // architecture when Windows runs a compiler under emulation.
+         build.arg(format!("-Dtarget={}", zig_target(&target)));
+@@ -582,6 +585,10 @@
          "aarch64-pc-windows-msvc" => "aarch64-windows-msvc",
          "aarch64-linux-android" => "aarch64-linux-android",
          "x86_64-linux-android" => "x86_64-linux-android",
