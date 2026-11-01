@@ -1,21 +1,36 @@
 --- a/package.json
 +++ b/package.json
-@@ -1,6 +1,6 @@
+@@ -1,5 +1,5 @@
  {
-   "version": "5.1.1",
 -  "name": "prisma",
 +  "name": "@ohos-npm-ports/prisma",
-   "description": "Prisma is an open-source database toolkit. It includes a JavaScript/TypeScript ORM for Node.js, migrations and a modern GUI to view and edit the data in your database. You can use Prisma in new projects or add it to an existing one.",
-   "keywords": [
-     "orm",
-@@ -20,8 +20,8 @@
-   "main": "build/index.js",
+   "version": "8.0.0-rc.29",
+   "description": "The Prisma CLI: one binary for the ORM, Composer, and the Prisma Developer Platform.",
+   "type": "module",
+@@ -34,8 +34,8 @@
+   ],
    "repository": {
      "type": "git",
--    "url": "https://github.com/prisma/prisma.git",
--    "directory": "packages/cli"
+-    "url": "https://github.com/prisma/prisma-cli.git",
+-    "directory": "packages/prisma"
 +    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-+    "directory": "ports/prisma/5.1.1"
++    "directory": "ports/p/prisma"
    },
-   "homepage": "https://www.prisma.io",
-   "author": "Tim Suchanek <suchanek@prisma.io>",
+   "homepage": "https://github.com/prisma/prisma-cli#readme",
+   "bugs": {
+@@ -45,7 +45,7 @@
+   "dependencies": {
+     "@manypkg/tools": "^2.1.2",
+     "@prisma/cli-engine": "0.9.0",
+-    "@prisma/composer-cli": "0.35.0",
++    "@prisma/composer-cli": "npm:@ohos-npm-ports/prisma-composer-cli@8.0.0-rc.29",
+     "@prisma/compute-sdk": "0.43.0",
+     "@prisma/management-api-sdk": "1.80.0",
+     "@prisma/orm-toolchain": "8.0.0-rc.21",
+@@ -71,4 +71,4 @@
+     "typecheck": "tsc --noEmit",
+     "test": "vitest run"
+   }
+-}
+\ No newline at end of file
++}

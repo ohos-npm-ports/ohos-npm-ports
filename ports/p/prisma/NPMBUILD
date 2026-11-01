@@ -1,118 +1,222 @@
 #!/usr/bin/env bash
 pkgname="prisma"
 upstream="prisma"
-version="5.1.1"
-revision=3
+version="8.0.0-rc.29"
+revision=1
 dist_tag="latest"
+composer_version="0.35.0"
 
 packages=(
+  "build/composer"
+  "build/composer-cli"
   "build/pkg"
 )
 work_dir="$NPMBUILD_DIR"
 build_dir="${work_dir}/build"
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
-sha256="82290a4f68947526fbfea3a924d8ae91b9b7e6080b708d98db8bae188aa949b1"
+sha256="82571b05c3a41080e11bf9910d9faedb7eeb0eb14550f3669e9cffdd98f2e1c4"
+resource "composer" \
+  "https://registry.npmjs.org/@prisma/composer/-/composer-${composer_version}.tgz" \
+  "dcd6e69c550056f756e9895fc7eb4e749d6d2a69d18eae9f8b661509dcaf8ed1"
+resource "composer_cli" \
+  "https://registry.npmjs.org/@prisma/composer-cli/-/composer-cli-${composer_version}.tgz" \
+  "c7222b534e91d02af1711f7d5d3715353ce82ad2d1d2cc1ac1f9870f1626d33d"
 
 prepare() {
   # ============================================================
   # ohos-npm-ports: @ohos-npm-ports/prisma ${version}
   #
   # 构建方式：
-  #   1. 下载官方 prisma@${version} tarball，打 patch：openharmony 上 engines
-  #      从 @prisma/engines 包根本地解析（npm override 到
-  #      @ohos-npm-ports/prisma-engines），而非 binaries.prisma.sh 下载
+  #   1. 下载官方 prisma@${version} tarball，打 patch 改写 manifest
   #   2. 零编译重打包：上游全部内容（patch 过的 manifest 在内）进发布目录
   #   3. npm pack 成 tarball 后做 drop-in 冒烟（node + bun 双运行时）
   #
-  # binaries.prisma.sh has no OHOS builds and would serve platform-mismatched
-  # debian glibc binaries.
+  # Prisma 8 no longer ships the Rust engine resolver that prisma 5 bundled:
+  # the CLI is a pure-JavaScript shell around @prisma/cli-engine,
+  # @prisma/orm-toolchain and @prisma/composer-cli, and no code downloads
+  # engines from binaries.prisma.sh. The old OpenHarmony local-engines patch
+  # is therefore obsolete and is not carried into this recipe.
+  #
+  # The Composer packages pin alchemy 2.0.0-beta.83, which pulls
+  # @libsql/client -> libsql; libsql's npm metadata has no openharmony target,
+  # so a plain consumer install aborts before the CLI is usable. Repack the two
+  # Composer packages against alchemy 2.0.0-beta.84 (same API, no libsql
+  # dependency) and alias them from the main package.
   # ============================================================
 
   # ===== fetch =====
-  echo "=== fetch: 官方 prisma@${version} ==="
+  echo "=== fetch: 官方 prisma@${version} + Composer ${composer_version} ==="
   rm -rf "${build_dir}"
   mkdir -p "${build_dir}"
   cd "${build_dir}"
   fetch_source "src.tgz"
+  fetch_resource "composer" "composer.tgz"
+  fetch_resource "composer_cli" "composer-cli.tgz"
   tar -zxf src.tgz
   rm src.tgz
   mv package src
+  mkdir composer-src composer-cli-src
+  tar -zxf composer.tgz -C composer-src --strip-components=1
+  tar -zxf composer-cli.tgz -C composer-cli-src --strip-components=1
+  rm composer.tgz composer-cli.tgz
 }
 
 build() {
-  echo "=== build: 打 patch + grep marker + 跨平台回归 ==="
+  echo "=== build: 打 manifest patch + grep marker + 入口回归 ==="
   cd "${build_dir}/src"
-  patch -p1 <"${work_dir}/patches/0001-openharmony-local-engines.patch"
   patch -p1 <"${work_dir}/patches/0002-update-package-json.patch"
-  # toybox patch can silently no-op on a malformed header; assert both landed.
-  grep -q 'async function ohosLocalEngines' build/index.js
-  grep -q 'process.platform === "openharmony" ? (await ohosLocalEngines(downloadParams))' build/index.js
+  # toybox patch can silently no-op on a malformed header; assert it landed.
   grep -q '"name": "@ohos-npm-ports/prisma"' package.json
   grep -q "\"version\": \"${version}\"" package.json
-  node --check build/index.js
 
-  # Cross-platform regression: the non-openharmony branch must be the untouched
-  # upstream download() call, so linux/darwin/win32 consumers keep stock behavior.
+  # Prisma 8 removed the bundled engine resolver; guard the premise of this
+  # port so a future upstream change cannot silently restore the old download
+  # path without a matching OpenHarmony patch.
+  if grep -Rq 'binaries.prisma.sh\|getBinaryPathsByVersion' dist; then
+    echo "prisma ${version} reintroduced an engine download path; add an OpenHarmony patch" >&2
+    exit 1
+  fi
+
   node -e '
-      const fs = require("fs");
-      const src = fs.readFileSync("build/index.js", "utf8");
-      const n = src.split(": await download(downloadParams);").length - 1;
-      if (n !== 2) { console.error("expected 2 gated download call sites, found " + n); process.exit(1); }
-      const i = src.indexOf("async function ohosLocalEngines");
-      const j = src.indexOf("async function getBinaryPathsByVersion");
-      if (i < 0 || j < 0 || i > j) { console.error("helper not defined before its callers"); process.exit(1); }
-      console.log("OK: non-openharmony branch routes to upstream download()");
+      const p = require("./package.json");
+      if (p.type !== "module" || p.bin?.prisma !== "./dist/prisma.js") {
+        console.error("unexpected prisma 8 package layout");
+        process.exit(1);
+      }
+      console.log("OK: prisma 8 ESM bin layout");
     '
+  node --check dist/prisma.js
+  node --check dist/config.js
+
+  # Repack Composer against alchemy 2.0.0-beta.84 so the consumer install does
+  # not pull libsql, whose npm platform metadata rejects openharmony. The
+  # upstream API stays the same; only the dependency pin and published names
+  # change.
+  (
+    cd "${build_dir}/composer-src"
+    COMPOSER_VERSION="${composer_version}" node -e '
+        const fs = require("fs");
+        const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
+        if (p.name !== "@prisma/composer" || p.version !== process.env.COMPOSER_VERSION) {
+          console.error("unexpected @prisma/composer package layout");
+          process.exit(1);
+        }
+        p.name = "@ohos-npm-ports/prisma-composer";
+        p.version = process.env.NPMBUILD_VERSION;
+        p.dependencies.alchemy = "2.0.0-beta.84";
+        p.repository = {
+          type: "git",
+          url: "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
+          directory: "ports/p/prisma",
+        };
+        delete p.devDependencies;
+        fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
+        console.log("OK: @prisma/composer repacked without libsql");
+      '
+  )
+  (
+    cd "${build_dir}/composer-cli-src"
+    COMPOSER_CLI_VERSION="${composer_version}" node -e '
+        const fs = require("fs");
+        const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
+        if (p.name !== "@prisma/composer-cli" || p.version !== process.env.COMPOSER_CLI_VERSION) {
+          console.error("unexpected @prisma/composer-cli package layout");
+          process.exit(1);
+        }
+        p.name = "@ohos-npm-ports/prisma-composer-cli";
+        p.version = process.env.NPMBUILD_VERSION;
+        p.dependencies["@prisma/composer"] = `npm:@ohos-npm-ports/prisma-composer@${process.env.NPMBUILD_VERSION}`;
+        p.dependencies.alchemy = "2.0.0-beta.84";
+        p.repository = {
+          type: "git",
+          url: "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
+          directory: "ports/p/prisma",
+        };
+        delete p.devDependencies;
+        fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
+        console.log("OK: @prisma/composer-cli repacked without libsql");
+      '
+  )
+  test -f "${build_dir}/composer-src/dist/index.mjs"
+  test -f "${build_dir}/composer-cli-src/dist/family.mjs"
+  node --check "${build_dir}/composer-src/dist/index.mjs"
+  node --check "${build_dir}/composer-cli-src/dist/family.mjs"
 }
 
 package() {
   echo "=== package: 组装发布目录 + manifest 断言 + npm pack ==="
-  rm -rf "${build_dir}/pkg"
-  mkdir "${build_dir}/pkg"
-  # everything upstream ships, minus install-time state (the port manifest is
-  # already patched in place by 0002)
+  rm -rf "${build_dir}/pkg" "${build_dir}/composer" "${build_dir}/composer-cli"
+  mkdir "${build_dir}/pkg" "${build_dir}/composer" "${build_dir}/composer-cli"
+  # everything upstream ships, minus install-time state (the port manifests are
+  # already rewritten in place by build)
   (cd "${build_dir}/src" && tar -zcf - . | tar -zxf - -C "${build_dir}/pkg")
-  rm -rf "${build_dir}/pkg/node_modules"
+  (cd "${build_dir}/composer-src" && tar -zcf - . | tar -zxf - -C "${build_dir}/composer")
+  (cd "${build_dir}/composer-cli-src" && tar -zcf - . | tar -zxf - -C "${build_dir}/composer-cli")
+  rm -rf "${build_dir}/pkg/node_modules" "${build_dir}/composer/node_modules" "${build_dir}/composer-cli/node_modules"
 
   node -e '
-      const p = require("'"${build_dir}"'/pkg/package.json");
-      if (p.name !== "@ohos-npm-ports/prisma" || p.version !== `${process.env.NPMBUILD_VERSION}`) { console.error("bad manifest"); process.exit(1); }
-      console.log("OK: manifest");
+      const names = {
+        pkg: "@ohos-npm-ports/prisma",
+        composer: "@ohos-npm-ports/prisma-composer",
+        "composer-cli": "@ohos-npm-ports/prisma-composer-cli",
+      };
+      for (const [dir, name] of Object.entries(names)) {
+        const p = require(`'"${build_dir}"'/${dir}/package.json`);
+        if (p.name !== name || p.version !== `${process.env.NPMBUILD_VERSION}`) {
+          console.error(`bad manifest: ${dir}`);
+          process.exit(1);
+        }
+      }
+      console.log("OK: manifests");
     '
-  # file: dir installs symlink and breaks the consumer'"'"'s node_modules walk-up;
-  # install the packed tarball instead
+  # file: dir installs symlink and breaks the consumer's node_modules walk-up;
+  # install the packed tarballs instead
   (cd "${build_dir}/pkg" && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-${version}.tgz "${build_dir}")
+  (cd "${build_dir}/composer" && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-composer-${version}.tgz "${build_dir}")
+  (cd "${build_dir}/composer-cli" && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-composer-cli-${version}.tgz "${build_dir}")
   test -f "${build_dir}/ohos-npm-ports-prisma-${version}.tgz"
+  test -f "${build_dir}/ohos-npm-ports-prisma-composer-${version}.tgz"
+  test -f "${build_dir}/ohos-npm-ports-prisma-composer-cli-${version}.tgz"
 }
 
 check() {
-  # Drop-in smoke on the real machine: overrides only, no PRISMA_* env vars.
-  # npm install-scripts stay disabled so the flow is deterministic.
+  # Drop-in smoke on the real machine: no PRISMA_* engine variables. npm
+  # install-scripts stay disabled so the flow is deterministic.
   smoke_dir="${build_dir}/.smoke"
   rm -rf "$smoke_dir"
   mkdir -p "$smoke_dir/app"
+
+  # Use the ORM facade paired with the @prisma/orm-toolchain version that the
+  # CLI itself pins; Prisma 8's package versions are not lockstep.
+  orm_version="$(node -p "require('${build_dir}/pkg/package.json').dependencies['@prisma/orm-toolchain']")"
+  test -n "$orm_version"
   cat >"$smoke_dir/package.json" <<EOF
 {
   "name": "prisma-port-smoke",
   "private": true,
+  "type": "module",
   "dependencies": {
     "prisma": "file:${build_dir}/ohos-npm-ports-prisma-${version}.tgz",
-    "@prisma/client": "${version}"
+    "@prisma/orm-postgres": "${orm_version}"
   },
   "overrides": {
-    "@prisma/engines": "npm:@ohos-npm-ports/prisma-engines@5.1.1-3"
+    "@prisma/composer-cli": "file:${build_dir}/ohos-npm-ports-prisma-composer-cli-${version}.tgz",
+    "@prisma/composer": "file:${build_dir}/ohos-npm-ports-prisma-composer-${version}.tgz"
   }
 }
 EOF
-  cat >"$smoke_dir/app/schema.prisma" <<'EOF'
-generator client {
-  provider = "prisma-client-js"
-  output   = "client"
-}
-datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
-}
+  cat >"$smoke_dir/app/prisma.config.ts" <<'EOF'
+import { definePrismaConfig } from 'prisma/config';
+import { defineConfig as ormConfig } from '@prisma/orm-postgres/config';
+
+export default definePrismaConfig({
+  orm: ormConfig({
+    contract: './contract.prisma',
+  }),
+});
+EOF
+  cat >"$smoke_dir/app/contract.prisma" <<'EOF'
+// use prisma-8
 model Widget {
   id   Int    @id @default(autoincrement())
   name String
@@ -121,47 +225,80 @@ EOF
 
   smoke_abs="$(cd "$smoke_dir" && pwd)"
   cd "$smoke_dir"
+  # The repacked Composer packages replace the upstream libsql dependency, so a
+  # plain install must succeed on OpenHarmony without bypassing platform checks.
   npm install --ignore-scripts --no-audit --no-fund
   cd app
 
-  crud='const { PrismaClient } = require("./client");
-(async () => {
-  const p = new PrismaClient();
-  const w = await p.widget.create({ data: { name: "smoke" } });
-  const f = await p.widget.findUnique({ where: { id: w.id } });
-  if (!f || f.name !== "smoke") throw new Error("read-back failed");
-  const n = await p.widget.count();
-  if (n !== 1) throw new Error("bad count: " + n);
-  await p.$disconnect();
-  console.log("CRUD OK");
-})().catch((e) => { console.error(e.message); process.exit(1); });'
+  export DO_NOT_TRACK=1
+  export PRISMA_DISABLE_TELEMETRY=1
+  export PRISMA_CLI_UPDATE_CHECK_DIR="${smoke_dir}/update-check"
+  prisma_bin="$smoke_abs/node_modules/.bin/prisma"
 
-  # node runtime
-  "$smoke_abs/node_modules/.bin/prisma" db push --schema schema.prisma --skip-generate 2>&1 | grep -q 'database is now in sync' || {
-    echo "db push failed" >&2
+  version_output="$("$prisma_bin" --version 2>&1)" || {
+    printf '%s\n' "$version_output" >&2
+    echo "prisma --version failed" >&2
     exit 1
   }
-  "$smoke_abs/node_modules/.bin/prisma" generate --schema schema.prisma 2>&1 | grep -q 'Generated Prisma Client' || {
-    echo "generate failed" >&2
+  if ! printf '%s\n' "$version_output" | grep -Fxq "$version"; then
+    printf '%s\n' "$version_output" >&2
+    echo "prisma --version did not report ${version}" >&2
     exit 1
-  }
-  node -e "$crud"
-  # bun runtime (the generated client must dlopen the OHOS engine under bun too);
-  # the ci-runner image ships no bun -- gate it and cover bun on a real device
-  if command -v bun >/dev/null 2>&1; then
-    rm -rf client dev.db
-    bun "$smoke_abs/node_modules/prisma/build/index.js" db push --schema schema.prisma --skip-generate 2>&1 | grep -q 'database is now in sync' || {
-      echo "bun db push failed" >&2
-      exit 1
-    }
-    bun "$smoke_abs/node_modules/prisma/build/index.js" generate --schema schema.prisma 2>&1 | grep -q 'Generated Prisma Client' || {
-      echo "bun generate failed" >&2
-      exit 1
-    }
-    bun -e "$crud"
   fi
+
+  # contract emit is offline: it parses the PSL, builds the Postgres contract
+  # and writes contract.json + contract.d.ts without a database or an engine.
+  if ! "$prisma_bin" contract emit >emit.log 2>&1; then
+    cat emit.log >&2
+    echo "contract emit failed" >&2
+    exit 1
+  fi
+  grep -q 'Emitted contract.json and contract.d.ts' emit.log
+  test -s contract.json
+  test -s contract.d.ts
+  grep -q 'public_Widget' contract.d.ts
+  node -e '
+      const contract = require("./contract.json");
+      if (!contract.roots || !contract.roots.Widget) {
+        console.error("emitted contract is missing the Widget root");
+        process.exit(1);
+      }
+      console.log("OK: contract emit");
+    '
+
+  if ! "$prisma_bin" contract print --format human >printed.prisma 2>print.log; then
+    cat print.log >&2
+    echo "contract print failed" >&2
+    exit 1
+  fi
+  grep -q 'namespace public' printed.prisma
+  grep -q 'model Widget' printed.prisma
+
+  node -e '
+      const p = require("'"$smoke_abs"'/node_modules/prisma/package.json");
+      if (p.name !== "@ohos-npm-ports/prisma" || p.version !== `${process.env.NPMBUILD_VERSION}`) {
+        console.error("installed manifest mismatch");
+        process.exit(1);
+      }
+      console.log("OK: installed manifest");
+    '
+
+  # bun runtime; the ci-runner image ships no bun -- gate it and cover bun on a
+  # real device
+  if command -v bun >/dev/null 2>&1; then
+    rm -f contract.json contract.d.ts
+    if ! bun "$smoke_abs/node_modules/prisma/dist/prisma.js" contract emit >bun-emit.log 2>&1; then
+      cat bun-emit.log >&2
+      echo "bun contract emit failed" >&2
+      exit 1
+    fi
+    grep -q 'Emitted contract.json and contract.d.ts' bun-emit.log
+    test -s contract.json
+    test -s contract.d.ts
+  fi
+
   cd "${build_dir}"
-  rm -rf "$smoke_dir" ohos-npm-ports-prisma-${version}.tgz
+  rm -rf "$smoke_dir" ohos-npm-ports-prisma-${version}.tgz ohos-npm-ports-prisma-composer-${version}.tgz ohos-npm-ports-prisma-composer-cli-${version}.tgz
 
   echo "OK: @ohos-npm-ports/prisma built and smoke-tested"
 }
