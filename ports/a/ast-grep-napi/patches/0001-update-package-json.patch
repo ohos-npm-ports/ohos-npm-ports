@@ -4,7 +4,7 @@
  {
 -  "name": "@ast-grep/napi",
 +  "name": "@ohos-npm-ports/ast-grep-napi",
-   "version": "0.45.3",
+   "version": "0.51.0",
    "description": "Search and Rewrite code at large scale using precise AST pattern",
    "homepage": "https://ast-grep.github.io",
    "main": "index.js",
@@ -12,7 +12,7 @@
 +  "repository": {
 +    "type": "git",
 +    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-+    "directory": "ports/ast-grep-napi/0.45.3"
++    "directory": "ports/ast-grep-napi/0.51.0"
 +  },
    "license": "MIT",
    "keywords": [
