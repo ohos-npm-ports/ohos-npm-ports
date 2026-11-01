@@ -1,23 +1,15 @@
 #!/usr/bin/env bash
 pkgname="yuku-codegen"
 upstream="yuku-codegen"
-version="0.10.2"
-revision=3
+version="0.19.0"
+revision=1
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
-sha256="f4ea9116966244be684a5450006ad9252a8d759c823458f833885c6522991918"
+sha256="c836e4666aa8db2c64f87c433d26cf14d35ce3c02061722bc9b4e4770e7f2491"
 dist_tag="latest"
 
 packages=(
   "yuku-codegen-${version}"
 )
-slot_name="@yuku-codegen/binding-openharmony-arm64"
-zig_version="0.16.0"
-resource "yuku" \
-  "https://github.com/yuku-toolchain/yuku/archive/refs/tags/v${version}.tar.gz" \
-  "bc649dc0df663e7f3aeb005849f079cfc5aa838362e86806f5996c7255672f47"
-resource "zig" \
-  "https://ziglang.org/download/${zig_version}/zig-aarch64-linux-${zig_version}.tar.xz" \
-  "ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17"
 work_dir="$NPMBUILD_DIR"
 stage_dir="${work_dir}/build"
 output_dir="${work_dir}/${pkgname}-${version}"
@@ -27,24 +19,22 @@ prepare() {
   # ohos-npm-ports: @ohos-npm-ports/yuku-codegen ${version}
   #
   # 构建方式：
-  #   1. 下载官方 yuku-codegen@${version} tarball 与 yuku monorepo v${version}，
-  #      钉住所有下载的 sha256
-  #   2. 打 patch 改写 manifest（name/repository/files），grep marker
-  #   3. 用 zig 把 monorepo 里的 napi-zig binding 交叉编译到
-  #      aarch64-linux-musl（与 OHOS 同 libc 族）
-  #   4. 零依赖重打包：上游全部内容进发布目录，编译后的 binding 嵌进
-  #      @yuku-codegen/binding-openharmony-arm64/
-  #   5. 用真实 loader 冒烟（容器 node 的 process.platform 就是 openharmony）
+  #   1. 下载官方 yuku-codegen@${version} tarball，钉住 sha256
+  #   2. 打 patch 改写 manifest（name/repository/publishConfig），grep marker
+  #   3. 上游自 0.19.0 起改为纯 JavaScript 实现，tarball 已带编译好的 dist，
+  #      不再有 napi binding、optionalDependencies 或 yuku monorepo 构建步骤
+  #   4. 零依赖重打包：上游全部内容原样进发布目录
+  #   5. 用真实 ESM 入口做 generate/minify/source map 冒烟
   #
-  # binding.js 按 process.platform/process.arch 拼后缀，包内路径即 openharmony
-  # 分支的第一个候选。
+  # OpenHarmony 适配只保留包名、仓库地址与发布配置；0.19.0 的 codegen
+  # 本身不含原生二进制，因此无需槽位包或交叉编译。
   #
   # 发布目录名必须与 NPMBUILD packages 一致，并留在配方目录根下，
   # 所以中间件放 STAGE，成品由 package() 落到 OUT，check() 不删 OUT。
   # ============================================================
 
   # ===== fetch =====
-  echo "=== fetch: 官方 ${pkgname}@${version} + yuku monorepo + zig ==="
+  echo "=== fetch: 官方 ${pkgname}@${version} ==="
   rm -rf "${stage_dir}"
   mkdir -p "${stage_dir}"
   cd "${stage_dir}"
@@ -53,19 +43,10 @@ prepare() {
   tar -zxf src.tgz
   rm src.tgz
   mv package src
-
-  fetch_resource "yuku" yuku.tgz
-  tar -zxf yuku.tgz
-  rm yuku.tgz
-  mv "yuku-${version}" yuku
-
-  fetch_resource "zig" zig.tar.xz
-  tar -xJf zig.tar.xz
-  rm zig.tar.xz
 }
 
 build() {
-  echo "=== build: 打 patch + grep marker + 交叉编译 napi-zig binding ==="
+  echo "=== build: 打 patch + grep marker + 校验纯 JS 产物 ==="
   cd "${stage_dir}/src"
 
   # check() 拿它断言 patch 只改了 package.json
@@ -75,45 +56,86 @@ build() {
   # patch 对零上下文 hunk 的越界行号会静默套用到文件末尾（exit 0）
   grep -q "\"name\": \"@ohos-npm-ports/${pkgname}\"" package.json
   grep -q "\"version\": \"${version}\"" package.json
-  grep -q "\"${slot_name}\"" package.json
+  grep -q '"publishConfig": {' package.json
 
-  cd "${stage_dir}/yuku"
-  "${stage_dir}/zig-aarch64-linux-${zig_version}/zig" build \
-    -Dtarget=aarch64-linux-musl -Doptimize=ReleaseFast
-  test -f "zig-out/lib/${pkgname}.node"
-  cp "zig-out/lib/${pkgname}.node" "${stage_dir}/${pkgname}.node"
+  # 0.19.0 发布 tarball 已包含 dist，不需要再跑 tsc 或编译原生模块
+  test -f dist/index.js
+  test -f dist/index.d.ts
+  node --check dist/index.js
 }
 
 package() {
-  echo "=== package: 组装发布目录 + 嵌入 binding + manifest 断言 ==="
+  echo "=== package: 组装发布目录 + manifest 断言 ==="
   rm -rf "${output_dir}"
   cp -a "${stage_dir}/src" "${output_dir}"
-
-  mkdir -p "${output_dir}/${slot_name}"
-  cp "${stage_dir}/${pkgname}.node" "${output_dir}/${slot_name}/${pkgname}.node"
 
   cd "${output_dir}"
   node -e '
       const p = require("./package.json");
       if (p.name !== "@ohos-npm-ports/yuku-codegen") { console.error("bad name: " + p.name); process.exit(1); }
       if (p.version !== `${process.env.NPMBUILD_VERSION}`) { console.error("bad version: " + p.version); process.exit(1); }
+      if (p.main !== "./dist/index.js") { console.error("bad main: " + p.main); process.exit(1); }
+      if (p.optionalDependencies || p.dependencies?.["@yuku-codegen/binding-openharmony-arm64"]) {
+        console.error("stale native binding metadata");
+        process.exit(1);
+      }
       console.log("OK: manifest");
     '
 }
 
 check() {
-  echo "=== test: 哈希不变量 + 真实 loader 冒烟 ==="
+  echo "=== test: 哈希不变量 + 真实 ESM 冒烟 ==="
   cd "${output_dir}"
 
-  # 剔除 patch 允许改写的 package.json 与组装新增的 binding，其余须逐字节一致
+  # 剔除 patch 允许改写的 package.json，其余须逐字节一致
   find . -type f -exec sha256sum {} + | sed 's|\./||' | sort >"${work_dir}/after.sha256"
   grep -v '  package\.json$' "${work_dir}/before.sha256" >"${work_dir}/before.filtered"
-  grep -v -e '  package\.json$' -e "  ${slot_name}/${pkgname}\.node$" \
-    "${work_dir}/after.sha256" >"${work_dir}/after.filtered"
+  grep -v '  package\.json$' "${work_dir}/after.sha256" >"${work_dir}/after.filtered"
   diff "${work_dir}/before.filtered" "${work_dir}/after.filtered"
 
-  # 容器 node 报 openharmony，这次 load 走的是真实解析路径
-  node -e "const b = require('./binding.js'); console.log('loader smoke:', typeof b)"
+  # 走包的真实 ESM 入口，覆盖格式化、压缩与 source map 三条路径
+  node --input-type=module - <<'JS'
+import assert from 'node:assert/strict';
+import { generate } from './dist/index.js';
+
+const ast = {
+  type: 'Program',
+  sourceType: 'module',
+  start: 0,
+  end: 6,
+  body: [{
+    type: 'ExpressionStatement',
+    start: 0,
+    end: 6,
+    expression: {
+      type: 'BinaryExpression',
+      operator: '+',
+      start: 0,
+      end: 5,
+      left: { type: 'Literal', value: 1, start: 0, end: 1 },
+      right: { type: 'Literal', value: 2, start: 4, end: 5 },
+    },
+  }],
+};
+
+const pretty = generate(ast);
+assert.equal(pretty.code, '1 + 2;');
+assert.deepEqual(pretty.diagnostics, []);
+assert.equal(pretty.map, null);
+
+const compact = generate(ast, { minify: true });
+assert.equal(compact.code, '1+2');
+
+const mapped = generate(ast, {
+  sourceMap: { source: '1 + 2;', file: 'out.js', sourceFileName: 'in.js' },
+});
+assert.equal(mapped.code, '1 + 2;');
+assert.equal(mapped.map.version, 3);
+assert.equal(mapped.map.file, 'out.js');
+assert.deepEqual(mapped.map.sources, ['in.js']);
+assert.ok(mapped.map.mappings.length > 0);
+console.log('codegen smoke:', pretty.code, '| minified:', compact.code);
+JS
 
   cd "${work_dir}"
   rm -rf "${stage_dir}"
