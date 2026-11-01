@@ -44,13 +44,23 @@ jobs:
       matrix:
         port: ${{ fromJson(needs.discover.outputs.ports) }}
     steps:
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-      - name: Bump one port and create a draft PR unless one is already open
+      - name: Bump one port and create an ordinary PR unless one is already open
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: cli/npm-ports bump-pr "${{ matrix.port }}"
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: cli/npm-ports bump-pr "${{ matrix.port }}" --no-draft

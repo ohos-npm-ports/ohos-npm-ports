@@ -1,26 +1,24 @@
-# 用 GitHub App 创建非草稿 bump PR
+# 用 GitHub App 驱动自动升级
 
-默认 bump 工作流使用仓库 `GITHUB_TOKEN`。GitHub 为防止递归触发，不允许该 token 创建的 PR 自动触发新的 `pull_request` 工作流，因此默认先创建草稿，维护者标记 Ready for review 后再检查。
+bump 和 AI 修复工作流使用 GitHub App 创建、更新 PR。GitHub 为防止递归触发，不允许仓库 `GITHUB_TOKEN` 创建或推送的 PR 自动触发新的 `pull_request` 工作流。App Token 没有这项限制，因此 bump PR 创建后就能运行 CI，AI 推送修复后也会重新运行完整检查。
 
-使用前必须在 **Settings → Actions → General → Workflow permissions** 开启 **Allow GitHub Actions to create and approve pull requests**，否则 `gh pr create` 会被 GitHub 拒绝。bump 工作流自身只声明 Contents 和 Pull requests 写权限，不需要 npm 发布凭据，也不需要把默认 Workflow permissions 改为 Read and write。
-
-如果希望机器人像 BrewTestBot 一样直接创建普通 PR并自动运行 CI，需要一次性配置专用 GitHub App。仓库 token 无法代替你完成 App 注册、安装和私钥生成。
+使用前必须在 **Settings → Actions → General → Workflow permissions** 开启 **Allow GitHub Actions to create and approve pull requests**。工作流只声明 Contents 和 Pull requests 写权限，不需要 npm 发布凭据，也不需要把默认 Workflow permissions 改为 Read and write。
 
 ## 1. 创建 App
 
 打开账户或组织的 **Settings → Developer settings → GitHub Apps → New GitHub App**：
 
-- Name：`ohos-npm-ports-bump`
-- Homepage：`https://github.com/hqzing/ohos-npm-ports`
+- Name：`ohos-npm-ports-automation`
+- Homepage：`https://github.com/ohos-npm-ports/ohos-npm-ports`
 - Webhook：取消 **Active**
 - Repository permissions：
-  - **Contents: Read and write**：推送 bump 分支
+  - **Contents: Read and write**：推送 bump 和修复分支
   - **Pull requests: Read and write**：创建和更新 PR
   - Metadata 只读权限自动带上
-- **Workflows 不需要授权**：bump PR 只修改 `ports/**`
+- **Workflows 不需要授权**：机器人只修改 `ports/**`
 - 其他权限保持无权限
 
-如果仓库以后迁到组织，建议在目标组织下创建或重新安装 App。
+如果仓库迁移到组织，建议在目标组织下创建或重新安装 App。
 
 ## 2. 只安装到目标仓库
 
@@ -32,52 +30,32 @@
 
 进入仓库 **Settings → Secrets and variables → Actions**，添加：
 
-- `BUMP_APP_ID`：App ID
-- `BUMP_APP_PRIVATE_KEY`：完整 PEM，包括 BEGIN/END 和所有换行
+- `AUTOMATION_APP_ID`：App ID
+- `AUTOMATION_APP_PRIVATE_KEY`：完整 PEM，包括 BEGIN/END 和所有换行
+- `DEEPSEEK_API_KEY`：AI 修复使用的 DeepSeek API 密钥
 
-不需要 Installation ID，也不要把私钥写入仓库或聊天记录。
+不需要 Installation ID，也不要把私钥或 API 密钥写入仓库或聊天记录。
 
-## 4. 修改 bump 工作流
+## 4. 工作流如何使用 App
 
-在 checkout 之前生成短期 App token，并用它 checkout、推送和调用 gh：
+`bump.yml` 的每个矩阵任务通过 `actions/create-github-app-token` 生成短期 App Token，用它 checkout、推送和创建普通 PR。命令为：
 
-```yaml
-- uses: actions/create-github-app-token@v2
-  id: app-token
-  with:
-    app-id: ${{ secrets.BUMP_APP_ID }}
-    private-key: ${{ secrets.BUMP_APP_PRIVATE_KEY }}
-    owner: ${{ github.repository_owner }}
-    repositories: ${{ github.event.repository.name }}
-    permission-contents: write
-    permission-pull-requests: write
-
-- uses: actions/checkout@v7
-  with:
-    fetch-depth: 0
-    token: ${{ steps.app-token.outputs.token }}
-
-- uses: actions/setup-node@v7
-  with:
-    node-version: '24'
-
-- name: Bump one port and create its ordinary PR unless one is already open
-  env:
-    GH_TOKEN: ${{ steps.app-token.outputs.token }}
-  run: cli/npm-ports bump-pr "${{ matrix.port }}" --no-draft
+```sh
+cli/npm-ports bump-pr "${{ matrix.port }}" --no-draft
 ```
 
-这些步骤替换 bump job 中原来的 checkout、setup-node 和默认 `bump-pr` 步骤。矩阵中每个 job 都生成自己的短期 token，不要把 token 写入 job output。
+`ai-bump.yml` 只在维护者添加 `request-ai-bump` 标签后运行。AI 容器只获得 `DEEPSEEK_API_KEY`，不会获得 App 私钥、App Token 或仓库凭据。独立构建验证通过后，宿主环境才生成 App Token，在全新克隆中应用修复补丁、amend 原提交并使用 force-with-lease 推送。
 
-## 5. 验证与回退
+不要把 App Token 写入 job output，也不要传给执行 NPMBUILD 或 AI 命令的容器。
+
+## 5. 验证
 
 先手动 dispatch 一个有上游更新的 port，确认：
 
-1. PR 不是草稿；
-2. 创建后 `pull_request` 工作流自动开始；
-3. PR 只包含该 port 的提交；
-4. 工作流没有执行 npm publish。
+1. PR 不是草稿，创建后自动开始检查。
+2. PR 只包含该 port 的一个提交。
+3. 构建失败后添加 `request-ai-bump`，AI 修复 check 开始运行。
+4. AI 修复通过独立构建后才推送，PR 仍只有一个提交，新 CI 自动开始。
+5. 两个工作流都没有执行 npm publish。
 
-验证完成前不要删除现有草稿机制。需要回退时，恢复原 checkout/token 步骤并去掉 `--no-draft` 即可。
-
-App token 默认短期有效，且只能访问选定仓库。bump 工作流只通过 schedule 和维护者 dispatch 运行，不向普通 PR 暴露 App 私钥。
+AI 修复的 Checks 和评论用于判断执行结果，不使用额外的运行状态标签。需要重试时，重新添加 `request-ai-bump` 即可。

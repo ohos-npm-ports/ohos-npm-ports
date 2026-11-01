@@ -7,15 +7,14 @@
 | `pr-commit-count.yml` | 目标为 main 的 PR（创建及后续更新） | 检查每个 PR 只能有一个 commit。源分支后续推送会重新检查 |
 | `port-lint.yml` | ports 变更的 PR | NPMBUILD、辅助脚本、patch 和 commit message 检查 |
 | `ci.yml` | ports/基础设施变更、main push、手动 | 自动构建（输入没变的 port 取 npm 上已发布的 tarball）、临时 Verdaccio、artifact、五平台 consumer。`conclusion` 全绿后，白名单 main 由独立的 `publish` job 正式发布 |
-| `bump.yml` | 每周日 00:00 UTC 定时触发，也可手动触发 | 逐个 port 执行 `npm-ports bump-pr`，无开放 PR 时创建独立 PR |
+| `bump.yml` | 每周日 00:00 UTC 定时触发，也可手动触发 | 通过 GitHub App 逐个 port 执行 `npm-ports bump-pr`，无开放 PR 时创建独立普通 PR |
+| `ai-bump.yml` | 维护者给自动升级 PR 添加 `request-ai-bump` 标签 | 在隔离容器中修复构建，独立验证后 amend 回原提交并推送，触发完整 CI |
 
 port 目录为 `ports/<首字母>/<name>` 或 `ports/<首字母>/<name>@<版本线>`。变更检测按这一级建立矩阵。手动 dispatch 默认构建全部 port（要强制重建时用它），artifact replay 仍按 sourceSha 和输入不变性复用。
 
 ## 2. 先验证，批准后发布
 
-普通人工 PR 在基础检查通过后自动执行完整构建、临时 Verdaccio 和五平台 consumer，不需要管理员先批准构建。机器人 PR 默认先为草稿，Ready for review 后运行同一套检查。管理员 review 和合并决定发布。只有白名单组织仓库的 main push，并且整轮 `conclusion` 全绿，才会进入 `publish` job。
-
-如果按 [GitHub App 指南](github-app.md) 配置专用 App，可将 bump PR 改为普通 PR，创建后直接触发检查，不再需要 Ready for review。
+普通人工 PR 在基础检查通过后自动执行完整构建、临时 Verdaccio 和五平台 consumer，不需要管理员先批准构建。按 [GitHub App 指南](github-app.md) 配置后，机器人创建的普通 PR 和 AI 推送的修复也会自动运行同一套检查。管理员 review 和合并决定发布。只有白名单组织仓库的 main push，并且整轮 `conclusion` 全绿，才会进入 `publish` job。
 
 ## 3. 首次外部贡献者防护
 
@@ -84,6 +83,10 @@ manifest 记录 `sourceSha`、`portDir` 和每个包的名称、版本、文件�
 bump 矩阵按 port 隔离失败。`bump-pr` 一次处理一个 port，要求干净工作区及 HEAD 与 origin/main 一致。它先枚举目标分支的开放 PR 及其变更文件。只要已有 PR 修改同一 port，无论目标版本新旧都跳过，不更新、不覆盖。没有冲突时创建包含目标版本的新分支并普通推送，禁止 force push。没有更新时不建分支。工作流不包含第三方 PR Action，也不执行 npm publish。
 
 bump 只根据 `upstream` 查询 npm registry。主 port 跟随指定 dist-tag，`@` port 只选择版本线内最高 semver。写入时精确修改 NPMBUILD 中的版本、revision、主 source/sha256 和引用 `${version}` 的 resource，重新计算对应摘要，不扫描或改写补丁，也不全局替换字符串。固定资源不随主版本误更新。npm 预览版本与源码没有可靠映射的 port 必须禁用自动 bump。自动更新不代表上游 patch 必然兼容，补丁仍需贡献者审查并经过真实构建。
+
+bump 构建失败后，维护者可以添加 `request-ai-bump` 标签请求 AI 修复。工作流只接受同仓库、机器人创建、目标为 main 且只修改一个 port 的单提交 PR，并检查标签操作者具有写权限。开始后触发标签会被移除，执行状态直接查看 PR Checks，不维护额外状态标签。
+
+AI 可以修改该 port 内已有 Git 跟踪的骨架文件，包括 `test.js`、补丁和辅助代码，且必须保持目标版本。新增源文件由 AI 按仓库相对路径显式写入报告目录，宿主校验后加入验证，其他未跟踪文件作为构建产物清理。工作流独立执行 `npm-ports lint` 和 `npm-ports check`，再从全新克隆应用修复补丁、amend 原提交并使用 force-with-lease 推送。AI 容器不接触 App 或仓库凭据，AI 自己声明成功不能代替真实构建。推送后的完整 CI 仍是合并前的必要检查。
 
 ## 8. 验证边界
 
