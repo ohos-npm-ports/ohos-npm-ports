@@ -1,33 +1,33 @@
 #!/usr/bin/env bash
 pkgname="sharp"
 upstream="sharp"
-version="0.34.5"
-revision=3
+version="0.35.5"
+revision=1
 dist_tag="latest"
 
 packages=(
   "pkg"
 )
-vips_version=8.18.6
+vips_version=8.18.7
 source="https://registry.npmjs.org/sharp/-/sharp-${version}.tgz"
-sha256="460712506f9df808cf25bc2ba15be828bfa9179bd31b6ca47a9db624980026c3"
+sha256="3b6bbbe6b308f5c383938ca4a31926cd5d79c4651ed8c5fda16a97da2014a9ac"
 resource "vips" \
   "https://github.com/libvips/libvips/releases/download/v${vips_version}/vips-${vips_version}.tar.xz" \
-  "3c41e1d5458081bfa4a5bc54e116c46259c75c6760a18027764555632b9dda3e"
+  "5baaead3b0bb20ffdb9e9ff09aa9fda08620923df77b63b436654cb5e0b3bf94"
 
 build() {
   # Ports sharp (image processing) to OpenHarmony, built natively from source:
-  # a from-scratch libvips 8.18.6 build (this container's rustc/clang host
+  # a from-scratch libvips 8.18.7 build (this container's rustc/clang host
   # triple is already aarch64-unknown-linux-ohos, no cross-compile toolchain
   # needed) linked against sharp's own N-API addon.
   #
   # Why this exists: the community @ohos-ports/sharp build (0.34.5-beta.5) hit
-  # a crash at require() time -- lib/utility.js unconditionally reads
-  # format.jp2k.output.alias, and that build's native binding never populated
-  # the jp2k (JPEG2000) key at all, because the libvips it links against was
-  # compiled without openjpeg support. This build enables openjpeg explicitly
-  # and verifies a real jp2k encode/decode round-trip below, not just that the
-  # key exists.
+  # a crash at require() time -- the JS utility module unconditionally reads
+  # the JPEG2000 format key's output aliases, and that build's native binding
+  # never populated the jp2 (JPEG2000) key at all, because the libvips it links
+  # against was compiled without openjpeg support. This build enables openjpeg
+  # explicitly and verifies a real jp2 encode/decode round-trip below, not just
+  # that the key exists.
   #
   # Dependency strategy: unlike most native-binding ports in this repo, sharp
   # pulls in libvips's own dependency tree (~25 codec/rendering libraries --
@@ -55,7 +55,7 @@ build() {
   export PATH="${brew_prefix}/bin:${PATH}"
   export LIBRARY_PATH="${brew_prefix}/lib"
 
-  # --- libvips: build from source with jp2k (openjpeg) support ---
+  # --- libvips: build from source with JPEG 2000 (jp2 / openjpeg) support ---
   fetch_resource "vips" vips.tar.xz
   tar -xf vips.tar.xz
   rm vips.tar.xz
@@ -77,10 +77,10 @@ build() {
   ninja -C build
   ninja -C build install
 
-  # jp2k (JPEG2000) must actually be enabled, not silently skipped.
+  # JPEG 2000 (jp2) must actually be enabled, not silently skipped.
   grep -q "JPEG2000 load/save with libopenjp2.*YES" build/meson-logs/meson-log.txt ||
     {
-      echo "openjpeg/jp2k support did not get enabled" >&2
+      echo "openjpeg/jp2 support did not get enabled" >&2
       exit 1
     }
 
@@ -97,34 +97,39 @@ build() {
   export PKG_CONFIG_PATH="${vips_install}/lib/pkgconfig"
   export SHARP_FORCE_GLOBAL_LIBVIPS=1
   npm install
+  # 0.35.x no longer has an install-time check/build hook, and its native
+  # binding is now written to a versioned filename. Build it explicitly.
+  npm run build
 
-  test -f src/build/Release/sharp-openharmony-arm64.node
+  addon="sharp-openharmony-arm64-${version}.node"
+  test -f "src/build/Release/${addon}"
 
   cd ..
 
   # --- assemble the npm package ---
   rm -rf pkg
   mkdir -p pkg/vendor pkg/src/build/Release
+  cp -r sharp-src/dist pkg/dist
   cp -r sharp-src/lib pkg/lib
   cp sharp-src/package.json pkg/package.json
   (cd pkg && patch -p1 <../patches/0002-package-json.patch)
-  cp sharp-src/src/build/Release/sharp-openharmony-arm64.node pkg/src/build/Release/sharp-openharmony-arm64.node
+  cp "sharp-src/src/build/Release/${addon}" "pkg/src/build/Release/${addon}"
 
   # Ship the two libs we build under their bare SONAME (not the fully
   # versioned filename + a symlink) -- symlinks are not reliably preserved
   # across npm pack/publish and various file: install paths, and the dynamic
   # linker only ever looks up the SONAME string baked into the .node's NEEDED
   # entry anyway.
-  cp "${vips_install}/lib/libvips.so.42.20.6" pkg/vendor/libvips.so.42
-  cp "${vips_install}/lib/libvips-cpp.so.42.20.6" pkg/vendor/libvips-cpp.so.42
+  cp "${vips_install}/lib/libvips.so.42.20.7" pkg/vendor/libvips.so.42
+  cp "${vips_install}/lib/libvips-cpp.so.42.20.7" pkg/vendor/libvips-cpp.so.42
 
   # The OHOS-patched LLD leaves a placeholder section that makes patchelf
   # reject these binaries, so strip them before updating their RPATHs.
-  llvm-strip --strip-all pkg/src/build/Release/sharp-openharmony-arm64.node
+  llvm-strip --strip-all "pkg/src/build/Release/${addon}"
   llvm-strip --strip-all pkg/vendor/libvips-cpp.so.42
   llvm-strip --strip-all pkg/vendor/libvips.so.42
 
-  patchelf --set-rpath "\$ORIGIN/../../../vendor:${brew_prefix}/lib" pkg/src/build/Release/sharp-openharmony-arm64.node
+  patchelf --set-rpath "\$ORIGIN/../../../vendor:${brew_prefix}/lib" "pkg/src/build/Release/${addon}"
   patchelf --set-rpath "\$ORIGIN:${brew_prefix}/lib" pkg/vendor/libvips-cpp.so.42
   patchelf --set-rpath "\$ORIGIN:${brew_prefix}/lib" pkg/vendor/libvips.so.42
 
@@ -136,10 +141,10 @@ build() {
   node -e '
   const pkg = require("./pkg/package.json");
   const n = Object.keys(pkg.optionalDependencies ?? {}).length;
-  if (n !== 24) throw new Error(`optionalDependencies count: ${n}, expected 24`);
+  if (n !== 25) throw new Error(`optionalDependencies count: ${n}, expected 25`);
   if (pkg.optionalDependencies["@img/sharp-linux-arm64"] !== process.env.NPMBUILD_VERSION)
     throw new Error("sharp platform subpackage version drifted");
-  if (pkg.optionalDependencies["@img/sharp-libvips-linuxmusl-arm64"] !== "1.2.4")
+  if (pkg.optionalDependencies["@img/sharp-libvips-linuxmusl-arm64"] !== "1.3.4")
     throw new Error("libvips platform subpackage version drifted");
   console.log("optionalDependencies preserved:", n, "platform packages");
 '
@@ -156,7 +161,7 @@ build() {
   export OPENSSL_CONF=/dev/null
   node -e '
   const path = require("path");
-  const sharp = require(path.join(process.cwd(), "pkg", "lib", "index.js"));
+  const sharp = require(path.join(process.cwd(), "pkg", "dist", "index.cjs"));
   (async () => {
     const png = await sharp({
       create: { width: 40, height: 30, channels: 3, background: { r: 5, g: 200, b: 40 } },
@@ -165,10 +170,10 @@ build() {
     const jp2 = await sharp(png).jp2().toBuffer();
     const back = await sharp(jp2).raw().toBuffer({ resolveWithObject: true });
     if (back.info.width !== 40 || back.info.height !== 30) {
-      throw new Error("jp2k round-trip size mismatch: " + JSON.stringify(back.info));
+      throw new Error("jp2 round-trip size mismatch: " + JSON.stringify(back.info));
     }
-    if (!sharp.format.jp2k || !sharp.format.jp2k.output) {
-      throw new Error("format.jp2k missing or incomplete: " + JSON.stringify(sharp.format.jp2k));
+    if (!sharp.format.jp2 || !sharp.format.jp2.output) {
+      throw new Error("format.jp2 missing or incomplete: " + JSON.stringify(sharp.format.jp2));
     }
 
     // avif/heif also depend on libheif, now statically linked into libvips
@@ -178,7 +183,7 @@ build() {
     if (avif.length === 0) throw new Error("avif encode produced no bytes");
 
     console.log(
-      "OK: jp2k round-trip", jp2.length, "bytes,", back.info.width + "x" + back.info.height,
+      "OK: jp2 round-trip", jp2.length, "bytes,", back.info.width + "x" + back.info.height,
       "| avif encode", avif.length, "bytes",
     );
   })().catch((e) => { console.error("FAIL:", e); process.exit(1); });
