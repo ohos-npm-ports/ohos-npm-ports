@@ -12,7 +12,7 @@ const slot = '@ohos-npm-ports/demo-openharmony-arm64';
 const integrityOf = (content) => `sha512-${createHash('sha512').update(content).digest('base64')}`;
 
 // A port with a main package and one slot, the same shape build.mjs produces.
-function fixture(t, packages = '("slot" "main")') {
+function fixture(t, packages = '("@ohos-npm-ports/demo-openharmony-arm64:slot" "main")') {
   const root = mkdtempSync(join(tmpdir(), 'fetch-published-'));
   const dir = join(root, 'ports', 'd', 'demo');
   mkdirSync(dir, { recursive: true });

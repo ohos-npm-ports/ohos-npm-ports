@@ -15,19 +15,14 @@ diff --git a/lib/sqlite3-binding.js b/lib/sqlite3-binding.js
 index 98d1b91..0fa4ad2 100644
 --- a/lib/sqlite3-binding.js
 +++ b/lib/sqlite3-binding.js
-@@ -1 +1 @@
+@@ -1,1 +1,1 @@
 -module.exports = require('bindings')('node_sqlite3.node');
 +module.exports = require('node-gyp-build')(__dirname + "/../")
 diff --git a/package.json b/package.json
 index ab413ff..c7fb88d 100644
 --- a/package.json
 +++ b/package.json
-@@ -1,18 +1,12 @@
- {
--  "name": "sqlite3",
-+  "name": "@ohos-npm-ports/sqlite3",
-   "description": "Asynchronous, non-blocking SQLite3 bindings",
-   "version": "5.1.7",
+@@ -5,14 +5,8 @@
    "homepage": "https://github.com/TryGhost/node-sqlite3",
    "author": {
      "name": "Mapbox",

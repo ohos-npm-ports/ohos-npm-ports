@@ -52,7 +52,6 @@ for (const [file, hash] of Object.entries(hashes)) {
   if (!changed.has(file)) assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex'), hash, file);
 }
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json')));
-assert.equal(pkg.name, '@ohos-npm-ports/nw');
 assert.equal(pkg.version, `${process.env.NPMBUILD_VERSION}`);
 assert.equal(pkg.dependencies['@ohos-npm-ports/playwright-core'], '1.62.1-5');
 for (const file of ['runtime.cjs', 'server.cjs', 'browser.cjs']) assert.ok(fs.existsSync(path.join(root, 'src/ohos', file)));

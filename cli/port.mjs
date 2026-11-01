@@ -91,11 +91,22 @@ export function loadPort(root, input) {
     const offset = resourceOffset + 1 + index * 3;
     resources.push({ name: fields[offset], url: fields[offset + 1], sha256: fields[offset + 2] });
   }
+  const packages = [];
+  const packageNames = [];
+  for (const declaration of fields.slice(10, 10 + count)) {
+    const separator = declaration.indexOf(':');
+    const packageName = separator === -1 ? '' : declaration.slice(0, separator);
+    const output = separator === -1 ? declaration : declaration.slice(separator + 1);
+    if (!output || (separator !== -1 && !packageName)) throw new Error(`Invalid package declaration: ${declaration}`);
+    packages.push(output);
+    packageNames.push(packageName);
+  }
   const name = basename(dir);
   const separator = name.indexOf('@');
   const baseName = separator === -1 ? name : name.slice(0, separator);
   const versionLine = separator === -1 ? '' : name.slice(separator + 1);
   const port = {
+    root,
     name,
     baseName,
     versionLine,
@@ -111,7 +122,8 @@ export function loadPort(root, input) {
     source,
     sha256,
     bump: bump !== 'false',
-    packages: fields.slice(10, 10 + count),
+    packages,
+    packageNames,
     resources,
   };
   validatePort(port);
@@ -141,6 +153,12 @@ export function validatePort(port) {
     resourceNames.add(resource.name);
     if (!/^https:\/\//.test(resource.url)) fail(`resource ${resource.name} must use https`);
     if (!/^[a-f0-9]{64}$/.test(resource.sha256)) fail(`resource ${resource.name} requires a SHA-256`);
+  }
+  if (port.packageNames.filter((name) => !name).length !== 1) fail('packages must contain exactly one main output');
+  const publishedNames = port.packageNames.filter(Boolean);
+  if (new Set(publishedNames).size !== publishedNames.length) fail('duplicate published package name');
+  for (const name of publishedNames) {
+    if (!/^@ohos-npm-ports\/[a-z0-9][a-z0-9._-]*$/.test(name)) fail(`invalid published package name: ${name}`);
   }
   if (new Set(port.packages).size !== port.packages.length) fail('duplicate package output');
   for (const output of port.packages) {

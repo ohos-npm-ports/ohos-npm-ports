@@ -93,7 +93,6 @@ package() {
   patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
   patch -p1 <"${work_dir}/patches/0002-openharmony-loader.patch"
   # patch 对零上下文 hunk 的越界行号会静默套用到文件末尾（exit 0）
-  grep -q '"name": "@ohos-npm-ports/oxlint-tsgolint"' package.json
   grep -q "\"version\": \"${version}\"" package.json
   grep -q "openharmony" bin/tsgolint.js
   node --check bin/tsgolint.js
@@ -126,6 +125,7 @@ EOF
 
 check() {
   echo "=== test: 哈希不变量 + 真实入口 lint 冒烟 ==="
+  rm -f "${output_dir}/package.json.orig"
   cd "${output_dir}"
 
   # 剔除 patch 允许改写的两个文件与组装新增的槽位文件，其余须逐字节一致

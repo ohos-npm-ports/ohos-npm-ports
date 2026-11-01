@@ -11,7 +11,7 @@ resource "upstream" \
 dist_tag="latest"
 
 packages=(
-  "slots/openharmony-arm64/parcel-watcher-openharmony-arm64-${version}"
+  "@ohos-npm-ports/parcel-watcher-openharmony-arm64:slots/openharmony-arm64/parcel-watcher-openharmony-arm64-${version}"
   "parcel-watcher-${version}"
 )
 port_dir="$NPMBUILD_DIR"
@@ -79,9 +79,6 @@ build() {
     rm -f "$root_dir"/wrapper.js.upstream &&
     echo "wrapper.js identical to upstream below the 0003 header"
 
-  actual_name=$(node -e "console.log(require('./package.json').name)")
-  [ "$actual_name" = "@ohos-npm-ports/${pkgname}" ]
-
   node -e '
   const pkg = require("./package.json");
   if (pkg.version !== `${process.env.NPMBUILD_VERSION}`) throw new Error(`bad version: ${pkg.version}`);
@@ -126,6 +123,9 @@ b.writeSnapshot(dir, snap, {}).then(
 );'
   rm -rf node_modules package-lock.json
 
+}
+
+check() {
   # 消费侧冒烟：npm pack 后按名安装（file: 目录是 symlink，不装依赖）
   cd "$root_dir"
   rm -rf smoke && mkdir smoke && cd smoke
@@ -184,7 +184,6 @@ module.exports = require('./watcher.node')
 SHIM
   cat >"${pkgname}-${version}/package.json" <<JSON
 {
-  "name": "@ohos-npm-ports/${pkgname}",
   "version": "${version}",
   "description": "OpenHarmony (OHOS) arm64 platform binding for @parcel/watcher \\u2014 source-built inotify backend, main is a shim re-exporting watcher.node (bundler module-table embedding requires a JS entry)",
   "main": "index.js",
@@ -209,7 +208,9 @@ SHIM
   ]
 }
 JSON
+}
 
+slot_openharmony_arm64_check() {
   # --- verify package contents ---
   cd "${pkgname}-${version}"
 

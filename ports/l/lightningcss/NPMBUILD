@@ -47,9 +47,6 @@ build() {
 
   # --- verify package contents ---
 
-  actual_name=$(node -e "console.log(require('./package.json').name)")
-  [ "$actual_name" = "@ohos-npm-ports/lightningcss" ]
-
   node --check node/index.js
   grep -q "process.platform === 'openharmony'" node/index.js
 

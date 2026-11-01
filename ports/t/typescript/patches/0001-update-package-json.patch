@@ -1,13 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -1,6 +1,6 @@
- {
--    "name": "typescript",
-+    "name": "@ohos-npm-ports/typescript",
-     "version": "7.0.2",
-     "license": "Apache-2.0",
-     "author": "Microsoft Corp.",
-     "homepage": "https://www.typescriptlang.org/",
 @@ -17,7 +17,7 @@
      },
      "repository": {

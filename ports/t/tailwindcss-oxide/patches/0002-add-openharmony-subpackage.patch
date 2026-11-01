@@ -1,8 +1,7 @@
 --- /dev/null
 +++ b/crates/node/npm/openharmony-arm64/package.json
-@@ -0,0 +1,26 @@
+@@ -0,0 +1,25 @@
 +{
-+  "name": "@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64",
 +  "version": "4.3.3",
 +  "repository": {
 +    "type": "git",

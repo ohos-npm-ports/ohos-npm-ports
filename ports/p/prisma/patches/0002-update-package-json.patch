@@ -1,12 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -1,5 +1,5 @@
- {
--  "name": "prisma",
-+  "name": "@ohos-npm-ports/prisma",
-   "version": "8.0.0-rc.29",
-   "description": "The Prisma CLI: one binary for the ORM, Composer, and the Prisma Developer Platform.",
-   "type": "module",
 @@ -34,8 +34,8 @@
    ],
    "repository": {

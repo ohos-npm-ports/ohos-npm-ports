@@ -47,7 +47,6 @@ build() {
   cd "${build_dir}/src"
   patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
   # toybox patch can silently no-op on a malformed header; assert it landed.
-  grep -q '"name": "@ohos-npm-ports/prisma-client"' package.json
   grep -q "\"version\": \"${version}\"" package.json
 }
 
@@ -68,7 +67,7 @@ package() {
   rm pristine.sha256 pristine-no-manifest.sha256 built.sha256
   node -e '
       const p = require("'"${build_dir}"'/pkg/package.json");
-      if (p.name !== "@ohos-npm-ports/prisma-client" || p.version !== `${process.env.NPMBUILD_VERSION}`) { console.error("bad manifest"); process.exit(1); }
+      if (p.version !== `${process.env.NPMBUILD_VERSION}`) { console.error("bad manifest"); process.exit(1); }
       const { execSync } = require("child_process");
       for (const f of ["default.js", "index.js", "runtime/client.js", "runtime/client.mjs", "scripts/default-index.js"]) {
         require("fs").accessSync(require("path").join("'"${build_dir}"'/pkg", f));
@@ -76,11 +75,12 @@ package() {
       }
       console.log("OK: manifest + entry files parse");
     '
-  (cd pkg && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-client-${version}.tgz "${build_dir}")
-  test -f "${build_dir}/ohos-npm-ports-prisma-client-${version}.tgz"
 }
 
 check() {
+  (cd pkg && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-client-${version}.tgz "${build_dir}")
+  test -f "${build_dir}/ohos-npm-ports-prisma-client-${version}.tgz"
+
   # Prisma 7 generates a client that runs on the bundled WASM query compiler and
   # connects through a driver adapter. Use a pure-JS sql.js adapter instead of a
   # native addon so this functional smoke also runs on OpenHarmony.

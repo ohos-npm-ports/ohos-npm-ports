@@ -51,10 +51,10 @@ package() {
   rm -rf "$package_dir"
   mv "$build_dir/package" "$package_dir"
   cd "$package_dir"
-  npm pack --ignore-scripts --pack-destination "$build_dir"
 }
 
 check() {
+  npm pack --ignore-scripts --pack-destination "$build_dir"
   rm -rf "$build_dir/consumer"
   mkdir -p "$build_dir/consumer"
   node - "$build_dir" <<'JS'

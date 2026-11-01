@@ -1,6 +1,6 @@
 --- a/pnpm-workspace.yaml
 +++ b/pnpm-workspace.yaml
-@@ -147,0 +148 @@
+@@ -147,0 +148,1 @@
 +  - '@ohos-npm-ports/*'
 @@ -205,0 +207,8 @@
 +  'yuku-codegen': npm:@ohos-npm-ports/yuku-codegen@0.10.2-1

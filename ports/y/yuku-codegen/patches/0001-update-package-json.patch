@@ -1,10 +1,6 @@
 --- a/package.json
 +++ b/package.json
-@@ -1,11 +1,12 @@
- {
--  "name": "yuku-codegen",
-+  "name": "@ohos-npm-ports/yuku-codegen",
-   "version": "0.19.0",
+@@ -4,8 +4,9 @@
    "description": "A fast code generator for any ESTree / TypeScript-ESTree AST, with type stripping, minification, and source maps",
    "license": "MIT",
    "repository": {

@@ -1,12 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -1,5 +1,5 @@
- {
--  "name": "pnpm",
-+  "name": "@ohos-npm-ports/pnpm",
-   "publishConfig": {
-     "executableFiles": [
-       "./dist/node-gyp-bin/node-gyp",
 @@ -21,8 +21,8 @@
    "bugs": "https://github.com/pnpm/pnpm/issues",
    "repository": {

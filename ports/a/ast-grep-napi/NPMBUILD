@@ -49,7 +49,6 @@ build() {
   for patch in ../patches/*.patch; do
     patch -p1 <"$patch"
   done
-  grep -q '"name": "@ohos-npm-ports/ast-grep-napi"' package.json
   grep -q "\"version\": \"${version}\"" package.json
   grep -q '"ast-grep-napi.openharmony-arm64.node"' package.json
   grep -q '"@ast-grep/napi-linux-arm64-gnu": "'"${version}"'"' package.json

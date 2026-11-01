@@ -1,10 +1,6 @@
 --- a/package.json
 +++ b/package.json
-@@ -1,10 +1,11 @@
- {
--  "name": "@playwright/mcp",
-+  "name": "@ohos-npm-ports/playwright-mcp",
-   "version": "0.0.84",
+@@ -4,7 +4,8 @@
    "description": "Playwright Tools for MCP",
    "repository": {
      "type": "git",

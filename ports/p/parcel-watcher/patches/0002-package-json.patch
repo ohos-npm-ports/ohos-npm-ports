@@ -1,10 +1,6 @@
 --- a/package.json
 +++ b/package.json
-@@ -1,13 +1,14 @@
- {
--  "name": "@parcel/watcher",
-+  "name": "@ohos-npm-ports/parcel-watcher",
-   "version": "2.6.0",
+@@ -4,10 +4,11 @@
    "main": "index.js",
    "types": "index.d.ts",
    "repository": {

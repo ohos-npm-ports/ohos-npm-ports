@@ -1,12 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -1,5 +1,5 @@
- {
--  "name": "@prisma/client",
-+  "name": "@ohos-npm-ports/prisma-client",
-   "version": "7.10.1",
-   "description": "Prisma Client is an auto-generated, type-safe and modern JavaScript/TypeScript ORM for Node.js that's tailored to your data. Supports PostgreSQL, CockroachDB, MySQL, MariaDB, SQL Server, SQLite & MongoDB databases.",
-   "keywords": [
 @@ -121,8 +121,8 @@
    "homepage": "https://www.prisma.io",
    "repository": {

@@ -37,33 +37,45 @@ function updateSlotReferences(pkg, versions) {
   }
 }
 
-export function stagePackages(port) {
-  const staged = port.packages.map((output) => {
+export function normalizePackages(port, slot = '') {
+  const staged = port.packages.flatMap((output, index) => {
+    if (slot === 'main' && output.startsWith('slots/')) return [];
+    if (slot && slot !== 'main' && output !== `slots/${slot}` && !output.startsWith(`slots/${slot}/`)) return [];
     const directory = resolve(port.dir, output);
     const file = join(directory, 'package.json');
     if (!existsSync(file)) throw new Error(`${port.relative}: missing package manifest: ${output}/package.json`);
     const pkg = JSON.parse(readFileSync(file, 'utf8'));
-    if (!pkg.name?.startsWith(portScope)) throw new Error(`${port.relative}: ${output} has invalid package name ${pkg.name}`);
     if (pkg.version !== port.version) {
       throw new Error(`${port.relative}: ${pkg.name}@${pkg.version} must retain upstream ${port.version}; revision is injected only while packing`);
     }
+    pkg.name = port.packageNames[index] || `${portScope}${port.pkgname}`;
     return { output, directory, file, pkg };
   });
   const names = staged.map(({ pkg }) => pkg.name);
+  if (names.some((name) => !name.startsWith(portScope))) throw new Error(`${port.relative}: all published names must use ${portScope}`);
   if (new Set(names).size !== names.length) throw new Error(`${port.relative}: duplicate published package name`);
   const mainName = `${portScope}${port.pkgname}`;
-  if (!names.includes(mainName)) throw new Error(`${port.relative}: outputs do not contain ${mainName}`);
-  const versions = new Map(names.map((name) => [name, port.portVersion]));
+  if ((!slot || slot === 'main') && !names.includes(mainName)) throw new Error(`${port.relative}: outputs do not contain ${mainName}`);
   for (const { pkg, file } of staged) {
-    pkg.version = port.portVersion;
-    updateSlotReferences(pkg, versions);
     const repository = typeof pkg.repository === 'object' && pkg.repository !== null ? pkg.repository : {};
     pkg.repository = {
       ...repository,
       type: repository.type ?? 'git',
-      url: repository.url ?? 'git+https://github.com/ohos-npm-ports/ohos-npm-ports.git',
+      url: 'git+https://github.com/ohos-npm-ports/ohos-npm-ports.git',
       directory: port.relative,
     };
+    writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
+  }
+  return staged;
+}
+
+export function stagePackages(port) {
+  const staged = normalizePackages(port);
+  const names = staged.map(({ pkg }) => pkg.name);
+  const versions = new Map(names.map((name) => [name, port.portVersion]));
+  for (const { pkg, file } of staged) {
+    pkg.version = port.portVersion;
+    updateSlotReferences(pkg, versions);
     writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
   }
   console.log(`Staged ${names.map((name) => `${name}@${port.portVersion}`).join(', ')}`);
@@ -75,6 +87,7 @@ function buildEnvironment(port) {
     ...process.env,
     NPMBUILD_DIR: port.dir,
     NPMBUILD_VERSION: port.version,
+    NPM_PORTS_ROOT: port.root,
     NPM_PORTS_RUNTIME: runtime,
   };
   try {
@@ -106,17 +119,26 @@ function runHooks(port, component, phases) {
     'set -e',
     'source "$NPM_PORTS_RUNTIME"',
     'source "$NPMBUILD_DIR/NPMBUILD"',
-    ...hooks.flatMap((hook) => [
-      `if declare -F ${hook} >/dev/null; then`,
-      ...(hook.endsWith('package') ? ['  cd "$NPMBUILD_SLOT_DIR"'] : []),
-      `  ${hook}`,
-      'fi',
-    ]),
+    ...hooks.flatMap((hook) => {
+      if (hook.endsWith('normalize')) return ['"$NPM_PORTS_NODE" "$NPM_PORTS_NORMALIZE"'];
+      return [
+        `if declare -F ${hook} >/dev/null; then`,
+        ...(hook.endsWith('package') ? ['  cd "$NPMBUILD_SLOT_DIR"'] : []),
+        `  ${hook}`,
+        'fi',
+      ];
+    }),
   ].join('\n');
   console.log(`==> ${port.relative}${component.name === 'main' ? '' : `/${component.name}`}: ${phases.join(' -> ')}`);
   run('bash', ['-c', script], {
     cwd: component.directory,
-    env: { ...buildEnvironment(port), NPMBUILD_SLOT: component.name, NPMBUILD_SLOT_DIR: component.directory },
+    env: {
+      ...buildEnvironment(port),
+      NPMBUILD_SLOT: component.name,
+      NPMBUILD_SLOT_DIR: component.directory,
+      NPM_PORTS_NODE: process.execPath,
+      NPM_PORTS_NORMALIZE: fileURLToPath(new URL('./normalize.mjs', import.meta.url)),
+    },
   });
 }
 
@@ -124,6 +146,7 @@ export function runLifecycle(port, through = 'check') {
   const phases = ['prepare', 'build', 'package', 'check'];
   if (!phases.includes(through)) throw new Error(`Unknown lifecycle phase: ${through}`);
   const selected = phases.slice(0, phases.indexOf(through) + 1);
+  if (selected.includes('package')) selected.splice(selected.indexOf('package') + 1, 0, 'normalize');
   for (const component of components(port)) runHooks(port, component, selected);
 }
 

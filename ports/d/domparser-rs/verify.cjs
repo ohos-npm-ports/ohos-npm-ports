@@ -39,7 +39,7 @@ for(const [platform,arch,musl,expected] of [
 const expected=structuredClone(original);
 expected.name=pkg.name;
 expected.version=pkg.version;
-expected.repository='https://github.com/ohos-npm-ports/ohos-npm-ports';
+expected.repository={type:'git',url:'git+https://github.com/ohos-npm-ports/ohos-npm-ports.git',directory:'ports/d/domparser-rs'};
 expected.files.push('domparser.openharmony-arm64.node');
 delete expected.scripts.prepare;
 delete expected.scripts.prepublishOnly;

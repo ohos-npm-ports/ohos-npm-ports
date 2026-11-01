@@ -1,10 +1,6 @@
 --- a/package.json
 +++ b/package.json
-@@ -1,11 +1,12 @@
- {
--  "name": "yuku-parser",
-+  "name": "@ohos-npm-ports/yuku-parser",
-   "version": "0.19.0",
+@@ -4,8 +4,9 @@
    "description": "A fast, spec-compliant JavaScript and TypeScript parser, producing an ESTree / TypeScript-ESTree AST",
    "license": "MIT",
    "repository": {

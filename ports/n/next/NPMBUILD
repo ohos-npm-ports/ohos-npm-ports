@@ -11,14 +11,12 @@ resource "upstream" \
 dist_tag="latest"
 
 packages=(
-  "next-swc-openharmony-arm64"
+  "@ohos-npm-ports/next-swc-openharmony-arm64:next-swc-openharmony-arm64"
   "next-${version}"
 )
 root_dir="$NPMBUILD_DIR"
 
 prepare() {
-  repo_root=$(CDPATH= cd -- "$root_dir/../../.." && pwd)
-
   # ===== deps =====
   brew install -y rust
   command -v curl >/dev/null
@@ -41,9 +39,10 @@ prepare() {
 build() {
   host_triple=$(rustc -vV | sed -n 's/^host: //p')
   [ "$host_triple" = "aarch64-unknown-linux-ohos" ]
-  git config --global --add safe.directory "$repo_root"
 
   cd "$root_dir/src"
+  git init
+  git -c user.name=npm-ports -c user.email=npm-ports@localhost commit --allow-empty -m "Next.js $version source"
   patch -p1 <"$root_dir/patches/0003-turbo-tasks-fs-ohos.patch"
   grep -q "into_os_string" turbopack/crates/turbo-tasks-fs/src/disk.rs
   patch -p1 <"$root_dir/patches/0004-openharmony-project-path.patch"
@@ -71,7 +70,6 @@ package() {
 
   cat >next-swc-openharmony-arm64/package.json <<EOF
 {
-  "name": "@ohos-npm-ports/next-swc-openharmony-arm64",
   "version": "${version}",
   "description": "OpenHarmony arm64 native SWC binding for Next.js",
   "repository": {

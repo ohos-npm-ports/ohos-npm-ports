@@ -6,7 +6,7 @@ revision=4
 dist_tag="latest"
 
 packages=(
-  "src/crates/node/npm/openharmony-arm64"
+  "@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64:src/crates/node/npm/openharmony-arm64"
   "src/crates/node"
 )
 source="https://github.com/tailwindlabs/tailwindcss/archive/refs/tags/v${version}.tar.gz"
@@ -71,12 +71,6 @@ build() {
   chmod +x "$node_file"
 
   # --- verify package contents ---
-
-  main_name=$(node -e "console.log(require('./package.json').name)")
-  [ "$main_name" = "@ohos-npm-ports/tailwindcss-oxide" ]
-
-  subpkg_name=$(node -e "console.log(require('./npm/openharmony-arm64/package.json').name)")
-  [ "$subpkg_name" = "@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64" ]
 
   # The main package's optionalDependency on our own subpackage must match the
   # subpackage's actual version (everything else pins the real upstream
