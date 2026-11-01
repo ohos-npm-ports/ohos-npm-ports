@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 pkgname="pnpm"
 upstream="pnpm"
-version="12.8.1"
-revision=5
+version="12.16.1"
+revision=1
 dist_tag="latest"
 
 packages=(
@@ -13,10 +13,10 @@ slot_name="pnpm-exe.openharmony-arm64"
 work_dir="$NPMBUILD_DIR"
 build_dir="${work_dir}/build"
 source="https://github.com/pnpm/pnpm/archive/refs/tags/v${version}.tar.gz"
-sha256="d4dabd7621113ed796d5c5acc972d6c48eea722fe83bac16ac3d9043b3dae1ae"
+sha256="baaffdb2671a414882d13379d978339a58a9e66fe099f1f00f05a47b6232322c"
 resource "npm" \
   "https://registry.npmjs.org/pnpm/-/pnpm-${version}.tgz" \
-  "90762b8105e833164186b011efe5cde13841693ac8eaf784d2974a6e1c01fba3"
+  "ca362a16f2e1c3cfa81d406f3242446179a0e4aea457ba3e9e6c39e6476aba65"
 resource "iana_time_zone" \
   "https://static.crates.io/crates/iana-time-zone/iana-time-zone-0.1.65.crate" \
   "e31bc9ad994ba00e440a8aa5c9ef0ec67d5cb5e5cb0cc7f8b744a35b389cc470"
@@ -26,7 +26,7 @@ prepare() {
   # ohos-npm-ports: @ohos-npm-ports/pnpm ${version}
   #
   # 构建方式：
-  #   1. 下载 pnpm v12.8.1 源码 tag + pnpm@12.8.1 npm 包
+  #   1. 下载 pnpm v12.16.1 源码 tag + pnpm@12.16.1 npm 包
   #   2. 源码打补丁：host 平台上报 openharmony、iana-time-zone 改运行时 dlopen
   #   3. cargo 构建 pnpm-cli，strip
   #   4. 槽位包 @ohos-npm-ports/pnpm-exe.openharmony-arm64 携带二进制
@@ -84,9 +84,10 @@ build() {
   grep -q 'iana-time-zone = { path' "${source_dir}/Cargo.toml"
   ! grep -q "$resource_iana_time_zone_sha256" "${source_dir}/Cargo.lock"
   grep -q 'dlopen' "${source_dir}/vendor/iana-time-zone/src/tz_ohos.rs"
-  # 0007: store 操作锁的根目录。pnpm 在 secure_user_lock_dir 里硬编码 /tmp
-  # （刻意不读 TMPDIR，让不同 TMPDIR 的进程仍共享同一把锁），而 OHOS 的
-  # /tmp 只读，于是 install 报 ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK。
+  # 0007: store 操作锁的根目录。pnpm 的 secure_user_lock_dir 在没有可用的
+  # XDG_RUNTIME_DIR 时会退回 /tmp（刻意不读 TMPDIR，让不同 TMPDIR 的进程
+  # 仍共享同一把锁），而 OHOS 的 /tmp 只读，于是 install 报
+  # ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK。
   grep -q 'OHOS_TEMP_DIR: &str = "/data/storage/el2/base/cache"' \
     "${source_dir}/pnpm/crates/fs/src/secure_temp_lock.rs"
 

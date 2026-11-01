@@ -1,5 +1,3 @@
-diff --git a/pnpm/crates/fs/src/secure_temp_lock.rs b/pnpm/crates/fs/src/secure_temp_lock.rs
-index 5aa369db53f13b9827b327414d7d803f4cea398f..b074c765591c9d901b5ea59bd7f796875e870441 100644
 --- a/pnpm/crates/fs/src/secure_temp_lock.rs
 +++ b/pnpm/crates/fs/src/secure_temp_lock.rs
 @@ -3,11 +3,20 @@
@@ -15,30 +13,32 @@ index 5aa369db53f13b9827b327414d7d803f4cea398f..b074c765591c9d901b5ea59bd7f79687
  /// temporary area. Unix directories are owner-qualified and forced to mode
  /// `0700`, so another local user cannot pre-create or replace their contents.
  pub fn secure_temp_lock_dir(name: &str) -> io::Result<PathBuf> {
--    secure_lock_dir(std::env::temp_dir(), name)
+-    secure_lock_dir(crate::temp_dir(), name)
 +    #[cfg(target_env = "ohos")]
 +    let temp_dir = PathBuf::from(OHOS_TEMP_DIR);
 +    #[cfg(not(target_env = "ohos"))]
-+    let temp_dir = std::env::temp_dir();
++    let temp_dir = crate::temp_dir();
 +    secure_lock_dir(temp_dir, name)
  }
  
  /// Create or validate a process-shared lock directory in a stable location
-@@ -32,11 +41,16 @@
-     Ok(directory)
+@@ -47,12 +56,18 @@
+     Ok(PathBuf::from("/tmp"))
  }
  
 -#[cfg(all(unix, not(target_os = "android")))]
 +#[cfg(all(unix, not(any(target_os = "android", target_env = "ohos"))))]
  fn user_lock_root() -> io::Result<PathBuf> {
-     Ok(PathBuf::from("/tmp"))
+     Ok(xdg_runtime_dir(std::env::var_os("XDG_RUNTIME_DIR"))
+         .unwrap_or_else(|| PathBuf::from("/tmp")))
  }
  
 +#[cfg(target_env = "ohos")]
 +fn user_lock_root() -> io::Result<PathBuf> {
-+    Ok(PathBuf::from(OHOS_TEMP_DIR))
++    Ok(xdg_runtime_dir(std::env::var_os("XDG_RUNTIME_DIR"))
++        .unwrap_or_else(|| PathBuf::from(OHOS_TEMP_DIR)))
 +}
 +
  #[cfg(target_os = "android")]
  fn user_lock_root() -> io::Result<PathBuf> {
-     Ok(android_user_lock_root(std::env::var_os("HOME")))
+     Ok(xdg_runtime_dir(std::env::var_os("XDG_RUNTIME_DIR"))
