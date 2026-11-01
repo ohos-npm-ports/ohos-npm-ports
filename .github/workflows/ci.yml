@@ -232,15 +232,15 @@ jobs:
           compression-level: 0
           retention-days: 7
 
-  # build 和 fetch 都结束后 consumer 才开始；个别 port 构建失败时，其余 consumer 照常运行
+  # build 和 fetch 全部成功后 consumer 才开始，失败时由 conclusion 直接汇总构建错误
   artifacts:
     needs: [detect-changes, external-build-approval, build, fetch]
     if: >
       always() &&
       needs.detect-changes.result == 'success' &&
       (needs.external-build-approval.result == 'success' || needs.external-build-approval.result == 'skipped') &&
-      (needs.build.result == 'success' || needs.build.result == 'failure' || needs.detect-changes.outputs.build-matrix == '[]') &&
-      (needs.fetch.result == 'success' || needs.fetch.result == 'failure' || needs.detect-changes.outputs.fetch-matrix == '[]')
+      (needs.build.result == 'success' || needs.detect-changes.outputs.build-matrix == '[]') &&
+      (needs.fetch.result == 'success' || needs.detect-changes.outputs.fetch-matrix == '[]')
     runs-on: ubuntu-slim
     steps:
       - run: echo 'The artifacts of this run are uploaded.'
