@@ -3,7 +3,7 @@
 @@ -1,13 +1,13 @@
  {
 -  "name": "nx",
-   "version": "23.1.1",
+   "version": "24.0.3",
    "private": false,
    "type": "commonjs",
    "description": "The core Nx plugin contains the core functionality of Nx like the project graph, nx commands and task orchestration.",
@@ -13,7 +13,7 @@
 -    "url": "https://github.com/nrwl/nx.git",
 -    "directory": "packages/nx"
 +    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-+    "directory": "ports/nx/23.1.1"
++    "directory": "ports/n/nx/24.0.3"
    },
    "files": [
      "dist/bin",
