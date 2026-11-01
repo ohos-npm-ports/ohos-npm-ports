@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 pkgname="bufferutil"
 upstream="bufferutil"
-version="4.0.9"
-revision=9
+version="4.1.0"
+revision=1
 dist_tag="latest"
 
 packages=(
   "bufferutil-${version}"
 )
 source="https://github.com/websockets/bufferutil/archive/refs/tags/v${version}.tar.gz"
-sha256="618f86453510a508e1fb6905401f6e39d0f9571b8681b9e58775535abdc65b39"
+sha256="42971057cdc3acb64422aca071146d9d5bf73a42a142519d72db51896b0b0972"
 resource "npm" \
   "https://registry.npmjs.org/bufferutil/-/bufferutil-${version}.tgz" \
-  "49ca055cd977fcdbef8e393cb2c51691b76ed233a3c0079227e09fbb406bf0b9"
+  "19af5978088739b8baf861a95ab4a1feb69a2d30830ced707c37920591046a87"
 
 build() {
   # 准备源码

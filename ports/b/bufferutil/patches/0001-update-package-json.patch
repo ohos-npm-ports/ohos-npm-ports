@@ -6,11 +6,11 @@ index 0d77b90..232fc6e 100644
  {
 -  "name": "bufferutil",
 +  "name": "@ohos-npm-ports/bufferutil",
-   "version": "4.0.9",
+   "version": "4.1.0",
    "description": "WebSocket buffer utils",
    "main": "index.js",
    "engines": {
-@@ -14,7 +14,7 @@
+@@ -13,7 +13,7 @@
    },
    "repository": {
      "type": "git",
@@ -19,7 +19,7 @@ index 0d77b90..232fc6e 100644
    },
    "keywords": [
      "bufferutil"
-@@ -22,7 +22,7 @@
+@@ -21,7 +21,7 @@
    "author": "Einar Otto Stangvik <einaros@gmail.com> (http://2x.io)",
    "license": "MIT",
    "bugs": {
