@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 pkgname="parcel-watcher"
 upstream="@parcel/watcher"
-version="2.5.1"
-revision=4
+version="2.6.0"
+revision=1
 source="https://registry.npmjs.org/@parcel/watcher/-/watcher-${version}.tgz"
-sha256="bf7a6b5577a287153c9a6bf7be953556b998f2a57706eb7a5371ec7eb0088d41"
+sha256="ab42807be3df24a12d01e31568a7e61def1a4bee636a7c60a397319eff677e95"
 resource "upstream" \
   "https://github.com/parcel-bundler/watcher/archive/refs/tags/v${version}.tar.gz" \
-  "8bb27ecefefeb88b6eac5358d554a93a932e4ae8518f19759c836c9c03fdb9ea"
+  "f211a58fd11297f187b4f2120ea60e4b637ce5c54492182944a8ee89bebcf747"
 dist_tag="latest"
 
 packages=(
@@ -86,7 +86,7 @@ build() {
   const pkg = require("./package.json");
   if (pkg.version !== `${process.env.NPMBUILD_VERSION}`) throw new Error(`bad version: ${pkg.version}`);
   const n = Object.keys(pkg.optionalDependencies ?? {}).length;
-  if (n !== 14) throw new Error(`optionalDependencies count: ${n}, expected 14`);
+  if (n !== 13) throw new Error(`optionalDependencies count: ${n}, expected 13`);
   if (pkg.optionalDependencies["@parcel/watcher-linux-arm64-musl"] !== process.env.NPMBUILD_VERSION)
     throw new Error("platform subpackage version drifted");
   const alias = pkg.optionalDependencies["@parcel/watcher-openharmony-arm64"];
@@ -141,7 +141,7 @@ b.writeSnapshot(dir, snap, {}).then(
 }
 
 slot_openharmony_arm64_build() {
-  # 源码构建 @parcel/watcher@2.5.1 的 openharmony 平台包（binding-only）。
+  # 源码构建 @parcel/watcher@${version} 的 openharmony 平台包（binding-only）。
   # 消费方以 alias 安装到 @parcel/watcher-openharmony-arm64 槽位：
   #   - 普通安装（node_modules 解析）：@parcel/watcher 的 index.js 在
   #     platform === 'openharmony' 时动态拼名 require 本包名，一步命中

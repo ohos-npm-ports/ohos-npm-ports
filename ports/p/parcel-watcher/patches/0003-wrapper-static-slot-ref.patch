@@ -8,5 +8,5 @@
 +try { require('@parcel/watcher-openharmony-arm64') } catch {}
 +
  const path = require('path');
- const micromatch = require('micromatch');
+ const picomatch = require('picomatch');
  const isGlob = require('is-glob');
