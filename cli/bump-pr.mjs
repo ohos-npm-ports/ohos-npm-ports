@@ -71,7 +71,7 @@ export async function bumpPr(root, port, {
     throw new Error(`${port.name}: an open PR appeared during bump; refusing to push a competing branch`);
   }
   git('push', '-u', 'origin', `HEAD:refs/heads/${branch}`);
-  const body = `Automated NPMBUILD upstream bump.\n\n- ${port.name}: ${port.version} → ${version}-1\n\nCI runs automatically for ordinary PRs. Draft PRs start CI when marked ready for review. Patch context and upstream build changes still require maintainer review.`;
+  const body = `Automated NPMBUILD upstream bump.\n\n- ${port.name}: ${port.version} → ${version}\n\nCI runs automatically for ordinary PRs. Draft PRs start CI when marked ready for review. Patch context and upstream build changes still require maintainer review.`;
   const args = ['pr', 'create', '--repo', repository, '--base', base, '--head', branch, '--title', title, '--body', body];
   if (draft) args.push('--draft');
   gh(...args);

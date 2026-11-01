@@ -459,7 +459,9 @@ test('bump-pr creates a versioned branch without force-pushing', async () => {
   assert.equal(result.number, '1');
   assert.ok(commands.includes(`git switch -c ${branch}`));
   assert.ok(commands.includes(`git push -u origin HEAD:refs/heads/${branch}`));
-  assert.ok(commands.some((command) => command.startsWith('gh pr create') && command.endsWith('--draft')));
+  const create = commands.find((command) => command.startsWith('gh pr create'));
+  assert.ok(create.endsWith('--draft'));
+  assert.match(create, /- demo: 1\.2\.3 → 1\.3\.0\n/);
   assert.equal(commands.some((command) => /force|pr edit|ls-remote/.test(command)), false);
 });
 
