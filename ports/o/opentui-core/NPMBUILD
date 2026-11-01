@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 pkgname="opentui-core"
 upstream="@opentui/core"
-version="0.6.6"
-revision=3
+version="0.8.1"
+revision=1
 source="https://registry.npmjs.org/@opentui/core/-/core-${version}.tgz"
-sha256="25142af92caa4d1c12ea46d140a634f06a87abb16402646e89c321e7c6b727c8"
+sha256="91f980e93c67ce71d0fac3f5ca773decee2c008174f04bd357b024246dad953a"
 resource "upstream" \
   "https://codeload.github.com/anomalyco/opentui/tar.gz/refs/tags/v${version}" \
-  "9c7539a47c73f11022fcb81840fb7856342804a3d133a8e2a0a8cbe0c66a4fed"
+  "3418421c786f56c30a438c00b268d1b653d3efa826ff40fcffb72df7ae8bb765"
 dist_tag="latest"
 
 packages=(
@@ -23,7 +23,7 @@ ohos_triple=aarch64-linux-ohos
 native_lib="${source_dir}/packages/native/lib/${ohos_triple}/libopentui.so"
 
 prepare() {
-  # JS bundle 用上游同版本 bun 从 v0.6.6 源码重建（0002 在 src 层注入 openharmony
+  # JS bundle 用上游同版本 bun 从 v0.8.1 源码重建（0002 在 src 层注入 openharmony
   # 分支），官方构建产物零改动；native 不随父包发布，由平台槽位包
   # @opentui/core-openharmony-arm64（ports/o/opentui-core/slots/openharmony-arm64）
   # 经 optionalDependencies npm alias 提供，bun --compile 消费时由消费方 bundler
@@ -41,7 +41,7 @@ prepare() {
 
   brew list --versions ohos-sdk-native >/dev/null 2>&1 || brew install -y ohos-sdk-native
   brew install node
-  brew install zig@0.16
+  brew install zig@0.17
   zig version
   export ZIG_GLOBAL_CACHE_DIR="${root_dir}/zig-cache"
 
@@ -66,7 +66,8 @@ sys_include_dir=${ohos_sysroot}/usr/include/${ohos_triple}
 crt_dir=${ohos_sysroot}/usr/lib/${ohos_triple}
 msvc_lib_dir=
 kernel32_lib_dir=
-gcc_dir=${ohos_clang_runtime}
+darwin_sdk_dir=
+cc_dir=${ohos_clang_runtime}
 EOF
 
   fetch_source "core.tgz"
@@ -282,7 +283,7 @@ slot_openharmony_arm64_prepare() {
   brew install node
   brew list --versions ohos-sdk-native >/dev/null 2>&1 || brew install -y ohos-sdk-native
   brew install ohos-sdk-toolchains
-  brew install zig@0.16
+  brew install zig@0.17
   zig version
   export ZIG_GLOBAL_CACHE_DIR="${root_dir}/zig-cache"
 
@@ -307,7 +308,8 @@ sys_include_dir=${ohos_sysroot}/usr/include/${ohos_triple}
 crt_dir=${ohos_sysroot}/usr/lib/${ohos_triple}
 msvc_lib_dir=
 kernel32_lib_dir=
-gcc_dir=${ohos_clang_runtime}
+darwin_sdk_dir=
+cc_dir=${ohos_clang_runtime}
 EOF
 
   fetch_resource "upstream" "${source_dir}.tar.gz"
@@ -334,7 +336,7 @@ slot_openharmony_arm64_build() {
 
 slot_openharmony_arm64_package() {
   # 随包发布给用户的 .so：llvm-strip（dlopen 库无需 +x）
-  llvm_strip="$(brew --prefix llvm@21)/bin/llvm-strip"
+  llvm_strip="$(brew --prefix llvm@22)/bin/llvm-strip"
   "$llvm_strip" --strip-all "${root_dir}/${native_lib}"
 
   mkdir -p "${root_dir}/${package_dir}"
