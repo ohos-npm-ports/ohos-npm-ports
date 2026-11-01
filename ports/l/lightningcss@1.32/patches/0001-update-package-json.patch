@@ -1,13 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -1,6 +1,6 @@
- {
--  "name": "lightningcss",
-+  "name": "@ohos-npm-ports/lightningcss",
-   "version": "1.32.0",
-   "license": "MPL-2.0",
-   "description": "A CSS parser, transformer, and minifier written in Rust",
-   "main": "node/index.js",
 @@ -24,7 +24,8 @@
    },
    "repository": {

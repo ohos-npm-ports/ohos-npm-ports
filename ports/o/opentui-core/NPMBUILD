@@ -11,7 +11,7 @@ resource "upstream" \
 dist_tag="latest"
 
 packages=(
-  "slots/openharmony-arm64/opentui-core-openharmony-arm64-${version}"
+  "@ohos-npm-ports/opentui-core-openharmony-arm64:slots/openharmony-arm64/opentui-core-openharmony-arm64-${version}"
   "opentui-core-${version}"
 )
 root_dir="$NPMBUILD_DIR"
@@ -126,8 +126,6 @@ check() {
   test -s "$ZIG_LIBC"
   # --- 包静态断言 ---
   cd "${root_dir}/${package_dir}"
-  actual_name=$(node -e "console.log(require('./package.json').name)")
-  [ "$actual_name" = "@ohos-npm-ports/opentui-core" ]
   grep -q '"#opentui/parser-worker": "./parser.worker.js"' package.json
 
   for f in ./*.js ./lib/tree-sitter/*.js; do
@@ -357,7 +355,6 @@ export default path
 EOF
   cat >package.json <<EOF
 {
-  "name": "@ohos-npm-ports/${pkgname}",
   "version": "${version}",
   "description": "Prebuilt openharmony-arm64 binaries for @opentui/core",
   "type": "module",

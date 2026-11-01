@@ -134,8 +134,6 @@ build() {
   patchelf --set-rpath "\$ORIGIN:${brew_prefix}/lib" pkg/vendor/libvips.so.42
 
   # --- verify ---
-  actual_name=$(node -e "console.log(require('./pkg/package.json').name)")
-  [ "$actual_name" = "@ohos-npm-ports/sharp" ]
 
   # cross-platform: upstream's platform optionalDependencies must stay intact
   node -e '

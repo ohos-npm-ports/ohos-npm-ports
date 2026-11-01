@@ -1,6 +1,6 @@
 --- a/package.json
 +++ b/package.json
-@@ -42,2 +42 @@
+@@ -42,2 +42,1 @@
 -  },
 -  "packageManager": "pnpm@12.11.2"
 +  }

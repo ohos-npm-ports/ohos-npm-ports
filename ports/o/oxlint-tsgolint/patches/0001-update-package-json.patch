@@ -9,12 +9,3 @@
    },
    "bugs": "https://github.com/oxc-project/tsgolint/issues",
    "homepage": "https://github.com/oxc-project/tsgolint#readme",
-@@ -12,7 +13,7 @@
-   "publishConfig": {
-     "access": "public"
-   },
--  "name": "oxlint-tsgolint",
-+  "name": "@ohos-npm-ports/oxlint-tsgolint",
-   "bin": {
-     "tsgolint": "./bin/tsgolint.js"
-   },

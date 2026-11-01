@@ -6,7 +6,7 @@ revision=5
 dist_tag="latest"
 
 packages=(
-  "build/typescript-openharmony-arm64"
+  "@ohos-npm-ports/typescript-openharmony-arm64:build/typescript-openharmony-arm64"
   "build/typescript-${version}"
 )
 slot_name="typescript-openharmony-arm64"
@@ -23,7 +23,7 @@ prepare() {
   #
   # 构建方式：
   #   1. 下载官方 typescript@${version}（JS wrapper：bin/tsc → getExePath → 平台二进制）
-  #   2. 打 patch：改名、optionalDependencies 挂 openharmony 槽位包、
+  #   2. 打 patch：optionalDependencies 挂 openharmony 槽位包、
   #      getExePath 在 openharmony 上解析槽位包
   #   3. clone typescript-go 源码，本地编译 Go 二进制
   #   4. 二进制 + noembed 声明文件装进平台槽位包
@@ -74,7 +74,7 @@ build() {
 }
 
 package() {
-  echo "=== package: 主包打 patch（改名/槽位接线）==="
+  echo "=== package: 主包打 patch（槽位接线）==="
   cd "${build_dir}/typescript-${version}"
   patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
   patch -p1 <"${work_dir}/patches/0002-add-openharmony-support.patch"
@@ -84,7 +84,6 @@ package() {
   cp "${build_dir}/typescript-${version}/NOTICE.txt" "${build_dir}/${slot_name}/NOTICE.txt"
   cat >"${build_dir}/${slot_name}/package.json" <<EOF
 {
-  "name": "${slot_package_name}",
   "version": "${version}",
   "description": "OpenHarmony arm64 native tsgo binary for @ohos-npm-ports/typescript",
   "repository": {

@@ -51,9 +51,6 @@ build() {
 
   # --- verify package contents ---
 
-  actual_name=$(node -e "console.log(require('./package.json').name)")
-  [ "$actual_name" = "@ohos-npm-ports/resvg-resvg-js" ]
-
   node --check js-binding.js
   grep -q "case 'openharmony':" js-binding.js
 

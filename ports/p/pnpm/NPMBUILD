@@ -6,7 +6,7 @@ revision=1
 dist_tag="latest"
 
 packages=(
-  "build/pnpm-exe.openharmony-arm64"
+  "@ohos-npm-ports/pnpm-exe.openharmony-arm64:build/pnpm-exe.openharmony-arm64"
   "build/pnpm-wrapper-${version}"
 )
 slot_name="pnpm-exe.openharmony-arm64"
@@ -30,7 +30,7 @@ prepare() {
   #   2. 源码打补丁：host 平台上报 openharmony、iana-time-zone 改运行时 dlopen
   #   3. cargo 构建 pnpm-cli，strip
   #   4. 槽位包 @ohos-npm-ports/pnpm-exe.openharmony-arm64 携带二进制
-  #   5. 主包 = 上游 npm wrapper 重打包：改名 + native-binary.mjs
+  #   5. 主包 = 上游 npm wrapper 重打包 + native-binary.mjs
   #      增加 openharmony 平台分支
   # ============================================================
 
@@ -112,7 +112,6 @@ package() {
   chmod +x "${slot_dir}/pnpm"
   cat >"${slot_dir}/package.json" <<EOF
 {
-  "name": "@ohos-npm-ports/${slot_name}",
   "version": "${version}",
   "license": "MIT",
   "os": ["openharmony"],
@@ -132,7 +131,6 @@ EOF
   mv "${build_dir}/wrapper/package" "${main_dir}"
   (cd "${main_dir}" && patch -p1 <"${work_dir}/patches/0005-update-package-json.patch")
   (cd "${main_dir}" && patch -p1 <"${work_dir}/patches/0006-native-binary-openharmony.patch")
-  grep -q '@ohos-npm-ports/pnpm' "${main_dir}/package.json"
   grep -qF '@ohos-npm-ports/pnpm-exe.openharmony-arm64/pnpm' "${main_dir}/native-binary.mjs"
 
   # pristine-diff 不变量：组装产物与上游解包逐字节一致，

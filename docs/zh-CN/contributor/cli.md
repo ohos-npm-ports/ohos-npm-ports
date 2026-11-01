@@ -58,12 +58,12 @@ npm-ports check <port>
 npm-ports pack <port> [--no-build]
 ```
 
-这些命令按 `prepare() → build() → package() → check()` 的顺序自动执行到对应阶段：
+这些命令按 `prepare() → build() → package() → normalize → check()` 的顺序自动执行到对应阶段：
 
 - `npm-ports prepare`：执行 `prepare()`。
 - `npm-ports build`：自动执行 `prepare()` 和 `build()`。
-- `npm-ports package`：再执行 `package()`，主包与槽位保持裸上游版本。
-- `npm-ports check`：再执行 `check()`，验证实际发布目录。
+- `npm-ports package`：再执行 `package()`，随后统一注入全部发布包的名称和 repository，版本保持裸上游版本。
+- `npm-ports check`：再执行 `check()`，验证规范化后的实际发布目录。
 - `npm-ports pack`：执行完整生命周期，注入 revision 并同步同 port 槽位引用，统一为发布目录中的 AArch64 ELF 签名，然后生成 npm tarball。`--no-build` 只复用已经通过检查的发布目录。
 
 同一主包或槽位的钩子在同一 Bash 进程内执行，主包和槽位之间隔离。槽位在同一 NPMBUILD 中声明，不另建独立 port。字段、钩子和执行规则的详细规范见 [NPMBUILD 配方规范](port-spec.md)。

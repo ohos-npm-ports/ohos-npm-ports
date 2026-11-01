@@ -30,7 +30,6 @@ function render({ pkgname, upstream, version, source, sha256 }) {
     'build() {',
     '  cd "build/${pkgname}-${version}"',
     '  # Add OpenHarmony patches and build steps here.',
-    '  npm pkg set "name=@ohos-npm-ports/${pkgname}"',
     '}',
     '',
   ].join('\n')}`;

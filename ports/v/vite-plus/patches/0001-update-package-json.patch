@@ -1,8 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -2 +2 @@
--  "name": "vite-plus",
-+  "name": "@ohos-npm-ports/vite-plus",
 @@ -13,2 +13,2 @@
 -    "url": "git+https://github.com/voidzero-dev/vite-plus.git",
 -    "directory": "packages/cli"

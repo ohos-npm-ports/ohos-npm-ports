@@ -10,7 +10,7 @@ bump=false
 dist_tag="latest"
 
 packages=(
-  "build/typescript-native-preview-openharmony-arm64"
+  "@ohos-npm-ports/typescript-native-preview-openharmony-arm64:build/typescript-native-preview-openharmony-arm64"
   "build/typescript-native-preview-${version}"
 )
 slot_name="typescript-native-preview-openharmony-arm64"
@@ -67,7 +67,6 @@ build() {
 
   cd "${package_dir}"
   patch -p1 <"${root_dir}/patches/0001-update-package-json.patch"
-  grep -q '"name": "@ohos-npm-ports/typescript-native-preview"' package.json
   patch -p1 <"${root_dir}/patches/0002-add-openharmony-support.patch"
   grep -qF "${slot_package_name}" lib/getExePath.js
 }
@@ -79,7 +78,6 @@ package() {
 
   cat >"${slot_dir}/package.json" <<EOF
 {
-  "name": "${slot_package_name}",
   "version": "${version}",
   "description": "OpenHarmony arm64 native tsgo binary for @ohos-npm-ports/typescript-native-preview",
   "repository": {

@@ -133,12 +133,8 @@ build() {
 
   # --- verify package contents ---
 
-  actual_name=$(node -e "console.log(require('./package.json').name)")
-  [ "$actual_name" = "@ohos-npm-ports/turbo" ]
-
   # toybox patch can silently no-op on a malformed header, so confirm the
   # patches actually landed rather than trusting patch's exit code.
-  grep -q '"@ohos-npm-ports/turbo"' package.json
   grep -q 'turbo-linux-arm64' bin/turbo
   grep -q 'platform === "openharmony"' bin/turbo
 

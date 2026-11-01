@@ -28,7 +28,7 @@
 
 适用于上游已经按平台拆包，或主包和二进制必须独立发布的场景。主包通过 optionalDependencies 指向 OpenHarmony 子包，子包只包含对应平台二进制和最小 package.json。
 
-子包名称、版本、main 和文件名必须与主包 loader 一致。它们应在主 NPMBUILD 的 slots/ 中构建，与主包共享 version/revision、artifact 和发布流程，不能单独建槽位 port，也不能只验证子包而不验证干净项目中的主包加载。
+子包名称、版本、main 和文件名必须与主包 loader 一致。发布名在 `packages` 中使用 `发布名:输出目录` 声明，框架统一注入，不需要在补丁或生成的 manifest 中重复维护。子包应在主 NPMBUILD 的 slots/ 中构建，与主包共享 version/revision、artifact 和发布流程，不能单独建槽位 port，也不能只验证子包而不验证干净项目中的主包加载。
 
 ### 2.4 安装时远程下载
 

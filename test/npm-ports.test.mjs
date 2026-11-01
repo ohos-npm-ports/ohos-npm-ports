@@ -21,12 +21,12 @@ function fixture(t) {
   const dir = join(root, 'ports', 'd', 'demo');
   mkdirSync(join(dir, 'main'), { recursive: true });
   mkdirSync(join(dir, 'slot'), { recursive: true });
-  writeFileSync(join(dir, 'NPMBUILD'), `pkgname="demo"\nupstream="demo"\nversion="1.2.3"\nrevision=4\ndist_tag="latest"\npackages=("slot" "main")\nbuild() { :; }\n`);
+  writeFileSync(join(dir, 'NPMBUILD'), `pkgname="demo"\nupstream="demo"\nversion="1.2.3"\nrevision=4\ndist_tag="latest"\npackages=("@ohos-npm-ports/demo-openharmony-arm64:slot" "main")\nbuild() { :; }\n`);
   writeFileSync(join(dir, 'main', 'package.json'), JSON.stringify({
-    name: '@ohos-npm-ports/demo', version: '1.2.3',
+    name: 'demo', version: '1.2.3',
     optionalDependencies: { '@upstream/slot': 'npm:@ohos-npm-ports/demo-openharmony-arm64@1.2.3' },
   }));
-  writeFileSync(join(dir, 'slot', 'package.json'), JSON.stringify({ name: '@ohos-npm-ports/demo-openharmony-arm64', version: '1.2.3' }));
+  writeFileSync(join(dir, 'slot', 'package.json'), JSON.stringify({ version: '1.2.3' }));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   return { root, dir };
 }
@@ -112,6 +112,7 @@ test('loadPort reads Bash metadata and rejects latest on a versioned port', (t) 
   const port = loadPort(root, dir);
   assert.equal(port.portVersion, '1.2.3-4');
   assert.deepEqual(port.packages, ['slot', 'main']);
+  assert.deepEqual(port.packageNames, ['@ohos-npm-ports/demo-openharmony-arm64', '']);
   const versioned = join(root, 'ports', 'd', 'demo@1.2');
   mkdirSync(versioned);
   writeFileSync(join(versioned, 'NPMBUILD'), 'pkgname="demo"\nupstream="demo"\nversion="1.2.3"\nrevision=1\ndist_tag="latest"\npackages=("main")\nbuild() { :; }\n');
@@ -129,15 +130,18 @@ test('published short names reject collisions between different upstream scopes'
   ]));
 });
 
-test('staging aligns main and slot revisions and npm aliases', (t) => {
+test('staging injects all package names and aligns revisions and npm aliases', (t) => {
   const { root, dir } = fixture(t);
   const port = loadPort(root, dir);
   stagePackages(port);
   const main = JSON.parse(readFileSync(join(dir, 'main', 'package.json')));
   const slot = JSON.parse(readFileSync(join(dir, 'slot', 'package.json')));
+  assert.equal(main.name, '@ohos-npm-ports/demo');
+  assert.equal(slot.name, '@ohos-npm-ports/demo-openharmony-arm64');
   assert.equal(main.version, '1.2.3-4');
   assert.equal(slot.version, '1.2.3-4');
   assert.equal(main.optionalDependencies['@upstream/slot'], 'npm:@ohos-npm-ports/demo-openharmony-arm64@1.2.3-4');
+  assert.equal(main.repository.url, 'git+https://github.com/ohos-npm-ports/ohos-npm-ports.git');
   assert.equal(main.repository.directory, 'ports/d/demo');
 });
 
@@ -149,11 +153,13 @@ test('lifecycle automatically runs prerequisites and isolates slot hooks', (t) =
       : phase === 'check' ? (prefix ? 'test -z "${NPM_PORTS_TEST_ENV:-}"; ' : 'test "$NPM_PORTS_TEST_ENV" = ready; ') : '';
     return `${prefix}${phase}() { ${environment}test "$PWD" = "$NPMBUILD_SLOT_DIR"; printf '%s\\n' '${prefix}${phase}' >> "$NPMBUILD_DIR/lifecycle.log"; }`;
   }).join('\n');
-  writeFileSync(file, `${readFileSync(file, 'utf8').replace('("slot" "main")', '("slots/demo" "main")')}\n${hooks('')}\n${hooks('slot_demo_')}\n`);
+  writeFileSync(file, `${readFileSync(file, 'utf8').replace('@ohos-npm-ports/demo-openharmony-arm64:slot', '@ohos-npm-ports/demo-openharmony-arm64:slots/demo')}\n${hooks('')}\n${hooks('slot_demo_')}\n`);
   mkdirSync(join(dir, 'slots', 'demo'), { recursive: true });
-  writeFileSync(join(dir, 'slots', 'demo', 'package.json'), JSON.stringify({ name: '@ohos-npm-ports/demo-openharmony-arm64', version: '1.2.3' }));
+  writeFileSync(join(dir, 'slots', 'demo', 'package.json'), JSON.stringify({ version: '1.2.3' }));
   runLifecycle(loadPort(root, dir), 'check');
+  assert.equal(JSON.parse(readFileSync(join(dir, 'main', 'package.json'))).name, '@ohos-npm-ports/demo');
   assert.equal(JSON.parse(readFileSync(join(dir, 'main', 'package.json'))).version, '1.2.3');
+  assert.equal(JSON.parse(readFileSync(join(dir, 'slots', 'demo', 'package.json'))).name, '@ohos-npm-ports/demo-openharmony-arm64');
   assert.equal(JSON.parse(readFileSync(join(dir, 'slots', 'demo', 'package.json'))).version, '1.2.3');
   assert.deepEqual(readFileSync(join(dir, 'lifecycle.log'), 'utf8').trim().split('\n'), [
     'prepare', 'build', 'package', 'check',
@@ -196,6 +202,10 @@ test('lint separates current port revisions from cross-port dependency pins', (t
   writeFileSync(file, `${readFileSync(file, 'utf8')}# 0001-test.patch\n`);
   writeFileSync(patch, '--- a/package.json\n+++ b/package.json\n@@ -1 +1 @@\n-  "version": "1.2.3"\n+  "version": "1.2.3-4"\n');
   assert.throws(() => lintPort(port), /must not change package\.json version/);
+  writeFileSync(patch, '--- a/package.json\n+++ b/package.json\n@@ -1,2 +1,2 @@\n {\n   "version": "1.2.3"\n');
+  assert.throws(() => lintPort(port), /must not pin upstream version context/);
+  writeFileSync(patch, '--- a/package.json\n+++ b/package.json\n@@ -1 +1 @@\n-  "name": "demo"\n+  "name": "@ohos-npm-ports/demo"\n');
+  assert.throws(() => lintPort(port), /package names are injected by npm-ports/);
   writeFileSync(patch, '--- a/package.json\n+++ b/package.json\n@@ -1 +1 @@\n-  "other": "1.2.3"\n+  "other": "npm:@ohos-npm-ports/other@1.2.3-7"\n');
   assert.doesNotThrow(() => lintPort(port));
   writeFileSync(patch, '--- a/package.json\n+++ b/package.json\n@@ -1 +1 @@\n-  "slot": "1.2.3"\n+  "slot": "npm:@ohos-npm-ports/demo-openharmony-arm64@1.2.3-7"\n');

@@ -1,10 +1,6 @@
 --- a/package.json
 +++ b/package.json
-@@ -1,8 +1,8 @@
- {
--  "name": "lightningcss",
-+  "name": "@ohos-npm-ports/lightningcss",
-   "version": "1.33.0",
+@@ -4,5 +4,5 @@
    "license": "MPL-2.0",
 -  "description": "A CSS parser, transformer, and minifier written in Rust",
 +  "description": "A CSS parser, transformer, and minifier written in Rust \u2014 OpenHarmony (OHOS) port, built from parcel-bundler/lightningcss#1264 pending upstream merge.",

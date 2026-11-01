@@ -88,7 +88,6 @@ package() {
     const fs = require('fs');
     const path = '$artifact_dir/package.json';
     const pkg = JSON.parse(fs.readFileSync(path, 'utf-8'));
-    pkg.name = '@ohos-npm-ports/playwright-core';
     pkg.version = '$version';
     fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
   "

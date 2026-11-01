@@ -198,14 +198,11 @@ build() {
   cp ../carry/*.wasm dist/src/native/
   cp ../src/nx.openharmony-arm64.node dist/src/native/
 
-  # 0005: rename to @ohos-npm-ports/nx and set the repository pointer.
+  # 0005: set the repository pointer.
   patch -p1 <../patches/0005-update-package-json.patch
   cd ..
 
   # --- verify package contents ---
-
-  actual_name=$(node -e "console.log(require('./${pkgname}-${version}/package.json').name)")
-  [ "$actual_name" = "@ohos-npm-ports/nx" ]
 
   node --check "${pkgname}-${version}/dist/src/native/assert-supported-platform.js"
   grep -q openharmony "${pkgname}-${version}/dist/src/native/assert-supported-platform.js"
@@ -225,6 +222,9 @@ build() {
     exit 1
   fi
 
+}
+
+check() {
   # The .node must survive npm packing (package.json "files" whitelist).
   package_tgz=$(npm pack --ignore-scripts "./${pkgname}-${version}" | tail -1)
   tar -tzf "$package_tgz" | grep -q 'dist/src/native/nx.openharmony-arm64.node'

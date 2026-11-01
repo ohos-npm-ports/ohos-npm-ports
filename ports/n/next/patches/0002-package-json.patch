@@ -1,13 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -1,6 +1,6 @@
- {
--  "name": "next",
-+  "name": "@ohos-npm-ports/next",
-   "version": "16.4.3",
-   "description": "The React Framework",
-   "main": "./dist/server/next.js",
-   "license": "MIT",
 @@ -119,7 +119,8 @@
      "@next/swc-linux-x64-gnu": "16.4.3",
      "@next/swc-linux-x64-musl": "16.4.3",

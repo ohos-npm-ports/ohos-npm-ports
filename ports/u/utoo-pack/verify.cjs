@@ -47,7 +47,7 @@ for(const name of fs.readdirSync(upstream,{recursive:true})) {
 const expected=structuredClone(original);
 expected.name=pkg.name;
 expected.version=pkg.version;
-expected.repository={...original.repository,url:'https://github.com/ohos-npm-ports/ohos-npm-ports',directory:'ports/utoo-pack/1.5.31'};
+expected.repository={...original.repository,type:'git',url:'git+https://github.com/ohos-npm-ports/ohos-npm-ports.git',directory:'ports/u/utoo-pack'};
 expected.dependencies['domparser-rs']='npm:@ohos-npm-ports/domparser-rs@0.0.7-1';
 delete expected.scripts.prepublishOnly;
 assert.deepEqual(pkg,expected);

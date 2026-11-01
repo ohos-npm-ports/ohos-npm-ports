@@ -7,8 +7,8 @@ dist_tag="latest"
 composer_version="0.35.0"
 
 packages=(
-  "build/composer"
-  "build/composer-cli"
+  "@ohos-npm-ports/prisma-composer:build/composer"
+  "@ohos-npm-ports/prisma-composer-cli:build/composer-cli"
   "build/pkg"
 )
 work_dir="$NPMBUILD_DIR"
@@ -66,7 +66,7 @@ build() {
   cd "${build_dir}/src"
   patch -p1 <"${work_dir}/patches/0002-update-package-json.patch"
   # toybox patch can silently no-op on a malformed header; assert it landed.
-  grep -q '"name": "@ohos-npm-ports/prisma"' package.json
+  grep -qF "\"@prisma/composer-cli\": \"npm:@ohos-npm-ports/prisma-composer-cli@${version}\"," package.json
   grep -q "\"version\": \"${version}\"" package.json
 
   # Prisma 8 removed the bundled engine resolver; guard the premise of this
@@ -90,8 +90,7 @@ build() {
 
   # Repack Composer against alchemy 2.0.0-beta.84 so the consumer install does
   # not pull libsql, whose npm platform metadata rejects openharmony. The
-  # upstream API stays the same; only the dependency pin and published names
-  # change.
+  # upstream API stays the same; only the dependency pin changes.
   (
     cd "${build_dir}/composer-src"
     COMPOSER_VERSION="${composer_version}" node -e '
@@ -101,14 +100,8 @@ build() {
           console.error("unexpected @prisma/composer package layout");
           process.exit(1);
         }
-        p.name = "@ohos-npm-ports/prisma-composer";
         p.version = process.env.NPMBUILD_VERSION;
         p.dependencies.alchemy = "2.0.0-beta.84";
-        p.repository = {
-          type: "git",
-          url: "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-          directory: "ports/p/prisma",
-        };
         delete p.devDependencies;
         fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
         console.log("OK: @prisma/composer repacked without libsql");
@@ -123,15 +116,9 @@ build() {
           console.error("unexpected @prisma/composer-cli package layout");
           process.exit(1);
         }
-        p.name = "@ohos-npm-ports/prisma-composer-cli";
         p.version = process.env.NPMBUILD_VERSION;
         p.dependencies["@prisma/composer"] = `npm:@ohos-npm-ports/prisma-composer@${process.env.NPMBUILD_VERSION}`;
         p.dependencies.alchemy = "2.0.0-beta.84";
-        p.repository = {
-          type: "git",
-          url: "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-          directory: "ports/p/prisma",
-        };
         delete p.devDependencies;
         fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
         console.log("OK: @prisma/composer-cli repacked without libsql");
@@ -154,6 +141,9 @@ package() {
   (cd "${build_dir}/composer-cli-src" && tar -zcf - . | tar -zxf - -C "${build_dir}/composer-cli")
   rm -rf "${build_dir}/pkg/node_modules" "${build_dir}/composer/node_modules" "${build_dir}/composer-cli/node_modules"
 
+}
+
+check() {
   node -e '
       const names = {
         pkg: "@ohos-npm-ports/prisma",
@@ -177,9 +167,6 @@ package() {
   test -f "${build_dir}/ohos-npm-ports-prisma-${version}.tgz"
   test -f "${build_dir}/ohos-npm-ports-prisma-composer-${version}.tgz"
   test -f "${build_dir}/ohos-npm-ports-prisma-composer-cli-${version}.tgz"
-}
-
-check() {
   # Drop-in smoke on the real machine: no PRISMA_* engine variables. npm
   # install-scripts stay disabled so the flow is deterministic.
   smoke_dir="${build_dir}/.smoke"

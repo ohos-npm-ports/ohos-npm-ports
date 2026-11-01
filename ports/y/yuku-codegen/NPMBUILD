@@ -54,7 +54,6 @@ build() {
 
   patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
   # patch 对零上下文 hunk 的越界行号会静默套用到文件末尾（exit 0）
-  grep -q "\"name\": \"@ohos-npm-ports/${pkgname}\"" package.json
   grep -q "\"version\": \"${version}\"" package.json
   grep -q '"publishConfig": {' package.json
 
@@ -72,7 +71,6 @@ package() {
   cd "${output_dir}"
   node -e '
       const p = require("./package.json");
-      if (p.name !== "@ohos-npm-ports/yuku-codegen") { console.error("bad name: " + p.name); process.exit(1); }
       if (p.version !== `${process.env.NPMBUILD_VERSION}`) { console.error("bad version: " + p.version); process.exit(1); }
       if (p.main !== "./dist/index.js") { console.error("bad main: " + p.main); process.exit(1); }
       if (p.optionalDependencies || p.dependencies?.["@yuku-codegen/binding-openharmony-arm64"]) {
@@ -85,6 +83,7 @@ package() {
 
 check() {
   echo "=== test: 哈希不变量 + 真实 ESM 冒烟 ==="
+  rm -f "${output_dir}/package.json.orig"
   cd "${output_dir}"
 
   # 剔除 patch 允许改写的 package.json，其余须逐字节一致

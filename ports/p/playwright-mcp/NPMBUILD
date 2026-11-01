@@ -33,8 +33,6 @@ build() {
 check() {
   cd "$root_dir/${pkgname}-${version}"
   node -e 'const fs=require("fs"),crypto=require("crypto"),assert=require("assert/strict");for(const [f,hash] of Object.entries(JSON.parse(fs.readFileSync("../upstream-hashes.json"))))assert.equal(crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex"),hash,f)'
-  actual_name=$(node -e "console.log(require('./package.json').name)")
-  [ "$actual_name" = "@ohos-npm-ports/playwright-mcp" ]
 
   node -e '
     const pkg = require("./package.json");

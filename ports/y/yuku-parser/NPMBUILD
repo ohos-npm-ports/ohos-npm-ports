@@ -75,7 +75,6 @@ build() {
 
   patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
   # patch 对零上下文 hunk 的越界行号会静默套用到文件末尾（exit 0）
-  grep -q "\"name\": \"@ohos-npm-ports/${pkgname}\"" package.json
   grep -q "\"version\": \"${version}\"" package.json
   grep -q "\"bundledDependencies\"" package.json
   grep -q "\"yuku-core\"" package.json
@@ -125,7 +124,6 @@ NODE
 const fs = require("node:fs");
 const [slot] = process.argv.slice(2);
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-if (pkg.name !== "@ohos-npm-ports/yuku-parser") { console.error(`bad name: ${pkg.name}`); process.exit(1); }
 if (pkg.version !== process.env.NPMBUILD_VERSION) { console.error(`bad version: ${pkg.version}`); process.exit(1); }
 if (!pkg.bundledDependencies?.includes("yuku-core")) { console.error("yuku-core is not bundled"); process.exit(1); }
 const core = JSON.parse(fs.readFileSync("node_modules/yuku-core/package.json", "utf8"));
@@ -138,6 +136,7 @@ NODE
 
 check() {
   echo "=== test: 哈希不变量 + 真实 loader 解析冒烟 ==="
+  rm -f "${output_dir}/package.json.orig"
   cd "${output_dir}"
 
   # 剔除 patch 允许改写的 package.json 与组装新增的 bundled yuku-core，其余须逐字节一致
