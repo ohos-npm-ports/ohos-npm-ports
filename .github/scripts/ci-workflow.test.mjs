@@ -52,12 +52,14 @@ test('ports that need a build and ports fetched from npm run in separate matrice
   assert.match(step('Upload published packages', fetch), /name: \$\{\{ steps\.published\.outputs\.artifact-name \}\}/);
 });
 
-test('consumers start once build and fetch are both finished, behind the same first-time contributor approval', () => {
+test('consumers start only after successful build and fetch, behind the same first-time contributor approval', () => {
   const gate = job('artifacts');
   assert.match(gate, /needs: \[detect-changes, external-build-approval, build, fetch\]/);
   assert.match(gate, /external-build-approval\.result == 'success' \|\| needs\.external-build-approval\.result == 'skipped'/);
-  assert.match(gate, /needs\.build\.result == 'success' \|\| needs\.build\.result == 'failure' \|\| needs\.detect-changes\.outputs\.build-matrix == '\[\]'/);
-  assert.match(gate, /needs\.fetch\.result == 'success' \|\| needs\.fetch\.result == 'failure' \|\| needs\.detect-changes\.outputs\.fetch-matrix == '\[\]'/);
+  assert.match(gate, /needs\.build\.result == 'success' \|\| needs\.detect-changes\.outputs\.build-matrix == '\[\]'/);
+  assert.match(gate, /needs\.fetch\.result == 'success' \|\| needs\.detect-changes\.outputs\.fetch-matrix == '\[\]'/);
+  assert.doesNotMatch(gate, /needs\.build\.result == 'failure'/);
+  assert.doesNotMatch(gate, /needs\.fetch\.result == 'failure'/);
   const consumers = [...workflow.matchAll(/^  (consumer-[a-z0-9-]+):\n/gm)].map((match) => match[1]);
   assert.equal(consumers.length, 7);
   for (const name of consumers) {

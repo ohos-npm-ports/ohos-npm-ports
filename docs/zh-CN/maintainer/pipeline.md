@@ -71,7 +71,7 @@ manifest 记录 `sourceSha`、`portDir` 和每个包的名称、版本、文件�
 
 ## 6. 五平台 consumer 与 conclusion
 
-`artifacts` job 等 `build` 和 `fetch` 都结束，并且首次外部贡献者审批通过之后，才放行 consumer。个别 port 构建失败时，其余 consumer 照常运行。
+`artifacts` job 等 `build` 和 `fetch` 都结束，并且首次外部贡献者审批通过之后，才决定是否放行 consumer。只有 build 和 fetch 全部成功才运行 consumer，任一失败时直接由 `conclusion` 汇总构建错误，不再启动必然缺少 artifact 的消费任务。
 
 通用安装验证不再要求 `test.js`：`consumer-install` 在 Windows x64、Linux x64/arm64 和 macOS arm64 上形成矩阵，`consumer-install-openharmony` 在 ci-runner 中运行。它们根据构建矩阵自动选择 port，下载本轮 artifact，在各平台的临时 Verdaccio 中发布并安装主包，按 os/cpu 检查槽位、所有应安装的包、版本和 bin，再执行 npm ci。全量 dispatch 覆盖所有 port，普通变更覆盖受影响 port，artifact replay 同样启用，不需要任何 port 专属入口。
 
