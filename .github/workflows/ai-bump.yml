@@ -1,0 +1,64 @@
+name: AI bump
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ai-bump-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: >
+      github.event.label.name == 'request-ai-bump' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 240
+    env:
+      AI_BUMP_STATE: /tmp/ai-bump-state.json
+      AI_BUMP_REPORT_DIR: /tmp/ai-bump-report
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Validate the automated bump PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_APP_ID: ${{ secrets.AUTOMATION_APP_ID != '' }}
+          HAS_APP_PRIVATE_KEY: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY != '' }}
+          HAS_DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY != '' }}
+        run: node .github/scripts/ai-bump.mjs prepare
+      - name: Repair the port with DeepSeek
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: node .github/scripts/ai-bump.mjs repair
+      - name: Independently verify the repair
+        run: node .github/scripts/ai-bump.mjs verify
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ secrets.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Amend and push the verified repair
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: node .github/scripts/ai-bump.mjs publish
+      - name: Report a failed repair
+        if: always() && failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/ai-bump.mjs finalize
