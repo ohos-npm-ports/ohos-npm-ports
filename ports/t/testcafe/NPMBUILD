@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 pkgname="testcafe"
 upstream="testcafe"
-version="3.7.6"
-revision=3
+version="3.7.7"
+revision=1
 source="https://registry.npmjs.org/testcafe/-/testcafe-${version}.tgz"
-sha256="e0870553529a88d5cb77e0b1cc4981406edbe52187daec50b673c91d7c4f6ce1"
+sha256="d439a391e21a8b8d529481cbbec848b6182096e56382dbd4d394680bab9886f4"
 dist_tag="latest"
 
 packages=(
