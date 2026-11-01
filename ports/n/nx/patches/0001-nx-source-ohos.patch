@@ -95,13 +95,13 @@ index 9fd9b77..0c606a3 100644
   "itoa",
   "log",
 diff --git a/Cargo.toml b/Cargo.toml
-index 217f75a..cf4bb56 100644
+index 8e83708..18aba6f 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
-@@ -7,3 +7,9 @@ members = [
- 
- [profile.release]
- lto = true
+@@ -9,3 +9,9 @@ lto = true
+ # via CARGO_INCREMENTAL=0 (.nx/workflows/agents.yaml and the GitHub workflows) so
+ # published binaries are never built incrementally.
+ incremental = true
 +
 +[patch."https://github.com/JamesHenry/vt100-rust"]
 +vt100-ctt = { path = "../gitdeps/vt100-rust" }
