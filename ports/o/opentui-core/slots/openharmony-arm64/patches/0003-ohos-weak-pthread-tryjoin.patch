@@ -20,13 +20,13 @@
      return switch (builtin.os.tag) {
 -        .linux => switch (pthread_tryjoin_np(thread.getHandle(), null)) {
 -            0 => true,
--            @intFromEnum(std.posix.E.BUSY) => false,
+-            @backingInt(std.posix.E.BUSY) => false,
 -            else => false,
 +        .linux => blk: {
 +            const tryjoin = pthread_tryjoin_np orelse break :blk false;
 +            break :blk switch (tryjoin(thread.getHandle(), null)) {
 +                0 => true,
-+                @intFromEnum(std.posix.E.BUSY) => false,
++                @backingInt(std.posix.E.BUSY) => false,
 +                else => false,
 +            };
          },
