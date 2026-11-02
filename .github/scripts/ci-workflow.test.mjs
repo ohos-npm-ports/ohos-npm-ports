@@ -83,14 +83,13 @@ test('the build job never publishes and never sees the npm token', () => {
   assert.doesNotMatch(workflow, /build-and-publish/);
 });
 
-test('publish is a separate job that waits for the complete CI result', () => {
+test('publish runs after a successful conclusion even when ancestors are skipped', () => {
   const publish = job('publish');
   assert.match(publish, /needs: \[detect-changes, conclusion\]/);
   assert.match(publish, /needs\.conclusion\.result == 'success'/);
-  assert.doesNotMatch(publish, /always\(\)/);
+  assert.match(publish, /always\(\)/);
   assert.match(publish, /github\.event_name == 'push'/);
   assert.match(publish, /github\.ref == 'refs\/heads\/main'/);
-  assert.match(publish, /github\.repository == 'ohos-npm-ports\/ohos-npm-ports'/);
   assert.match(publish, /needs\.detect-changes\.outputs\.publish != '\[\]'/);
 });
 
@@ -101,12 +100,20 @@ test('publish uploads the tarballs verified in this run, in dependency order', (
   assert.doesNotMatch(publish, /run-id:/);
   const command = step('Publish verified tarballs', publish);
   assert.match(command, /outputs\.publish-order/);
-  assert.match(command, /cli\/npm-ports publish "\$dir" --skip-existing --expect-sha "\$GITHUB_SHA"/);
+  assert.match(command, /args=\(--skip-existing --expect-sha "\$GITHUB_SHA"\)/);
+  assert.match(command, /cli\/npm-ports publish "\$dir" "\$\{args\[@\]\}"/);
+  assert.match(command, /args\+=\(--dry-run\)/);
+  assert.match(command, /artifact_source="\.port-artifacts\/port-\$\(basename "\$dir"\)"/);
+  assert.match(command, /if \[ ! -d "\$artifact_source" \]; then/);
+  assert.match(command, /artifact_source="\.port-artifacts"/);
+  assert.match(command, /No versions are missing from npm/);
 });
 
-test('the npm token is written to a file and absent from the step that runs NPMBUILD code', () => {
+test('the npm token is written only for the community repository and absent from NPMBUILD', () => {
   const publish = job('publish');
-  assert.match(step('Write npm credentials', publish), /NPM_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
+  const credentials = step('Write npm credentials', publish);
+  assert.match(credentials, /if: github\.repository == 'ohos-npm-ports\/ohos-npm-ports'/);
+  assert.match(credentials, /NPM_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
   assert.doesNotMatch(step('Publish verified tarballs', publish), /NPM_TOKEN|NODE_AUTH_TOKEN/);
   assert.equal([...workflow.matchAll(/secrets\.NPM_TOKEN/g)].length, 1);
 });

@@ -122,6 +122,12 @@ jobs:
           changed=$(git diff --name-only --diff-filter=d "$BASE" HEAD)
           printf '%s\n' "$changed" | node .github/scripts/consumer-plan.mjs >> "$GITHUB_OUTPUT"
 
+      - name: Report publish plan
+        run: |
+          echo "event=${{ github.event_name }} ref=${{ github.ref }} repository=${{ github.repository }}"
+          echo "publish=${{ steps.set-matrix.outputs.publish }}"
+          echo "publish-order=${{ steps.set-matrix.outputs.publish-order }}"
+
       - name: Test workflow constraints
         run: node --test .github/scripts/ci-workflow.test.mjs
 
@@ -519,9 +525,9 @@ jobs:
   publish:
     needs: [detect-changes, conclusion]
     if: >
+      always() &&
       needs.conclusion.result == 'success' &&
       github.event_name == 'push' && github.ref == 'refs/heads/main' &&
-      github.repository == 'ohos-npm-ports/ohos-npm-ports' &&
       needs.detect-changes.outputs.publish != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -538,6 +544,7 @@ jobs:
           github-token: ${{ github.token }}
       # 凭据只写进文件；下面执行 NPMBUILD 的步骤环境里没有它
       - name: Write npm credentials
+        if: github.repository == 'ohos-npm-ports/ohos-npm-ports'
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
@@ -549,8 +556,19 @@ jobs:
           NPM_CONFIG_USERCONFIG: ${{ runner.temp }}/publish.npmrc
           PUBLISH_ORDER: ${{ needs.detect-changes.outputs.publish-order }}
         run: |
+          args=(--skip-existing --expect-sha "$GITHUB_SHA")
+          if [ "$GITHUB_REPOSITORY" != "ohos-npm-ports/ohos-npm-ports" ]; then
+            args+=(--dry-run)
+          fi
+          if [ "$PUBLISH_ORDER" = '[]' ]; then
+            echo "No versions are missing from npm"
+          fi
           for dir in $(printf '%s' "$PUBLISH_ORDER" | jq -r '.[]'); do
+            artifact_source=".port-artifacts/port-$(basename "$dir")"
+            if [ ! -d "$artifact_source" ]; then
+              artifact_source=".port-artifacts"
+            fi
             mkdir -p "$dir/artifacts"
-            cp -R ".port-artifacts/port-$(basename "$dir")/." "$dir/artifacts/"
-            cli/npm-ports publish "$dir" --skip-existing --expect-sha "$GITHUB_SHA"
+            cp -R "$artifact_source/." "$dir/artifacts/"
+            cli/npm-ports publish "$dir" "${args[@]}"
           done
