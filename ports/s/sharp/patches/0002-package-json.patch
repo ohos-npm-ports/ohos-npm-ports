@@ -1,10 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -1,3 +1,3 @@
- {
-   "name": "sharp",
--  "description": "High performance Node.js image processing, the fastest module to resize JPEG, PNG, WebP, GIF, AVIF and TIFF images",
-+  "description": "High performance Node.js image processing, the fastest module to resize JPEG, PNG, WebP, GIF, AVIF and TIFF images — OpenHarmony (OHOS) port, built from source against a native libvips 8.18.7 with full JPEG 2000 (jp2) codec support.",
 @@ -93,31 +93,12 @@
      "Dmytro Tiapukhin <cool.gegeg@gmail.com>",
      "Florian Lefebvre <contact@florian-lefebvre.dev>"

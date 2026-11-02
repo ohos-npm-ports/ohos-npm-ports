@@ -19,6 +19,9 @@ function lintPatch(file, text, port) {
     if (existingPackageJson && /^[+-]\s*"name"\s*:/.test(line)) {
       throw new Error(`${file}: package names are injected by npm-ports, not patches`);
     }
+    if (existingPackageJson && /^[+-]\s*"description"\s*:/.test(line)) {
+      throw new Error(`${file}: patches must not change package.json description`);
+    }
     if (existingPackageJson && /^[+-]\s*"version"\s*:/.test(line)) {
       throw new Error(`${file}: patches must not change package.json version; retain upstream ${port.version}`);
     }
