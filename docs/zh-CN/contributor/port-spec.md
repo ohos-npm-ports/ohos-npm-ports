@@ -11,6 +11,7 @@ ports/<首字母>/<port>/
 ├── NPMBUILD                  # 必须：元数据、产物和完整生命周期实现
 ├── patches/                  # 可选
 ├── test.js                   # 可选：consumer 功能测试
+├── README.md                 # 可选：port 特有的使用限制和设备验证方法
 └── slots/<slot>/             # 可选：同版本、同 revision 的槽位辅助文件
 ```
 
@@ -19,6 +20,8 @@ port 目录使用**发布短名**，最终主包为 `@ohos-npm-ports/<pkgname>`�
 port 采用滚动更新，每个目录只保留最新版本的数据。需要锁定版本时，为包名增加 `@<版本线>` 后缀并作为新 port 录入，例如 `ports/l/lightningcss@1.32`。
 
 版本线后缀通常使用 `@major`、`@major.minor` 或完整版本后缀，0.x 通常至少保留 minor。`@` 后缀不属于 npm 包名，且必须使用非 `latest` 的 dist-tag。新增旧版本线需先确认维护必要性。
+
+`README.md` 仅用于记录该 port 特有的使用方式、限制和设备验证方法，不重复通用构建和 CI 流程，也不记录当前版本号或 revision。
 
 ## 2. 元数据与声明
 
@@ -98,6 +101,8 @@ NPMBUILD 中禁止执行 `npm publish`。npm tarball 的生成和发布由 `npm-
 
 ## 5. version 与 revision
 
+`version` 和 `revision` 的含义和使用规则如下：
+
 - `version` 只写上游版本，`revision` 从 1 开始，最终包版本是 `<version>-<revision>`。
 - revision 是发布版本号，不是重新编译的开关。纯格式调整不需要递增。需要重新发布同一上游版本的新产物时必须递增。
 - 全局 `revision` 是当前 port 修订版本号的唯一来源，仅供 `npm-ports` 使用。禁止在 NPMBUILD 的任何位置复制或使用这个变量，也不要自行拼接最终版本。`check()` 需要最终发布版本时从实际 package.json 读取。
@@ -124,6 +129,8 @@ slot_openharmony_arm64_build() {
 主包和槽位共享 version 和 revision，统一构建、打包、artifact、私仓验证和发布。`NPMBUILD_DIR` 始终是主 port 目录，`NPMBUILD_SLOT_DIR` 是当前主包或槽位的工作目录。
 
 ## 7. patch 与静态约束
+
+配方和补丁还需要遵守以下静态约束：
 
 - patch 使用 `NNNN-描述.patch`，并由 NPMBUILD 的钩子实际应用。
 - 修改 patch 应重新生成 diff，并在应用后验证关键标记。

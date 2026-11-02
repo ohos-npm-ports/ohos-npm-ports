@@ -3,7 +3,7 @@
 This port preserves upstream behavior on other platforms. On OpenHarmony, the `chrome`, `chromium`, `haitai`, and `ohos` aliases use Haitai through local `aa` and TCP CDP. No hdc or Playwright dependency is required.
 
 ```json
-{"devDependencies":{"testcafe":"npm:@ohos-npm-ports/testcafe@3.7.7-1"}}
+{"devDependencies":{"testcafe":"npm:@ohos-npm-ports/testcafe"}}
 ```
 
 ```sh
@@ -22,7 +22,7 @@ The NPMBUILD lifecycle verifies the pinned upstream archive, checks the permitte
 
 ## Device regression
 
-Copy `tests/device/` into an otherwise empty project, create `logs/`, and install the packed artifact under the upstream name (`npm install testcafe@file:/absolute/path/to/ohos-npm-ports-testcafe-3.7.7-1.tgz`). From that project:
+Copy `tests/device/` into an otherwise empty project, create `logs/`, and install the packed artifact under the upstream name (`npm install testcafe@file:/absolute/path/to/artifact.tgz`). From that project:
 
 ```sh
 TESTCAFE_CHECK_THUMBNAILS=1 TESTCAFE_DOWNLOAD_DIR="$PWD/logs/downloads" node run.mjs --auto-native --suite=provider-screenshot

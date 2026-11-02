@@ -1,6 +1,6 @@
 # npm-ports 命令行工具
 
-`npm-ports` 命令行工具用于创建、编辑、构建、检查、打包和滚动更新 NPMBUILD port。工具使用 Node.js 和 Bash，无第三方 npm 运行时依赖。要求 Node.js 20 或更高版本。真实 port 构建应在 ci-runner 容器中执行。
+`npm-ports` 命令行工具用于创建、编辑、构建、检查、打包和滚动更新 NPMBUILD port。
 
 ## 安装与 port 参数
 
@@ -75,6 +75,8 @@ npm-ports bump <port|--all> [--write] [--registry URL]
 npm-ports bump-pr <port> [--no-draft] [--base main]
 npm-ports revision <port> [--set N]
 ```
+
+这些命令分别用于查询上游升级、创建升级 PR 和递增移植修订号：
 
 - `npm-ports bump` 根据 `upstream` 查询 npm registry 的 dist-tags 和版本列表。主 port 跟随指定 dist-tag，`@` port 只选择版本线内最高 semver。预览线可通过 `upstream_tag` 指定上游标签。
 - `npm-ports bump --write` 精确修改 `version`、主 `source` / `sha256` 及所有引用 `${version}` 的 `resource` 声明，重新计算下载摘要并将 revision 重置为 1。含独立版本变量、固定工具链版本或 commit 的资源保持锁定。注释、普通构建参数和补丁不做全局替换。

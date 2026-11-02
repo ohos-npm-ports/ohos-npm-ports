@@ -32,6 +32,8 @@ browser windows. `run({ srcDir, argv, endpoint })` returns a session containing
 
 ## Supported subset
 
+The current port supports the following features and constraints:
+
 - Local HTML/CSS/JS resources within the application directory.
 - Synchronous `require('fs')`, `require('path')`, `require('os')` and their `node:`
   aliases; local JSON module imports. `nw.require` aliases the same function.
