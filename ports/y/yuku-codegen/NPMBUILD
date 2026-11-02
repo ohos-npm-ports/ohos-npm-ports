@@ -20,14 +20,12 @@ prepare() {
   #
   # 构建方式：
   #   1. 下载官方 yuku-codegen@${version} tarball，钉住 sha256
-  #   2. 打 patch 配置 publishConfig，grep marker
-  #   3. 上游自 0.19.0 起改为纯 JavaScript 实现，tarball 已带编译好的 dist，
+  #   2. 上游自 0.19.0 起改为纯 JavaScript 实现，tarball 已带编译好的 dist，
   #      不再有 napi binding、optionalDependencies 或 yuku monorepo 构建步骤
-  #   4. 零依赖重打包：上游全部内容原样进发布目录
-  #   5. 用真实 ESM 入口做 generate/minify/source map 冒烟
+  #   3. 零依赖重打包：上游全部内容原样进发布目录
+  #   4. 用真实 ESM 入口做 generate/minify/source map 冒烟
   #
-  # OpenHarmony 适配只保留发布配置；0.19.0 的 codegen
-  # 本身不含原生二进制，因此无需槽位包或交叉编译。
+  # 0.19.0 的 codegen 本身不含原生二进制，因此无需槽位包或交叉编译。
   #
   # 发布目录名必须与 NPMBUILD packages 一致，并留在配方目录根下，
   # 所以中间件放 STAGE，成品由 package() 落到 OUT，check() 不删 OUT。
@@ -46,16 +44,12 @@ prepare() {
 }
 
 build() {
-  echo "=== build: 打 patch + grep marker + 校验纯 JS 产物 ==="
+  echo "=== build: 校验纯 JS 产物 ==="
   cd "${stage_dir}/src"
 
-  # check() 拿它断言 patch 只改了 package.json
   find . -type f -exec sha256sum {} + | sed 's|\./||' | sort >"${work_dir}/before.sha256"
 
-  patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
-  # patch 对零上下文 hunk 的越界行号会静默套用到文件末尾（exit 0）
   grep -q "\"version\": \"${version}\"" package.json
-  grep -q '"publishConfig": {' package.json
 
   # 0.19.0 发布 tarball 已包含 dist，不需要再跑 tsc 或编译原生模块
   test -f dist/index.js

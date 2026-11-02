@@ -1,6 +1,6 @@
 --- a/package.json
 +++ b/package.json
-@@ -42,5 +43,11 @@
+@@ -42,5 +43,8 @@
      "ts",
      "tsx",
      "typescript"
@@ -8,8 +8,5 @@
 +  ],
 +  "bundledDependencies": [
 +    "yuku-core"
-+  ],
-+  "publishConfig": {
-+    "access": "public"
-+  }
++  ]
  }
