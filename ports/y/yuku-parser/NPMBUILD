@@ -29,7 +29,7 @@ prepare() {
   # 构建方式：
   #   1. 下载官方 yuku-parser@${version} tarball 与 yuku monorepo v${version}，
   #      钉住所有下载的 sha256
-  #   2. 打 patch 改写 parser manifest（name/repository/bundledDependencies），grep marker
+  #   2. 打 patch 配置 bundledDependencies，grep marker
   #   3. 用 zig 0.17 把 monorepo 里的 napi-zig yuku-core binding 交叉编译到
   #      aarch64-linux-musl（与 OHOS 同 libc 族）
   #   4. 零依赖重打包：上游 parser 全部内容进发布目录，并把上游 yuku-core 作为

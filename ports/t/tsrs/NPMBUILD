@@ -67,12 +67,11 @@ const {build_dir: root, version} = process.env;
 const file = `${root}/main/package.json`;
 const pkg = JSON.parse(fs.readFileSync(file));
 pkg.version = version;
-pkg.repository = {type:'git', url:'git+https://github.com/ohos-npm-ports/ohos-npm-ports.git'};
 pkg.optionalDependencies['@tsrs/openharmony-arm64'] = `npm:@ohos-npm-ports/tsrs-openharmony-arm64@${version}`;
 fs.writeFileSync(file, JSON.stringify(pkg, null, 2)+'\n');
 fs.writeFileSync(`${root}/native/package.json`, JSON.stringify({
  version,
- license:pkg.license, repository:pkg.repository, os:['openharmony'], cpu:['arm64'],
+ license:pkg.license, os:['openharmony'], cpu:['arm64'],
  exports:{'./package.json':'./package.json'}, files:['tsrs','*.d.ts','LICENSE','NOTICE'],
 },null,2)+'\n');
 JS

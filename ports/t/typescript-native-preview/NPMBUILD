@@ -32,7 +32,7 @@ prepare() {
   # （0002 只改了 openharmony 分支的包名，不动上游解析）。
 
   # ============================== deps ==============================
-  brew install -y go git
+  brew install -y go
   # harmonybrew 的 go 把工作目录 baked 成设备专属路径，容器里会 "creating work dir" 失败。
   # go 认的是 GOTMPDIR（不是 TMPDIR），缓存同理一律重定向到 ${build_dir}。
   export GOTMPDIR="${build_dir}/.gotmpdir"
@@ -80,11 +80,6 @@ package() {
 {
   "version": "${version}",
   "description": "OpenHarmony arm64 native tsgo binary for @ohos-npm-ports/typescript-native-preview",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-    "directory": "ports/typescript-native-preview/${version}"
-  },
   "license": "Apache-2.0",
   "preferUnplugged": true,
   "os": ["openharmony"],

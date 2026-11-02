@@ -37,7 +37,7 @@ prepare() {
   # ===== deps =====
   mkdir -p /data/storage/el2/base/cache
   mkdir -p /data/storage/el2/base/file
-  brew install -y go git
+  brew install -y go
 
   echo "=== fetch: 官方 typescript@${version}（主包坯子）==="
   rm -rf "${build_dir}"
@@ -86,11 +86,6 @@ package() {
 {
   "version": "${version}",
   "description": "OpenHarmony arm64 native tsgo binary for @ohos-npm-ports/typescript",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-    "directory": "ports/typescript/${version}"
-  },
   "license": "Apache-2.0",
   "preferUnplugged": true,
   "os": ["openharmony"],

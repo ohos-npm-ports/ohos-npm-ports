@@ -39,8 +39,6 @@ build() {
   # lookup if any tool in the chain checks for it.
   rm -f rust-toolchain
 
-  brew install -y rust
-
   cargo build --release
 
   test -f target/release/libresvg_js.so

@@ -24,8 +24,7 @@
 -    "prepare": "husky install"
 +    "benchmark": "node ./benchmark/benchmark.mjs"
    },
--  "repository": "https://github.com/utooland/domparser-rs",
-+  "repository": "https://github.com/ohos-npm-ports/ohos-npm-ports",
+   "repository": "https://github.com/utooland/domparser-rs",
    "description": "A super fast html parser and manipulator written in rust.",
    "optionalDependencies": {
      "domparser-darwin-arm64": "0.0.1",

@@ -24,9 +24,9 @@ output_dir="${work_dir}/${pkgname}-${version}"
 vite_task_dir="${stage_dir}/vite-task"
 
 prepare() {
-  echo "=== deps: brew rustup/git/cmake/openssl@3/zlib, npm pnpm ==="
+  echo "=== deps: brew rustup/cmake/openssl@3/zlib, npm pnpm ==="
 
-  brew install -y rustup git cmake openssl@3 zlib
+  brew install -y rustup cmake openssl@3 zlib
   npm install -g "pnpm@${pnpm_version}"
 
   echo "=== fetch: 官方 tgz + v${version} 源树 + vite-task ==="
@@ -152,8 +152,6 @@ package() {
   rm -rf "${output_dir}"
   cp -a "${stage_dir}/tgz" "${output_dir}"
   cd "${output_dir}"
-  patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
-
   patch -p1 <"${work_dir}/patches/0006-fix-core-version.patch"
   node "${work_dir}/test.js" "${output_dir}"
 

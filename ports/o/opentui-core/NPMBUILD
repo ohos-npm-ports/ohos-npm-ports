@@ -40,7 +40,6 @@ prepare() {
   bun --version
 
   brew list --versions ohos-sdk-native >/dev/null 2>&1 || brew install -y ohos-sdk-native
-  brew install node
   brew install zig@0.17
   zig version
   export ZIG_GLOBAL_CACHE_DIR="${root_dir}/zig-cache"
@@ -278,7 +277,6 @@ slot_openharmony_arm64_prepare() {
   native_lib="${source_dir}/packages/native/lib/${ohos_triple}/libopentui.so"
 
   # ============================== deps ==============================
-  brew install node
   brew list --versions ohos-sdk-native >/dev/null 2>&1 || brew install -y ohos-sdk-native
   brew install ohos-sdk-toolchains
   brew install zig@0.17
@@ -363,11 +361,6 @@ EOF
   "types": "index.d.ts",
   "license": "MIT",
   "author": "OpenTUI Contributors",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports",
-    "directory": "ports/${pkgname}/${version}"
-  },
   "exports": {
     ".": {
       "bun": "./index.bun.js",

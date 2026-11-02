@@ -1,12 +1,10 @@
 --- a/package.json
 +++ b/package.json
-@@ -24,7 +24,21 @@
+@@ -24,7 +24,20 @@
    },
    "repository": {
      "type": "git",
--    "url": "https://github.com/parcel-bundler/lightningcss.git"
-+    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-+    "directory": "ports/lightningcss/1.33.0"
+     "url": "https://github.com/parcel-bundler/lightningcss.git"
 +  },
 +  "optionalDependencies": {
 +    "lightningcss-darwin-x64": "1.33.0",

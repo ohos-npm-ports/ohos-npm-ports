@@ -1,16 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -34,8 +34,8 @@
-   ],
-   "repository": {
-     "type": "git",
--    "url": "https://github.com/prisma/prisma-cli.git",
--    "directory": "packages/prisma"
-+    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-+    "directory": "ports/p/prisma"
-   },
-   "homepage": "https://github.com/prisma/prisma-cli#readme",
-   "bugs": {
 @@ -45,7 +45,7 @@
    "dependencies": {
      "@manypkg/tools": "^2.1.2",

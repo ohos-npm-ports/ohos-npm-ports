@@ -18,8 +18,6 @@ script_dir="$NPMBUILD_DIR"
 build() {
   cd "$script_dir"
 
-  brew install -y rust
-
   fetch_source "ast-grep-${version}.tar.gz"
   tar -zxf "ast-grep-${version}.tar.gz"
   rm "ast-grep-${version}.tar.gz"

@@ -47,8 +47,7 @@ index ab413ff..c7fb88d 100644
    ],
    "repository": {
      "type": "git",
--    "url": "https://github.com/TryGhost/node-sqlite3.git"
-+    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git"
+     "url": "https://github.com/TryGhost/node-sqlite3.git"
    },
    "dependencies": {
 -    "bindings": "^1.5.0",

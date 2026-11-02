@@ -27,8 +27,6 @@ build() {
   patch -p1 <../patches/0001-update-package-json.patch
   patch -p1 <../patches/0002-openharmony-loader.patch
 
-  brew install -y rust
-
   # --ignore-scripts: upstream's devDependencies include puppeteer (used only
   # by the website/docs tooling, unrelated to the napi build path below), and
   # its postinstall script hard-fails with "Unsupported platform: openharmony"

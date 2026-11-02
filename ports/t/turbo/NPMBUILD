@@ -86,7 +86,6 @@ build() {
   export ghostty_source_dir="$(pwd)/ghostty-src"
 
   cd "turborepo-${version}"
-  patch -p1 <../patches/0001-update-package-json.patch
   patch -p1 <../patches/0002-openharmony-wrapper.patch
   patch -p1 <../patches/0005-libghostty-vt-sys-ohos-zig-target.patch
 

@@ -1,18 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -4,7 +4,11 @@
-   "description": "Search and Rewrite code at large scale using precise AST pattern",
-   "homepage": "https://ast-grep.github.io",
-   "main": "index.js",
--  "repository": "https://github.com/ast-grep/ast-grep",
-+  "repository": {
-+    "type": "git",
-+    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-+    "directory": "ports/ast-grep-napi/0.51.0"
-+  },
-   "license": "MIT",
-   "keywords": [
-     "ast",
 @@ -17,7 +21,8 @@
      "index.d.ts",
      "index.js",

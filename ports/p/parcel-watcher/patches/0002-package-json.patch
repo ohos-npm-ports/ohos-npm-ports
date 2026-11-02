@@ -1,18 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -4,10 +4,11 @@
-   "main": "index.js",
-   "types": "index.d.ts",
-   "repository": {
-     "type": "git",
--    "url": "https://github.com/parcel-bundler/watcher.git"
-+    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-+    "directory": "ports/parcel-watcher/2.6.0"
-   },
-   "description": "A native C++ Node module for querying and subscribing to filesystem events. Used by Parcel 2.",
-   "license": "MIT",
-   "publishConfig": {
-     "access": "public"
 @@ -26,13 +27,13 @@
      "LICENSE",
      "src",

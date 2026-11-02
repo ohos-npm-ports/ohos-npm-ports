@@ -2,15 +2,6 @@ diff --git a/package.json b/package.json
 index 0d77b90..232fc6e 100644
 --- a/package.json
 +++ b/package.json
-@@ -13,7 +13,7 @@
-   },
-   "repository": {
-     "type": "git",
--    "url": "https://github.com/websockets/bufferutil"
-+    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports"
-   },
-   "keywords": [
-     "bufferutil"
 @@ -21,7 +21,7 @@
    "author": "Einar Otto Stangvik <einaros@gmail.com> (http://2x.io)",
    "license": "MIT",

@@ -104,8 +104,6 @@ build() {
   # Real functional smoke test: dlopen the addon and drive its actual V8
   # CPU-profiler API with harmonybrew's core node (llvm-built, ABI compatible
   # with this addon).
-  brew install -y node
-
   node_bin="$(brew --prefix)/opt/node/bin/node"
   "$node_bin" --version
 

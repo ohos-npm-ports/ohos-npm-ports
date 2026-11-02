@@ -36,7 +36,7 @@ prepare() {
 
   echo "=== deps: toolchain ==="
   mkdir -p /data/storage/el2/base/cache /data/storage/el2/base/file
-  brew install -y rust cmake pkgconf
+  brew install -y cmake pkgconf
   cargo --version
 
   echo "=== fetch: sources ==="
@@ -116,10 +116,6 @@ package() {
   "license": "MIT",
   "os": ["openharmony"],
   "cpu": ["arm64"],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports"
-  },
   "publishConfig": {
     "executableFiles": ["./pnpm"],
     "access": "public"

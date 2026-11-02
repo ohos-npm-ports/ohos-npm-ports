@@ -32,11 +32,6 @@ build() {
   # upstream npm tarball; the parity check below proves everything else in
   # dist/ is our own tsc output or copied from the git checkout.
 
-  # setup-tools.sh only installs node/python/devel-base; rust and git are
-  # needed below but not preinstalled.
-  brew install -y rust
-  command -v git >/dev/null 2>&1 || brew install -y git
-
   # Sparse, blob-filtered clone: the full monorepo checkout is huge. Cone mode
   # always includes root files, so Cargo.toml/Cargo.lock/tsconfig.base.json
   # come along with packages/nx.
@@ -198,8 +193,6 @@ build() {
   cp ../carry/*.wasm dist/src/native/
   cp ../src/nx.openharmony-arm64.node dist/src/native/
 
-  # 0005: set the repository pointer.
-  patch -p1 <../patches/0005-update-package-json.patch
   cd ..
 
   # --- verify package contents ---

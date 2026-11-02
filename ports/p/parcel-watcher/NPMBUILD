@@ -158,8 +158,6 @@ slot_openharmony_arm64_build() {
   root_dir="$port_dir"
 
   # --- binding 源码构建（容器 clang host 即 ohos，node-gyp 直编） ---
-  brew install -y node
-
   cd "$root_dir"
   fetch_resource "upstream" "watcher-${version}.tar.gz"
   tar -zxf "watcher-${version}.tar.gz"
@@ -188,11 +186,6 @@ SHIM
   "version": "${version}",
   "description": "OpenHarmony (OHOS) arm64 platform binding for @parcel/watcher \\u2014 source-built inotify backend, main is a shim re-exporting watcher.node (bundler module-table embedding requires a JS entry)",
   "main": "index.js",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-    "directory": "ports/${pkgname}/${version}"
-  },
   "license": "MIT",
   "files": [
     "index.js",
