@@ -223,13 +223,13 @@ dsh --profile headless "$(cat /report/prompt.txt)"`;
       ...dockerArguments(state, env, true),
       image, 'sh', '-lc', script,
     ]);
-    const reportPath = `${reports}/report.md`;
-    const report = readIfPresent(reportPath);
-    if (report && env.DEEPSEEK_API_KEY) {
-      writeFile(reportPath, report.split(env.DEEPSEEK_API_KEY).join('***'));
-    }
   } finally {
     restoreOwnership(env);
+  }
+  const reportPath = `${reports}/report.md`;
+  const report = readIfPresent(reportPath);
+  if (report && env.DEEPSEEK_API_KEY) {
+    writeFile(reportPath, report.split(env.DEEPSEEK_API_KEY).join('***'));
   }
 }
 
