@@ -1,13 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -12,5 +12,5 @@
--    "url": "https://github.com/anomalyco/opentui",
--    "directory": "packages/core"
-+    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports",
-+    "directory": "ports/opentui-core/0.8.1"
-   },
-   "exports": {
-     ".": {
 @@ -82,6 +82,10 @@
      "@opentui/core-win32-x64": "0.8.1",
      "@opentui/core-win32-arm64": "0.8.1",

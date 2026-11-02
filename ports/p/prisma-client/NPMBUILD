@@ -18,8 +18,7 @@ prepare() {
   # ohos-npm-ports: @ohos-npm-ports/prisma-client ${version}
   #
   # 构建方式：
-  #   1. 下载官方 @prisma/client@${version} tarball，打 patch：manifest 改写
-  #      （name/repository），delta 自证
+  #   1. 下载官方 @prisma/client@${version} tarball，校验上游 manifest
   #   2. 零编译重打包：除被 patch 的 package.json 外每个文件与 pristine
   #      上游树逐字节对账（补丁只允许碰指定文件的不变量）
   #   3. npm pack 成 tarball 后做生成 + CRUD 冒烟（node + bun 双运行时）
@@ -43,10 +42,8 @@ prepare() {
 }
 
 build() {
-  echo "=== build: 打 manifest patch + grep marker ==="
+  echo "=== build: 校验上游 manifest ==="
   cd "${build_dir}/src"
-  patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
-  # toybox patch can silently no-op on a malformed header; assert it landed.
   grep -q "\"version\": \"${version}\"" package.json
 }
 

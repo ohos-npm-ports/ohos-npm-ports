@@ -17,17 +17,6 @@
      "version": "napi version",
      "generate-features-list": "node ./scripts/generate-feature-list.js"
    },
-@@ -89,9 +88,9 @@
-     "generate-features-list": "node ./scripts/generate-feature-list.js"
-   },
-   "repository": {
-     "type": "git",
--    "url": "https://github.com/utooland/utoo",
--    "directory": "packages/pack"
-+    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports",
-+    "directory": "ports/utoo-pack/1.5.31"
-   },
-   "optionalDependencies": {
      "@utoo/pack-darwin-arm64": "1.5.31",
 @@ -102,4 +101,4 @@
      "@utoo/pack-linux-x64-musl": "1.5.31",

@@ -39,8 +39,6 @@ build() {
   patch -p1 <../patches/0001-package-json.patch
   patch -p1 <../patches/0002-add-openharmony-subpackage.patch
 
-  brew install -y rust
-
   cd crates/node
   npm install --ignore-scripts
 

@@ -10,11 +10,27 @@ function lintPatch(file, text, port) {
     throw new Error(`${file}: current port revisions must be injected by npm-ports pack, not patches`);
   }
   let existingPackageJson = false;
+  let repositoryIndent = -1;
   for (const line of text.split('\n')) {
     if (line.startsWith('--- ')) existingPackageJson = line.trim() !== '--- /dev/null';
     if (line.startsWith('+++ ')) {
       const target = line.slice(4).split('\t')[0];
       existingPackageJson &&= /^(?:b\/)?(?:.*\/)?package\.json$/.test(target);
+    }
+    if (existingPackageJson && /^[+-]\s*"repository"\s*:/.test(line)) {
+      throw new Error(`${file}: repository URL and directory are injected by npm-ports, not patches`);
+    }
+    const content = line.slice(1);
+    const repository = existingPackageJson && /^(\s*)"repository"\s*:\s*\{/.exec(content);
+    if (repository) {
+      repositoryIndent = repository[1].length;
+    } else if (repositoryIndent >= 0) {
+      const indent = /^(\s*)/.exec(content)[1].length;
+      if (/^\s*\}/.test(content) && indent <= repositoryIndent) {
+        repositoryIndent = -1;
+      } else if (existingPackageJson && /^[+-]\s*"(?:url|directory)"\s*:/.test(line)) {
+        throw new Error(`${file}: repository URL and directory are injected by npm-ports, not patches`);
+      }
     }
     if (existingPackageJson && /^[+-]\s*"name"\s*:/.test(line)) {
       throw new Error(`${file}: package names are injected by npm-ports, not patches`);

@@ -1,16 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -4,8 +4,9 @@
-   "description": "A fast, spec-compliant JavaScript and TypeScript parser, producing an ESTree / TypeScript-ESTree AST",
-   "license": "MIT",
-   "repository": {
-     "type": "git",
--    "url": "https://github.com/yuku-toolchain/yuku"
-+    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-+    "directory": "ports/y/yuku-parser"
-   },
-   "type": "module",
-   "main": "index.js",
 @@ -42,5 +43,11 @@
      "ts",
      "tsx",

@@ -1,14 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -5,6 +5,7 @@
-   "repository": {
-     "type": "git",
--    "url": "git+https://github.com/DataDog/pprof-nodejs.git"
-+    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-+    "directory": "ports/pprof/5.17.0"
-   },
-   "main": "out/src/index.js",
-   "types": "out/src/index.d.ts",
 @@ -84,8 +85,6 @@
    "engines": {
      "node": ">=16"

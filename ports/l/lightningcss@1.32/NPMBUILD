@@ -43,11 +43,6 @@ assert.deepEqual(changed, ['node/index.js', 'package.json']);
 JS
 
   grep -q "process.platform === 'openharmony'" node/index.js
-  rust_prefix=$(brew --prefix rust)
-  if ! "$rust_prefix/bin/rustc" -vV 2>/dev/null |
-    grep -q '^host: aarch64-unknown-linux-ohos$'; then
-    brew install -y rust
-  fi
   rustc -vV
   cargo --version
   rustc -vV | grep -q '^host: aarch64-unknown-linux-ohos$'

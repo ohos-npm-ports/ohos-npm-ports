@@ -1,15 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -4,7 +4,8 @@
-   "description": "Playwright Tools for MCP",
-   "repository": {
-     "type": "git",
--    "url": "git+https://github.com/microsoft/playwright-mcp.git"
-+    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports",
-+    "directory": "ports/playwright-mcp/0.0.84"
-   },
-   "homepage": "https://playwright.dev",
-   "engines": {
 @@ -37,8 +38,7 @@
      }
    },

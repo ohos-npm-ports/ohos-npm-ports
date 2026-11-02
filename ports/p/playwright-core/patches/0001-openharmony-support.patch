@@ -1,15 +1,5 @@
 --- a/packages/playwright-core/package.json
 +++ b/packages/playwright-core/package.json
-@@ -4,7 +4,8 @@
-   "description": "A high-level API to automate web browsers",
-   "repository": {
-     "type": "git",
--    "url": "git+https://github.com/microsoft/playwright.git"
-+    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
-+    "directory": "ports/playwright-core/1.64.1"
-   },
-   "homepage": "https://playwright.dev",
-   "engines": {
 @@ -25,6 +26,7 @@
      "./lib/bootstrap": "./lib/bootstrap.js",
      "./lib/coreBundle": "./lib/coreBundle.js",

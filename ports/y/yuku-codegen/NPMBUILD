@@ -20,13 +20,13 @@ prepare() {
   #
   # 构建方式：
   #   1. 下载官方 yuku-codegen@${version} tarball，钉住 sha256
-  #   2. 打 patch 改写 manifest（name/repository/publishConfig），grep marker
+  #   2. 打 patch 配置 publishConfig，grep marker
   #   3. 上游自 0.19.0 起改为纯 JavaScript 实现，tarball 已带编译好的 dist，
   #      不再有 napi binding、optionalDependencies 或 yuku monorepo 构建步骤
   #   4. 零依赖重打包：上游全部内容原样进发布目录
   #   5. 用真实 ESM 入口做 generate/minify/source map 冒烟
   #
-  # OpenHarmony 适配只保留包名、仓库地址与发布配置；0.19.0 的 codegen
+  # OpenHarmony 适配只保留发布配置；0.19.0 的 codegen
   # 本身不含原生二进制，因此无需槽位包或交叉编译。
   #
   # 发布目录名必须与 NPMBUILD packages 一致，并留在配方目录根下，

@@ -110,7 +110,7 @@ NPMBUILD 中禁止执行 `npm publish`。npm tarball 的生成和发布由 `npm-
 - 跨 port 依赖是独立锁定的外部坐标，必须保留对方完整的已发布版本，包括对方的 revision。
 - 上游升级后将 revision 重置为 1。只修复移植问题时递增 revision。对应命令见 [npm-ports 命令行工具](cli.md#上游升级与修订)。
 
-所有产物必须位于 `@ohos-npm-ports/` scope，主包名必须是 `@ohos-npm-ports/<pkgname>`。`repository` 和其中的 `directory` 由 normalize 统一设置，补丁不得修改 package.json 的 `name` 或 `description` 字段。
+所有产物必须位于 `@ohos-npm-ports/` scope，主包名必须是 `@ohos-npm-ports/<pkgname>`。`repository` 和其中的 `directory` 由 normalize 统一设置，补丁不得修改 package.json 的 `name`、`description` 或 `repository` 字段。
 
 ## 6. 槽位包
 
