@@ -132,12 +132,12 @@ check() {
     node --check "$f"
   done
 
-  # 上游平台包与槽位 alias 在打包前都使用裸上游版本。
-  version="$version" node -e '
+  # 上游平台包保留裸上游版本，槽位 alias 使用最终发布版本。
+  node -e '
     const pkg = require("./package.json");
-    const base = pkg.version;
+    const base = process.argv[1];
     const opt = pkg.optionalDependencies ?? {};
-    const slotAlias = `npm:@ohos-npm-ports/opentui-core-openharmony-arm64@${process.env.version}`;
+    const slotAlias = `npm:@ohos-npm-ports/opentui-core-openharmony-arm64@${pkg.version}`;
     if (opt["@opentui/core-openharmony-arm64"] !== slotAlias) {
       console.error(`slot alias mismatch: ${opt["@opentui/core-openharmony-arm64"]}`);
       process.exit(1);
@@ -146,7 +146,7 @@ check() {
       if (name === "@opentui/core-openharmony-arm64") continue;
       if (range !== base) { console.error(`${name} = ${range}, expected ${base}`); process.exit(1); }
     }
-  '
+  ' "${version}"
 
   # 标记断言针对 chunk 集合整体（bun splitting 会产出不含标记的共享块）
   for marker in 'openharmony: "libopentui.so"' '"@opentui/core-openharmony-arm64"'; do

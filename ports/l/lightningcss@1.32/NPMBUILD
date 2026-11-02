@@ -21,11 +21,11 @@ build() {
   find . -type f -exec sha256sum {} + | sort >/tmp/lightningcss-${version}-before.sha256
   patch -p1 <../patches/0001-update-package-json.patch
   patch -p1 <../patches/0002-openharmony-loader.patch
-  node - <<'JS'
+  node - "${version}" <<'JS'
 const assert = require('node:assert/strict');
 const { createHash } = require('node:crypto');
 const { readFileSync, readdirSync } = require('node:fs');
-const before = new Map(readFileSync(`/tmp/lightningcss-${process.env.NPMBUILD_VERSION}-before.sha256`, 'utf8')
+const before = new Map(readFileSync(`/tmp/lightningcss-${process.argv[2]}-before.sha256`, 'utf8')
   .trimEnd().split('\n').map(line => [line.slice(66).replace(/^\.\//, ''), line.slice(0, 64)]));
 const after = new Map();
 function scan(directory) {
@@ -109,11 +109,12 @@ JS
 }
 
 check() {
+  package_version=$(node -p "require('./package.json').version")
   mkdir -p /tmp/lightningcss-consumer
   npm pack --pack-destination /tmp/lightningcss-consumer
   mkdir -p /tmp/lightningcss-consumer/project
   cd /tmp/lightningcss-consumer/project
-  npm install --no-audit --no-fund /tmp/lightningcss-consumer/ohos-npm-ports-lightningcss-${version}.tgz
+  npm install --no-audit --no-fund /tmp/lightningcss-consumer/ohos-npm-ports-lightningcss-${package_version}.tgz
   node - <<'JS'
 const { transform } = require('@ohos-npm-ports/lightningcss');
 const { code } = transform({ filename: 'consumer.css', code: Buffer.from('.consumer { color: red }'), minify: true });

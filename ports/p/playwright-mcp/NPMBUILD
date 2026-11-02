@@ -32,11 +32,11 @@ build() {
 
 check() {
   cd "$root_dir/${pkgname}-${version}"
+  package_version=$(node -p "require('./package.json').version")
   node -e 'const fs=require("fs"),crypto=require("crypto"),assert=require("assert/strict");for(const [f,hash] of Object.entries(JSON.parse(fs.readFileSync("../upstream-hashes.json"))))assert.equal(crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex"),hash,f)'
 
   node -e '
     const pkg = require("./package.json");
-    if (pkg.version !== `${process.env.NPMBUILD_VERSION}`) throw new Error(`bad version: ${pkg.version}`);
     if (pkg.dependencies["playwright-core"] !== "npm:@ohos-npm-ports/playwright-core@1.64.1-1")
       throw new Error(`playwright-core not aliased: ${pkg.dependencies["playwright-core"]}`);
     if ("playwright" in pkg.dependencies) throw new Error("unused playwright dep must be dropped");
@@ -54,7 +54,7 @@ check() {
 
   cd "${root_dir}/${pkgname}-${version}"
   npm pack --ignore-scripts >/dev/null
-  mv "ohos-npm-ports-${pkgname}-${version}.tgz" "${root_dir}/"
+  mv "ohos-npm-ports-${pkgname}-${package_version}.tgz" "${root_dir}/"
 
   cd "${root_dir}"
   rm -rf smoke
@@ -64,7 +64,7 @@ check() {
   if [ -n "${PLAYWRIGHT_CORE_TARBALL:-}" ]; then
     node -e 'require("fs").writeFileSync("package.json", JSON.stringify({name:"playwright-mcp-smoke",private:true,overrides:{"playwright-core":"file:"+process.env.PLAYWRIGHT_CORE_TARBALL}}))'
   fi
-  npm install --no-audit --no-fund --ignore-scripts "file:../ohos-npm-ports-${pkgname}-${version}.tgz"
+  npm install --no-audit --no-fund --ignore-scripts "file:../ohos-npm-ports-${pkgname}-${package_version}.tgz"
 
   node -e '
     const core = require("playwright-core/package.json");

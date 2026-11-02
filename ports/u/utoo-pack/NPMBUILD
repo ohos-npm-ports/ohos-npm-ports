@@ -69,8 +69,9 @@ check() {
   grep -q "process.platform === 'openharmony'" "$package_dir/cjs/binding.js"
   node "$root_dir/verify.cjs" "$package_dir" "$build_dir/upstream"
   cd "$package_dir"
+  package_version=$(node -p "require('./package.json').version")
   npm pack --ignore-scripts --pack-destination "$build_dir"
   mkdir -p "$build_dir/packed"
-  tar xzf "$build_dir/ohos-npm-ports-utoo-pack-${version}.tgz" -C "$build_dir/packed"
+  tar xzf "$build_dir/ohos-npm-ports-utoo-pack-${package_version}.tgz" -C "$build_dir/packed"
   test -s "$build_dir/packed/package/cjs/pack.openharmony-arm64.node"
 }

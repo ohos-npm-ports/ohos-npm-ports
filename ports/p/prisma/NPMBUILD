@@ -100,12 +100,12 @@ build() {
           console.error("unexpected @prisma/composer package layout");
           process.exit(1);
         }
-        p.version = process.env.NPMBUILD_VERSION;
+        p.version = process.argv[1];
         p.dependencies.alchemy = "2.0.0-beta.84";
         delete p.devDependencies;
         fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
         console.log("OK: @prisma/composer repacked without libsql");
-      '
+      ' "${version}"
   )
   (
     cd "${build_dir}/composer-cli-src"
@@ -116,13 +116,13 @@ build() {
           console.error("unexpected @prisma/composer-cli package layout");
           process.exit(1);
         }
-        p.version = process.env.NPMBUILD_VERSION;
-        p.dependencies["@prisma/composer"] = `npm:@ohos-npm-ports/prisma-composer@${process.env.NPMBUILD_VERSION}`;
+        p.version = process.argv[1];
+        p.dependencies["@prisma/composer"] = `npm:@ohos-npm-ports/prisma-composer@${process.argv[1]}`;
         p.dependencies.alchemy = "2.0.0-beta.84";
         delete p.devDependencies;
         fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");
         console.log("OK: @prisma/composer-cli repacked without libsql");
-      '
+      ' "${version}"
   )
   test -f "${build_dir}/composer-src/dist/index.mjs"
   test -f "${build_dir}/composer-cli-src/dist/family.mjs"
@@ -144,6 +144,7 @@ package() {
 }
 
 check() {
+  package_version=$(node -p "require('${build_dir}/pkg/package.json').version")
   node -e '
       const names = {
         pkg: "@ohos-npm-ports/prisma",
@@ -152,7 +153,7 @@ check() {
       };
       for (const [dir, name] of Object.entries(names)) {
         const p = require(`'"${build_dir}"'/${dir}/package.json`);
-        if (p.name !== name || p.version !== `${process.env.NPMBUILD_VERSION}`) {
+        if (p.name !== name || p.version !== "'"${package_version}"'") {
           console.error(`bad manifest: ${dir}`);
           process.exit(1);
         }
@@ -161,12 +162,12 @@ check() {
     '
   # file: dir installs symlink and breaks the consumer's node_modules walk-up;
   # install the packed tarballs instead
-  (cd "${build_dir}/pkg" && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-${version}.tgz "${build_dir}")
-  (cd "${build_dir}/composer" && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-composer-${version}.tgz "${build_dir}")
-  (cd "${build_dir}/composer-cli" && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-composer-cli-${version}.tgz "${build_dir}")
-  test -f "${build_dir}/ohos-npm-ports-prisma-${version}.tgz"
-  test -f "${build_dir}/ohos-npm-ports-prisma-composer-${version}.tgz"
-  test -f "${build_dir}/ohos-npm-ports-prisma-composer-cli-${version}.tgz"
+  (cd "${build_dir}/pkg" && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-${package_version}.tgz "${build_dir}")
+  (cd "${build_dir}/composer" && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-composer-${package_version}.tgz "${build_dir}")
+  (cd "${build_dir}/composer-cli" && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-composer-cli-${package_version}.tgz "${build_dir}")
+  test -f "${build_dir}/ohos-npm-ports-prisma-${package_version}.tgz"
+  test -f "${build_dir}/ohos-npm-ports-prisma-composer-${package_version}.tgz"
+  test -f "${build_dir}/ohos-npm-ports-prisma-composer-cli-${package_version}.tgz"
   # Drop-in smoke on the real machine: no PRISMA_* engine variables. npm
   # install-scripts stay disabled so the flow is deterministic.
   smoke_dir="${build_dir}/.smoke"
@@ -183,12 +184,12 @@ check() {
   "private": true,
   "type": "module",
   "dependencies": {
-    "prisma": "file:${build_dir}/ohos-npm-ports-prisma-${version}.tgz",
+    "prisma": "file:${build_dir}/ohos-npm-ports-prisma-${package_version}.tgz",
     "@prisma/orm-postgres": "${orm_version}"
   },
   "overrides": {
-    "@prisma/composer-cli": "file:${build_dir}/ohos-npm-ports-prisma-composer-cli-${version}.tgz",
-    "@prisma/composer": "file:${build_dir}/ohos-npm-ports-prisma-composer-${version}.tgz"
+    "@prisma/composer-cli": "file:${build_dir}/ohos-npm-ports-prisma-composer-cli-${package_version}.tgz",
+    "@prisma/composer": "file:${build_dir}/ohos-npm-ports-prisma-composer-${package_version}.tgz"
   }
 }
 EOF
@@ -227,9 +228,9 @@ EOF
     echo "prisma --version failed" >&2
     exit 1
   }
-  if ! printf '%s\n' "$version_output" | grep -Fxq "$version"; then
+  if ! printf '%s\n' "$version_output" | grep -Fxq "$package_version"; then
     printf '%s\n' "$version_output" >&2
-    echo "prisma --version did not report ${version}" >&2
+    echo "prisma --version did not report ${package_version}" >&2
     exit 1
   fi
 
@@ -263,7 +264,7 @@ EOF
 
   node -e '
       const p = require("'"$smoke_abs"'/node_modules/prisma/package.json");
-      if (p.name !== "@ohos-npm-ports/prisma" || p.version !== `${process.env.NPMBUILD_VERSION}`) {
+      if (p.name !== "@ohos-npm-ports/prisma" || p.version !== "'"${package_version}"'") {
         console.error("installed manifest mismatch");
         process.exit(1);
       }
@@ -285,7 +286,7 @@ EOF
   fi
 
   cd "${build_dir}"
-  rm -rf "$smoke_dir" ohos-npm-ports-prisma-${version}.tgz ohos-npm-ports-prisma-composer-${version}.tgz ohos-npm-ports-prisma-composer-cli-${version}.tgz
+  rm -rf "$smoke_dir" ohos-npm-ports-prisma-${package_version}.tgz ohos-npm-ports-prisma-composer-${package_version}.tgz ohos-npm-ports-prisma-composer-cli-${package_version}.tgz
 
   echo "OK: @ohos-npm-ports/prisma built and smoke-tested"
 }

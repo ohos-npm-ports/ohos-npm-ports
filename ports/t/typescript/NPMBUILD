@@ -111,9 +111,10 @@ check() {
         const fs = require("fs");
         const main = JSON.parse(fs.readFileSync(process.argv[1] + "/package.json", "utf8"));
         if (main.name !== "@ohos-npm-ports/typescript") process.exit(1);
-        if (main.version !== process.argv[2]) process.exit(1);
-        if (main.optionalDependencies["@ohos-npm-ports/typescript-openharmony-arm64"] !== process.argv[2]) process.exit(1);
-    ' "${build_dir}/typescript-${version}" "${version}"
+        const slot = JSON.parse(fs.readFileSync(process.argv[2] + "/package.json", "utf8"));
+        if (main.version !== slot.version) process.exit(1);
+        if (main.optionalDependencies["@ohos-npm-ports/typescript-openharmony-arm64"] !== slot.version) process.exit(1);
+    ' "${build_dir}/typescript-${version}" "${build_dir}/${slot_name}"
   grep -qF "@ohos-npm-ports/typescript-openharmony-arm64" \
     "${build_dir}/typescript-${version}/lib/getExePath.js"
 

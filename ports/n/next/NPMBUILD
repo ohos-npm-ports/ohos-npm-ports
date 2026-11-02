@@ -90,7 +90,7 @@ EOF
 
 check() {
   node -e '
-    const main = require(`./next-${process.env.NPMBUILD_VERSION}/package.json`);
+    const main = require("./next-'"${version}"'/package.json");
     const sub = require("./next-swc-openharmony-arm64/package.json");
     if (main.name !== "@ohos-npm-ports/next" || main.version !== sub.version) process.exit(1);
     if (main.optionalDependencies[sub.name] !== sub.version) process.exit(1);

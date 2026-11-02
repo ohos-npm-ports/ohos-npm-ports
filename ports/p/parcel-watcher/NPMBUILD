@@ -81,17 +81,17 @@ build() {
 
   node -e '
   const pkg = require("./package.json");
-  if (pkg.version !== `${process.env.NPMBUILD_VERSION}`) throw new Error(`bad version: ${pkg.version}`);
+  if (pkg.version !== process.argv[1]) throw new Error(`bad version: ${pkg.version}`);
   const n = Object.keys(pkg.optionalDependencies ?? {}).length;
   if (n !== 13) throw new Error(`optionalDependencies count: ${n}, expected 13`);
-  if (pkg.optionalDependencies["@parcel/watcher-linux-arm64-musl"] !== process.env.NPMBUILD_VERSION)
+  if (pkg.optionalDependencies["@parcel/watcher-linux-arm64-musl"] !== process.argv[1])
     throw new Error("platform subpackage version drifted");
   const alias = pkg.optionalDependencies["@parcel/watcher-openharmony-arm64"];
-  if (alias !== `npm:@ohos-npm-ports/parcel-watcher-openharmony-arm64@${process.env.NPMBUILD_VERSION}`)
+  if (alias !== `npm:@ohos-npm-ports/parcel-watcher-openharmony-arm64@${process.argv[1]}`)
     throw new Error(`openharmony alias drifted: ${alias}`);
   if ("install" in (pkg.scripts ?? {})) throw new Error("install script must be dropped");
   console.log("package.json rewrite OK");
-'
+' "${version}"
 
   node --check index.js
   node --check wrapper.js
@@ -128,10 +128,11 @@ b.writeSnapshot(dir, snap, {}).then(
 check() {
   # 消费侧冒烟：npm pack 后按名安装（file: 目录是 symlink，不装依赖）
   cd "$root_dir"
+  package_version=$(node -p "require('./${pkgname}-${version}/package.json').version")
   rm -rf smoke && mkdir smoke && cd smoke
   echo '{"name":"pw-smoke","private":true}' >package.json
   npm pack --silent "../${pkgname}-${version}" >/dev/null
-  npm install --no-audit --no-fund "./ohos-npm-ports-${pkgname}-${version}.tgz" >/dev/null
+  npm install --no-audit --no-fund "./ohos-npm-ports-${pkgname}-${package_version}.tgz" >/dev/null
   node -e "const b = require('@ohos-npm-ports/${pkgname}'); console.log('consumer smoke:', typeof b.writeSnapshot)"
 
   cd "$root_dir"
@@ -216,9 +217,9 @@ slot_openharmony_arm64_check() {
 
   actual_name=$(node -e "console.log(require('./package.json').name)")
   [ "$actual_name" = "@ohos-npm-ports/${pkgname}" ]
+  package_version=$(node -p "require('./package.json').version")
   node -e '
   const pkg = require("./package.json");
-  if (pkg.version !== `${process.env.NPMBUILD_VERSION}`) throw new Error(`bad version: ${pkg.version}`);
   if (pkg.main !== "index.js") throw new Error("main must be the shim");
   console.log("package.json OK");
 '
@@ -245,7 +246,7 @@ b.writeSnapshot(dir, snap, {}).then(
   rm -rf smoke && mkdir smoke && cd smoke
   echo '{"name":"pws-smoke","private":true}' >package.json
   npm pack --silent "../${pkgname}-${version}" >/dev/null
-  npm install --no-audit --no-fund "./ohos-npm-ports-${pkgname}-${version}.tgz" >/dev/null
+  npm install --no-audit --no-fund "./ohos-npm-ports-${pkgname}-${package_version}.tgz" >/dev/null
   node -e "const b = require('@ohos-npm-ports/${pkgname}'); console.log('consumer smoke:', typeof b.writeSnapshot)"
 
   # 槽位冒烟：按 @parcel/watcher 的动态拼名（alias 安装形态）require 命中

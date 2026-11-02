@@ -100,11 +100,11 @@ package() {
   # bundled yuku-core 的 manifest 必须去掉上游 optionalDependencies（否则 npm 会
   # 再拉一套非 OHOS 的 binding），并把包内 OpenHarmony binding 加进 files，
   # 否则 npm pack 会按上游 files 白名单把它排除掉。
-  node - "${stage_dir}/yuku/npm/yuku-core/package.json" "${core_dir}/package.json" "${slot_name}" <<'NODE'
+  node - "${stage_dir}/yuku/npm/yuku-core/package.json" "${core_dir}/package.json" "${slot_name}" "${version}" <<'NODE'
 const fs = require("node:fs");
-const [source, target, slot] = process.argv.slice(2);
+const [source, target, slot, version] = process.argv.slice(2);
 const pkg = JSON.parse(fs.readFileSync(source, "utf8"));
-pkg.version = process.env.NPMBUILD_VERSION;
+pkg.version = version;
 pkg.dependencies = { "@yuku-toolchain/types": `^${pkg.version}` };
 delete pkg.optionalDependencies;
 pkg.repository = {
@@ -120,11 +120,11 @@ NODE
   cp "${stage_dir}/yuku-core.node" "${core_dir}/${slot_name}/yuku-core.node"
 
   cd "${output_dir}"
-  node - "${slot_name}" <<'NODE'
+  node - "${slot_name}" "${version}" <<'NODE'
 const fs = require("node:fs");
-const [slot] = process.argv.slice(2);
+const [slot, version] = process.argv.slice(2);
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-if (pkg.version !== process.env.NPMBUILD_VERSION) { console.error(`bad version: ${pkg.version}`); process.exit(1); }
+if (pkg.version !== version) { console.error(`bad version: ${pkg.version}`); process.exit(1); }
 if (!pkg.bundledDependencies?.includes("yuku-core")) { console.error("yuku-core is not bundled"); process.exit(1); }
 const core = JSON.parse(fs.readFileSync("node_modules/yuku-core/package.json", "utf8"));
 if (core.name !== "yuku-core" || core.version !== pkg.version) { console.error(`bad core manifest: ${core.name}@${core.version}`); process.exit(1); }

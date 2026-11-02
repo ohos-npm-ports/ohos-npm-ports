@@ -54,23 +54,24 @@ package() {
 }
 
 check() {
+  package_version=$(node -p "require('${package_dir}/package.json').version")
   npm pack --ignore-scripts --pack-destination "$build_dir"
   rm -rf "$build_dir/consumer"
   mkdir -p "$build_dir/consumer"
-  node - "$build_dir" <<'JS'
-const fs=require('node:fs'),path=require('node:path');const root=process.argv[2];fs.writeFileSync(path.join(root,'consumer/package.json'),JSON.stringify({private:true,dependencies:{testcafe:`file:${path.join(root,'ohos-npm-ports-testcafe-'+process.env.NPMBUILD_VERSION+'.tgz')}`}}));
+  node - "$build_dir" "$package_version" <<'JS'
+const fs=require('node:fs'),path=require('node:path');const root=process.argv[2],version=process.argv[3];fs.writeFileSync(path.join(root,'consumer/package.json'),JSON.stringify({private:true,dependencies:{testcafe:`file:${path.join(root,'ohos-npm-ports-testcafe-'+version+'.tgz')}`}}));
 JS
   cd "$build_dir/consumer"
   npm install --ignore-scripts --no-audit --no-fund
   export TESTCAFE_PACKAGE="$build_dir/consumer/node_modules/testcafe"
   export NODE_PATH="$build_dir/consumer/node_modules"
-  node - "$TESTCAFE_PACKAGE" <<'JS'
+  node - "$TESTCAFE_PACKAGE" "$package_version" <<'JS'
 const assert=require('node:assert/strict'),path=require('node:path');const root=process.argv[2],p=require(path.join(root,'package.json'));
-assert.equal(p.name,'@ohos-npm-ports/testcafe');assert.equal(p.version,`${process.env.NPMBUILD_VERSION}`);assert.equal(typeof require(root),'function');
+assert.equal(p.name,'@ohos-npm-ports/testcafe');assert.equal(p.version,process.argv[3]);assert.equal(typeof require(root),'function');
 JS
   PORT_TEST_REPORT="$build_dir/consumer-report.json" node "$work_dir/test.js"
   node "$work_dir/tests/platforms.cjs"
   node --test "$work_dir"/tests/*.test.cjs "$work_dir"/tests/*.test.mjs
-  node -e "const assert=require('node:assert/strict');assert.equal(require('testcafe/package.json').version,'${version}');assert.equal(typeof require('testcafe'),'function')"
+  node -e "const assert=require('node:assert/strict');assert.equal(require('testcafe/package.json').version,'${package_version}');assert.equal(typeof require('testcafe'),'function')"
   node node_modules/testcafe/bin/testcafe.js --version
 }

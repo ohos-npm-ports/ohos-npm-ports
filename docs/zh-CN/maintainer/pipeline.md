@@ -37,7 +37,7 @@ port 目录为 `ports/<首字母>/<name>` 或 `ports/<首字母>/<name>@<版本�
 npm-ports check "${{ matrix.dir }}"
 ```
 
-随后 `npm-ports validate-publish` 执行 `npm-ports pack --no-build`。打包器先注入 revision，再使用 `/storage/Users/currentUser/.harmonybrew/opt/ohos-selfsign/bin/selfsign --force` 统一为发布目录中的 AArch64 ELF 签名。随后生成 tarball，启动临时 Verdaccio，真实发布并安装全部主包和槽位包。上传的是私仓实际导出且通过 integrity 校验的 tarball，不另做 bottle。
+随后 `npm-ports validate-publish` 执行 `npm-ports pack --no-build`。包名、repository、revision 和同 port 槽位引用已在 `check()` 前的 normalize 阶段统一注入，打包器再次幂等规范化后，使用 `/storage/Users/currentUser/.harmonybrew/opt/ohos-selfsign/bin/selfsign --force` 统一为发布目录中的 AArch64 ELF 签名。随后生成 tarball，启动临时 Verdaccio，真实发布并安装全部主包和槽位包。上传的是私仓实际导出且通过 integrity 校验的 tarball，不另做 bottle。
 
 ### 哪些 port 构建，哪些直接取 npm 上的包
 

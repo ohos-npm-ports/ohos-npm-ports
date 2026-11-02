@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { chooseTag, packPort, publishPort, runLifecycle, stagePackages } from '../cli/build.mjs';
+import { chooseTag, packPort, publishPort, runLifecycle, normalizePackages } from '../cli/build.mjs';
 import { bumpPorts, updatePortText } from '../cli/bump.mjs';
 import { bumpPr } from '../cli/bump-pr.mjs';
 import { createPort } from '../cli/create.mjs';
@@ -130,10 +130,11 @@ test('published short names reject collisions between different upstream scopes'
   ]));
 });
 
-test('staging injects all package names and aligns revisions and npm aliases', (t) => {
+test('normalization injects final manifests and is idempotent', (t) => {
   const { root, dir } = fixture(t);
   const port = loadPort(root, dir);
-  stagePackages(port);
+  normalizePackages(port);
+  normalizePackages(port);
   const main = JSON.parse(readFileSync(join(dir, 'main', 'package.json')));
   const slot = JSON.parse(readFileSync(join(dir, 'slot', 'package.json')));
   assert.equal(main.name, '@ohos-npm-ports/demo');
@@ -143,6 +144,8 @@ test('staging injects all package names and aligns revisions and npm aliases', (
   assert.equal(main.optionalDependencies['@upstream/slot'], 'npm:@ohos-npm-ports/demo-openharmony-arm64@1.2.3-4');
   assert.equal(main.repository.url, 'git+https://github.com/ohos-npm-ports/ohos-npm-ports.git');
   assert.equal(main.repository.directory, 'ports/d/demo');
+  writeFileSync(join(dir, 'main', 'package.json'), JSON.stringify({ ...main, version: '1.2.4' }));
+  assert.throws(() => normalizePackages(port), /must start from upstream 1\.2\.3 or normalized 1\.2\.3-4/);
 });
 
 test('lifecycle automatically runs prerequisites and isolates slot hooks', (t) => {
@@ -157,10 +160,12 @@ test('lifecycle automatically runs prerequisites and isolates slot hooks', (t) =
   mkdirSync(join(dir, 'slots', 'demo'), { recursive: true });
   writeFileSync(join(dir, 'slots', 'demo', 'package.json'), JSON.stringify({ version: '1.2.3' }));
   runLifecycle(loadPort(root, dir), 'check');
-  assert.equal(JSON.parse(readFileSync(join(dir, 'main', 'package.json'))).name, '@ohos-npm-ports/demo');
-  assert.equal(JSON.parse(readFileSync(join(dir, 'main', 'package.json'))).version, '1.2.3');
+  const main = JSON.parse(readFileSync(join(dir, 'main', 'package.json')));
+  assert.equal(main.name, '@ohos-npm-ports/demo');
+  assert.equal(main.version, '1.2.3-4');
+  assert.equal(main.optionalDependencies['@upstream/slot'], 'npm:@ohos-npm-ports/demo-openharmony-arm64@1.2.3-4');
   assert.equal(JSON.parse(readFileSync(join(dir, 'slots', 'demo', 'package.json'))).name, '@ohos-npm-ports/demo-openharmony-arm64');
-  assert.equal(JSON.parse(readFileSync(join(dir, 'slots', 'demo', 'package.json'))).version, '1.2.3');
+  assert.equal(JSON.parse(readFileSync(join(dir, 'slots', 'demo', 'package.json'))).version, '1.2.3-4');
   assert.deepEqual(readFileSync(join(dir, 'lifecycle.log'), 'utf8').trim().split('\n'), [
     'prepare', 'build', 'package', 'check',
     'slot_demo_prepare', 'slot_demo_build', 'slot_demo_package', 'slot_demo_check',

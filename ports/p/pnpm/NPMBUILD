@@ -162,12 +162,12 @@ check() {
   # 包名/版本断言
   node -e '
         const p = require("'"${main_dir}"'/package.json");
-        if (p.name !== "@ohos-npm-ports/pnpm") throw new Error("main name: " + p.name);
-        if (p.version !== "'"${version}"'") throw new Error("main version: " + p.version);
-        if (p.optionalDependencies["@ohos-npm-ports/'"${slot_name}"'"] !== "'"${version}"'") throw new Error("slot ref missing");
         const s = require("'"${slot_dir}"'/package.json");
+        if (p.name !== "@ohos-npm-ports/pnpm") throw new Error("main name: " + p.name);
+        if (p.version !== s.version) throw new Error("main version: " + p.version);
+        if (p.optionalDependencies["@ohos-npm-ports/'"${slot_name}"'"] !== s.version) throw new Error("slot ref missing");
         if (s.name !== "@ohos-npm-ports/'"${slot_name}"'") throw new Error("slot name: " + s.name);
-        if (s.version !== "'"${version}"'") throw new Error("slot version: " + s.version);
+        if (s.version !== p.version) throw new Error("slot version: " + s.version);
         if (s.os[0] !== "openharmony" || s.cpu[0] !== "arm64") throw new Error("slot os/cpu");
     '
 

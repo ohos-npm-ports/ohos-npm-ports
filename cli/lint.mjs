@@ -81,7 +81,7 @@ export function lintPort(port) {
     }
   }
   if (/\bNPMBUILD_(?:REVISION|PORT_VERSION)\b/.test(source) || /\$\{?version\}?-\d+/.test(source)) {
-    throw new Error(`${file}: use bare upstream version; revision is injected only by npm-ports pack`);
+    throw new Error(`${file}: use bare upstream version; revision is injected by npm-ports normalize`);
   }
   if (/\breadelf\b/.test(source)) {
     throw new Error(`${file}: readelf checks are not needed in NPMBUILD`);
