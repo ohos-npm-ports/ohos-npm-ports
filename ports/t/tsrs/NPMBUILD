@@ -24,9 +24,7 @@ work_dir="$NPMBUILD_DIR"
 build_dir="$work_dir/build"
 
 prepare() {
-  for dependency in cmake openssl@3 zlib-ng-compat libxml2; do
-    brew list --versions "$dependency" >/dev/null 2>&1 || brew install -y "$dependency"
-  done
+  brew install -y cmake openssl@3 zlib-ng-compat libxml2
   mkdir -p "$build_dir"
   fetch_resource "rust" "$build_dir/rust.tar.xz"
   if [ ! -x "$build_dir/rust/bin/rustc" ]; then
@@ -66,7 +64,6 @@ import fs from 'node:fs';
 const {build_dir: root, version} = process.env;
 const file = `${root}/main/package.json`;
 const pkg = JSON.parse(fs.readFileSync(file));
-pkg.version = version;
 pkg.optionalDependencies['@tsrs/openharmony-arm64'] = `npm:@ohos-npm-ports/tsrs-openharmony-arm64@${version}`;
 fs.writeFileSync(file, JSON.stringify(pkg, null, 2)+'\n');
 fs.writeFileSync(`${root}/native/package.json`, JSON.stringify({

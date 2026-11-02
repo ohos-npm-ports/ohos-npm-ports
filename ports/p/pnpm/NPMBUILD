@@ -117,8 +117,7 @@ package() {
   "os": ["openharmony"],
   "cpu": ["arm64"],
   "publishConfig": {
-    "executableFiles": ["./pnpm"],
-    "access": "public"
+    "executableFiles": ["./pnpm"]
   }
 }
 EOF

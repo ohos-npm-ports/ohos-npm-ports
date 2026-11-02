@@ -90,8 +90,7 @@ package() {
   "preferUnplugged": true,
   "os": ["openharmony"],
   "cpu": ["arm64"],
-  "files": ["lib", "LICENSE", "NOTICE.txt"],
-  "publishConfig": { "access": "public" }
+  "files": ["lib", "LICENSE", "NOTICE.txt"]
 }
 EOF
 }

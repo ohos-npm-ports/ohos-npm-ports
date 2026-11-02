@@ -76,8 +76,7 @@ package() {
   "main": "next-swc.openharmony-arm64.node",
   "files": ["next-swc.openharmony-arm64.node"],
   "license": "MIT",
-  "engines": { "node": ">= 20" },
-  "publishConfig": { "access": "public" }
+  "engines": { "node": ">= 20" }
 }
 EOF
 }
