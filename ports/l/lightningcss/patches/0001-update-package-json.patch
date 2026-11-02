@@ -1,12 +1,5 @@
 --- a/package.json
 +++ b/package.json
-@@ -4,5 +4,5 @@
-   "license": "MPL-2.0",
--  "description": "A CSS parser, transformer, and minifier written in Rust",
-+  "description": "A CSS parser, transformer, and minifier written in Rust \u2014 OpenHarmony (OHOS) port, built from parcel-bundler/lightningcss#1264 pending upstream merge.",
-   "main": "node/index.js",
-   "types": "node/index.d.ts",
-   "exports": {
 @@ -24,7 +24,21 @@
    },
    "repository": {

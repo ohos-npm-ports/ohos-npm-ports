@@ -211,6 +211,8 @@ test('lint separates current port revisions from cross-port dependency pins', (t
   assert.throws(() => lintPort(port), /must not pin upstream version context/);
   writeFileSync(patch, '--- a/package.json\n+++ b/package.json\n@@ -1 +1 @@\n-  "name": "demo"\n+  "name": "@ohos-npm-ports/demo"\n');
   assert.throws(() => lintPort(port), /package names are injected by npm-ports/);
+  writeFileSync(patch, '--- a/package.json\n+++ b/package.json\n@@ -1 +1 @@\n-  "description": "demo"\n+  "description": "demo port"\n');
+  assert.throws(() => lintPort(port), /must not change package\.json description/);
   writeFileSync(patch, '--- a/package.json\n+++ b/package.json\n@@ -1 +1 @@\n-  "other": "1.2.3"\n+  "other": "npm:@ohos-npm-ports/other@1.2.3-7"\n');
   assert.doesNotThrow(() => lintPort(port));
   writeFileSync(patch, '--- a/package.json\n+++ b/package.json\n@@ -1 +1 @@\n-  "slot": "1.2.3"\n+  "slot": "npm:@ohos-npm-ports/demo-openharmony-arm64@1.2.3-7"\n');

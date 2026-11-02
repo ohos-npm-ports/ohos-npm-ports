@@ -9,8 +9,7 @@
 +    "url": "https://github.com/ohos-npm-ports/ohos-npm-ports.git",
 +    "directory": "ports/parcel-watcher/2.6.0"
    },
--  "description": "A native C++ Node module for querying and subscribing to filesystem events. Used by Parcel 2.",
-+  "description": "A native C++ Node module for querying and subscribing to filesystem events. Used by Parcel 2. \u2014 OpenHarmony (OHOS) port: source-built openharmony-arm64 binding embedded at the upstream fallback path, index.js unchanged.",
+   "description": "A native C++ Node module for querying and subscribing to filesystem events. Used by Parcel 2.",
    "license": "MIT",
    "publishConfig": {
      "access": "public"
