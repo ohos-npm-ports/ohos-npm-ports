@@ -67,19 +67,20 @@ package() {
   rm pristine.sha256 pristine-no-manifest.sha256 built.sha256
   node -e '
       const p = require("'"${build_dir}"'/pkg/package.json");
-      if (p.version !== `${process.env.NPMBUILD_VERSION}`) { console.error("bad manifest"); process.exit(1); }
+      if (p.version !== process.argv[1]) { console.error("bad manifest"); process.exit(1); }
       const { execSync } = require("child_process");
       for (const f of ["default.js", "index.js", "runtime/client.js", "runtime/client.mjs", "scripts/default-index.js"]) {
         require("fs").accessSync(require("path").join("'"${build_dir}"'/pkg", f));
         execSync("node --check " + JSON.stringify(require("path").join("'"${build_dir}"'/pkg", f)));
       }
       console.log("OK: manifest + entry files parse");
-    '
+    ' "${version}"
 }
 
 check() {
-  (cd pkg && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-client-${version}.tgz "${build_dir}")
-  test -f "${build_dir}/ohos-npm-ports-prisma-client-${version}.tgz"
+  package_version=$(node -p "require('${build_dir}/pkg/package.json').version")
+  (cd pkg && npm pack --ignore-scripts >/dev/null && mv ohos-npm-ports-prisma-client-${package_version}.tgz "${build_dir}")
+  test -f "${build_dir}/ohos-npm-ports-prisma-client-${package_version}.tgz"
 
   # Prisma 7 generates a client that runs on the bundled WASM query compiler and
   # connects through a driver adapter. Use a pure-JS sql.js adapter instead of a
@@ -92,7 +93,7 @@ check() {
   "name": "prisma-client-port-smoke",
   "private": true,
   "dependencies": {
-    "@prisma/client": "file:${build_dir}/ohos-npm-ports-prisma-client-${version}.tgz",
+    "@prisma/client": "file:${build_dir}/ohos-npm-ports-prisma-client-${package_version}.tgz",
     "prisma": "${version}",
     "sql.js": "1.15.2",
     "typescript": "5.9.3"
@@ -218,7 +219,7 @@ EOF
     bun smoke.cjs
   fi
   cd "${build_dir}"
-  rm -rf "$smoke_dir" ohos-npm-ports-prisma-client-${version}.tgz
+  rm -rf "$smoke_dir" ohos-npm-ports-prisma-client-${package_version}.tgz
 
   echo "OK: @ohos-npm-ports/prisma-client built and smoke-tested"
 }

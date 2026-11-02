@@ -6,7 +6,7 @@ const [root, upstream] = process.argv.slice(2).map(p => path.resolve(p));
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json')));
 const original = JSON.parse(fs.readFileSync(path.join(upstream, 'package.json')));
 assert.equal(pkg.name, '@ohos-npm-ports/utoo-pack');
-assert.equal(pkg.version, original.version);
+assert.ok(pkg.version.startsWith(`${original.version}-`));
 assert.equal(pkg.dependencies['domparser-rs'], 'npm:@ohos-npm-ports/domparser-rs@0.0.7-1');
 assert.deepEqual(pkg.optionalDependencies, original.optionalDependencies);
 assert.equal(pkg.dependencies['@utoo/pack-shared'], '1.5.31');

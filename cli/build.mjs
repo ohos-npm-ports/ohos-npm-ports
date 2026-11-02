@@ -38,6 +38,8 @@ function updateSlotReferences(pkg, versions) {
 }
 
 export function normalizePackages(port, slot = '') {
+  const mainName = `${portScope}${port.pkgname}`;
+  const versions = new Map(port.packageNames.map((name) => [name || mainName, port.portVersion]));
   const staged = port.packages.flatMap((output, index) => {
     if (slot === 'main' && output.startsWith('slots/')) return [];
     if (slot && slot !== 'main' && output !== `slots/${slot}` && !output.startsWith(`slots/${slot}/`)) return [];
@@ -45,19 +47,20 @@ export function normalizePackages(port, slot = '') {
     const file = join(directory, 'package.json');
     if (!existsSync(file)) throw new Error(`${port.relative}: missing package manifest: ${output}/package.json`);
     const pkg = JSON.parse(readFileSync(file, 'utf8'));
-    if (pkg.version !== port.version) {
-      throw new Error(`${port.relative}: ${pkg.name}@${pkg.version} must retain upstream ${port.version}; revision is injected only while packing`);
+    if (pkg.version !== port.version && pkg.version !== port.portVersion) {
+      throw new Error(`${port.relative}: ${pkg.name}@${pkg.version} must start from upstream ${port.version} or normalized ${port.portVersion}`);
     }
-    pkg.name = port.packageNames[index] || `${portScope}${port.pkgname}`;
+    pkg.name = port.packageNames[index] || mainName;
     return { output, directory, file, pkg };
   });
   const names = staged.map(({ pkg }) => pkg.name);
   if (names.some((name) => !name.startsWith(portScope))) throw new Error(`${port.relative}: all published names must use ${portScope}`);
   if (new Set(names).size !== names.length) throw new Error(`${port.relative}: duplicate published package name`);
-  const mainName = `${portScope}${port.pkgname}`;
   if ((!slot || slot === 'main') && !names.includes(mainName)) throw new Error(`${port.relative}: outputs do not contain ${mainName}`);
   for (const { pkg, file } of staged) {
     const repository = typeof pkg.repository === 'object' && pkg.repository !== null ? pkg.repository : {};
+    pkg.version = port.portVersion;
+    updateSlotReferences(pkg, versions);
     pkg.repository = {
       ...repository,
       type: repository.type ?? 'git',
@@ -69,24 +72,10 @@ export function normalizePackages(port, slot = '') {
   return staged;
 }
 
-export function stagePackages(port) {
-  const staged = normalizePackages(port);
-  const names = staged.map(({ pkg }) => pkg.name);
-  const versions = new Map(names.map((name) => [name, port.portVersion]));
-  for (const { pkg, file } of staged) {
-    pkg.version = port.portVersion;
-    updateSlotReferences(pkg, versions);
-    writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
-  }
-  console.log(`Staged ${names.map((name) => `${name}@${port.portVersion}`).join(', ')}`);
-  return staged;
-}
-
 function buildEnvironment(port) {
   const env = {
     ...process.env,
     NPMBUILD_DIR: port.dir,
-    NPMBUILD_VERSION: port.version,
     NPM_PORTS_ROOT: port.root,
     NPM_PORTS_RUNTIME: runtime,
   };
@@ -164,7 +153,8 @@ export function checkPort(port) {
 
 export function packPort(root, port, { build = true, signer = signPackages } = {}) {
   if (build) checkPort(port);
-  const staged = stagePackages(port);
+  const staged = normalizePackages(port);
+  console.log(`Staged ${staged.map(({ pkg }) => `${pkg.name}@${pkg.version}`).join(', ')}`);
   signer(staged);
   const artifacts = join(port.dir, 'artifacts');
   rmSync(artifacts, { recursive: true, force: true });

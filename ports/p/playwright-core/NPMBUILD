@@ -105,7 +105,6 @@ check() {
       const pkg = require("./package.json");
       if (pkg.name !== "@ohos-npm-ports/playwright-core") throw new Error(`unexpected name: ${pkg.name}`);
       if (!pkg.exports["./lib/ohos"]) throw new Error("exports[./lib/ohos] missing");
-      if (pkg.version !== "'"$version"'") throw new Error(`unexpected version: ${pkg.version}`);
       console.log("verify OK:", pkg.name, pkg.version);
     '
 

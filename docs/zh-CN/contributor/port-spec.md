@@ -85,14 +85,14 @@ prepare() {
 - `prepare()`：安装工具、下载、校验并解包。
 - `build()`：编译，可以在这里应用源码补丁。
 - `package()`：生成 `packages` 声明的发布目录，产物保持裸上游版本。
-- `normalize`：框架统一注入全部发布包的名称和 repository，不需要补丁或生成的 manifest 单独维护这些字段。
+- `normalize`：框架统一注入全部发布包的名称、repository、最终发布版本和同 port 槽位引用，不需要补丁或生成的 manifest 单独维护这些字段。
 - `check()`：验证规范化后的实际发布目录。
 
-`npm-ports` 会自动执行到命令对应的阶段，不要在钩子内手动串联后续阶段。`check()` 位于 `package()` 和 normalize 之后，用于直接验证最终包布局。此时 package.json 仍是裸上游版本，最终 `<上游版本>-<revision>` 只在 `pack` 阶段写入。
+`npm-ports` 会自动执行到命令对应的阶段，不要在钩子内手动串联后续阶段。`check()` 位于 `package()` 和 normalize 之后，用于直接验证最终包布局。此时 package.json 已写入最终 `<上游版本>-<revision>`，同 port 槽位引用也已同步。
 
 同一主包或槽位在一个 Bash 进程内顺序执行所有生命周期钩子，变量、环境和当前目录可以按此顺序传递。normalize 也在这个进程中执行，不引入新的环境边界。主包与槽位使用不同进程，彼此隔离。`packages` 的顺序只决定 staging 和发布顺序。
 
-只有 `pack` 阶段会统一注入 revision、同步同 port 槽位引用，并为发布目录中的 AArch64 ELF 调用签名工具。签名失败会中断打包。贡献者不需要也不应在 NPMBUILD 中处理签名，也不需要调用 `readelf`。loader 和真实功能验证仍由配方负责。
+normalize 统一注入 revision 并同步同 port 槽位引用，`pack` 阶段为发布目录中的 AArch64 ELF 调用签名工具。签名失败会中断打包。贡献者不需要也不应在 NPMBUILD 中处理签名，也不需要调用 `readelf`。loader 和真实功能验证仍由配方负责。
 
 NPMBUILD 中禁止执行 `npm publish`。npm tarball 的生成和发布由 `npm-ports` 处理。
 
@@ -100,7 +100,7 @@ NPMBUILD 中禁止执行 `npm publish`。npm tarball 的生成和发布由 `npm-
 
 - `version` 只写上游版本，`revision` 从 1 开始，最终包版本是 `<version>-<revision>`。
 - revision 是发布版本号，不是重新编译的开关。纯格式调整不需要递增。需要重新发布同一上游版本的新产物时必须递增。
-- 全局 `revision` 是当前 port 修订版本号的唯一来源，仅供 `npm-ports` 使用。禁止在 NPMBUILD 的任何位置复制或使用这个变量，构建脚本不感知修订号。
+- 全局 `revision` 是当前 port 修订版本号的唯一来源，仅供 `npm-ports` 使用。禁止在 NPMBUILD 的任何位置复制或使用这个变量，也不要自行拼接最终版本。`check()` 需要最终发布版本时从实际 package.json 读取。
 - 当前 port 的主包、槽位、构建期断言和补丁只使用裸 `${version}`。补丁不得修改自身 package.json 的版本字段，也不得把固定上游版本号保留为 hunk 上下文，避免上游升级时补丁必然失配。
 - 跨 port 依赖是独立锁定的外部坐标，必须保留对方完整的已发布版本，包括对方的 revision。
 - 上游升级后将 revision 重置为 1。只修复移植问题时递增 revision。对应命令见 [npm-ports 命令行工具](cli.md#上游升级与修订)。

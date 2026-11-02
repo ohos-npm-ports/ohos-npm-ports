@@ -6,7 +6,7 @@
 
 NPMBUILD 的 `check()` 应证明 `package()` 生成的产物正确，而不是只生成文件。`npm-ports check` 会自动执行 `prepare()`、`build()`、`package()`、发布清单规范化和 `check()`，无需在钩子内手动串联：
 
-1. **包名和版本断言**：检查 package.json 的 name 和裸上游 version。名称由框架在 `check()` 前统一注入，不需要补丁修改。此时不要断言修订号，最终 `<上游版本>-<revision>` 仅由 `npm-ports pack` 在生成 tarball 前注入。
+1. **包名和版本断言**：检查 package.json 的 name 和最终发布版本。名称、`<上游版本>-<revision>` 和同 port 槽位引用由框架在 `check()` 前统一注入，不需要补丁修改。上游版本使用 `${version}`，最终发布版本从实际 package.json 读取，不要自行拼接 revision。
 2. **真实加载**：用 `node -e "require('./index.js')"` 或等价方式实际加载。`node --check` 只能检查语法。有条件时再调用真实功能，例如 parcel-watcher 的 writeSnapshot。
 3. **loader 分支命中**：如果补丁增加 openharmony 分支，验证标记确实进入产物，而不是只看 patch 命令退出码。
 

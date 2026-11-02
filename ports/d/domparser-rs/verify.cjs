@@ -6,7 +6,7 @@ const [root,upstream]=process.argv.slice(2).map(p=>path.resolve(p));
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json')));
 const original=JSON.parse(fs.readFileSync(path.join(upstream,'package.json')));
 assert.equal(pkg.name,'@ohos-npm-ports/domparser-rs');
-assert.equal(pkg.version,original.version);
+assert.ok(pkg.version.startsWith(`${original.version}-`));
 assert.deepEqual(pkg.optionalDependencies,original.optionalDependencies);
 assert.ok(pkg.files.includes('domparser.openharmony-arm64.node'));
 assert.ok(fs.statSync(path.join(root,'domparser.openharmony-arm64.node')).size>0);

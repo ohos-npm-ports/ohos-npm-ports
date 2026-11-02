@@ -217,11 +217,11 @@ model Widget {
       process.env.PRISMA_QUERY_ENGINE_LIBRARY = pkg.queryEngineLibraryPath;
 
       execSync(
-        `npx --yes prisma@${process.env.NPMBUILD_VERSION} db push --schema schema.prisma --skip-generate`,
+        `npx --yes prisma@${process.argv[1]} db push --schema schema.prisma --skip-generate`,
         { stdio: "inherit" },
       );
       execSync(
-        `npx --yes prisma@${process.env.NPMBUILD_VERSION} generate --schema schema.prisma`,
+        `npx --yes prisma@${process.argv[1]} generate --schema schema.prisma`,
         { stdio: "inherit" },
       );
 
@@ -235,7 +235,7 @@ model Widget {
         await prisma.$disconnect();
         console.log("OK: native OHOS query-engine + schema-engine work end to end");
       })();
-    '
+    ' "${version}"
 
   echo "OK: @ohos-npm-ports/prisma-engines built and smoke-tested"
 }
