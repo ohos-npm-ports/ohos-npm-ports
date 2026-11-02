@@ -1,20 +1,21 @@
-**检查项**：
-<!-- 不要勾选你实际没有做过的项。 -->
+## 变更说明
 
-- [ ] Commit message 符合仓库规范（`docs/zh-CN/contributor/contributing.md` 的「整理 commit」一节，CI 的 `lint-commits` 会自动检查）
-- [ ] 已在 `ci-runner` 容器内跑通 `npm-ports pack <port>`（而非在宿主机上直接跑）
-- [ ] NPMBUILD 的 `version` / `revision` 正确，打包后的 `name` 是 `@ohos-npm-ports/<port>`、`version` 是 `<上游版本>-<修订号>`
-- [ ] `patches/` 里的每个 patch 都被 `NPMBUILD` 实际应用（没有孤立补丁文件）
-- [ ] 没有改动原作者信息或开源许可证声明
-- [ ] 这个改动没有破坏该包在其他平台（darwin/linux-glibc/win32 等）上的正常使用
+<!-- 说明改了什么、为什么。新增或升级 port 请附上游 changelog 或 release 链接。 -->
 
-**这个 PR 是什么类型**（可多选）：
+## 检查项
+
+<!-- 仅勾选实际做过的项目，不适用的项目无需勾选。 -->
+
+- [ ] 改动聚焦于一个主题，没有混入无关修改
+- [ ] 已为行为变化补充或更新测试和文档（如涉及）
+- [ ] 未修改作者和许可证信息
+- [ ] 已评估本次改动对各支持平台的影响（如涉及）
+
+## PR 类型
+
+<!-- 可多选。 -->
 
 - [ ] 新增 port
 - [ ] 已有 port 升级上游版本
-- [ ] 已有 port 的修订号迭代（补丁修复，上游版本不变）
+- [ ] 已有 port 修订（上游版本不变）
 - [ ] 文档 / CI / 其他非 port 改动
-
-**简述改了什么、为什么**：
-
-<!-- 新增/升级 port 请附上游 changelog 或 release 链接 -->
