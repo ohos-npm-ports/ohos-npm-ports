@@ -2,6 +2,8 @@
 
 ## 分工
 
+consumer 验证由以下几部分协作完成：
+
 - `.github/scripts/run-install-matrix.mjs`：全部 port 的默认安装验证，不需要 test.js；自动校验 artifact、主包与槽位、安装版本和 bin。
 - `ports/<首字母>/<port>/test.js`：可选的真实功能断言及工程场景。新增 port 测试不需要修改 runner 的包名清单；上游默认版本读取 NPMBUILD。
 - `.github/scripts/consumer-plan.mjs`：自动发现测试、选择变化的 port、展开配套构建依赖，同时输出通用安装选择。CI 基础设施变化时只验证 `sentinel-ports.json` 里的哨兵 port。
@@ -68,6 +70,8 @@ runner 不调用前端 build/start，也不读取 scenario.json。test.js 自己
 `@test-setup: true` 声明安装前准备阶段：runner 在 npm install/npm ci 前执行同一 test.js，传入 PORT_TEST_PHASE=setup；正常功能阶段传入 test。setup 不要求报告，但异常和超时仍失败。系统依赖及准备逻辑留在 port 内，不在 runner 中写包名分支。
 
 ## CI 基础设施约定
+
+维护 CI 基础设施时，需要遵守以下约定：
 
 - `infrastructure.json` 是「改动后需全量验证」的唯一清单；`ci.yml` 的 `paths` 必须与之一致（`consumer-plan.test.mjs` 校验）。`*.md` 不触发全量。
 - `build-infrastructure.json` 是其中会改变构建产物的子集（构建代码、构建脚本、工具版本），必须同时列在 `infrastructure.json`。只改清单里其余的文件时，只有哨兵 port 测试，且取 npm 上已发布的 tarball，不重新构建；改了这个子集里的文件，哨兵 port 重新构建。全部 port 的验证用手动 dispatch。`sentinel-ports.json` 里的 port 必须带 primary `test.js` 且构建轻量。

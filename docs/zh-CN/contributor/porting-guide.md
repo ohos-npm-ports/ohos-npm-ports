@@ -30,6 +30,8 @@ OpenHarmony 产物必须通过源码构建。其他平台的预编译产物可�
 
 ## 3. 工具链要点
 
+不同工具链需要分别注意以下事项：
+
 - **Rust**：容器里 `rustc` 的 host triple 本身就是 `aarch64-unknown-linux-ohos`，`cargo`/`napi build --platform` 原生构建即可，不需要配交叉 target。`napi-rs` 不同大版本对 openharmony host 的支持程度不一样——2.x 系可能不认 openharmony host（这时候绕开 `napi build`，直接 `cargo build --release` 再把产物改名成 loader 认的文件名），3.x 系平台名固定 `openharmony-arm64`。各家 loader 命名也不统一（有的用 `openharmony-arm64`，有的走自定义的 `linux-arm64-ohos`），动手前先读目标包的 loader 源码确认它实际认哪个名字。
 - **Zig**：交叉编译选 `aarch64-linux-musl` target，不要选 `aarch64-linux-ohos`——后者的产物会引用 OHOS libc 没有的 `__emutls_get_address`，反而跑不起来。`aarch64-linux-musl` 产物和上游官方发布的 musl 版本结构一致，能直接复用。
 - **Go**：无 cgo 且依赖允许时可以静态编译。存在 cgo 或动态依赖时，需要额外处理库路径和签名。`-ldflags="-s -w" -trimpath` 可用于减小体积。
@@ -37,6 +39,8 @@ OpenHarmony 产物必须通过源码构建。其他平台的预编译产物可�
 - `ci-runner` 镜像已经包含 `git`，`git clone`/`git submodule` 都能用（`oxlint-tsgolint` 就是这么拉 `typescript-go` 子模块的）。但没有子模块、只是拉一份 tag 源码的场景，`curl` 直接拉 GitHub 的 `codeload.github.com` tarball 更快也更省——两种方式都合理，按实际需要选。
 
 ## 4. npm 生态注意事项
+
+使用 npm 安装、加载和重打包时，还需要注意以下行为：
 
 - `npm install file:<目录>` 是 symlink 安装，不会装该包自己的依赖。要正常解析依赖必须先 `npm pack` 出 tarball 再装。
 - 本仓库发布的 tarball 已在 `pack` 阶段统一签名，消费方不需要额外的 postinstall 签名钩子。直接使用尚未打包的构建目录则不属于已签名产物。
