@@ -40,8 +40,8 @@ export function testSpec(portDir, root = defaultRoot) {
   assert.match(project, /^[a-z0-9-]+$/);
   const localFixture = field('fixture');
   if (localFixture) assert.match(localFixture, /^(?:[a-z0-9_-]+\/)*[a-z0-9_-]+$/);
-  const fixture = localFixture ? join(repo, portDir, localFixture) : join(repo, '.github/fixtures/consumer/projects', project);
-  assert.ok(existsSync(join(fixture, 'package.json')), `Missing consumer fixture: ${fixture}`);
+  const fixture = localFixture ? join(repo, portDir, localFixture) : '';
+  if (fixture) assert.ok(existsSync(join(fixture, 'package.json')), `Missing consumer fixture: ${fixture}`);
   const prerequisites = [...source.matchAll(/^\/\/ @test-prerequisite: (ports\/[a-z0-9]\/[^/\r\n]+)$/gm)].map((match) => match[1]);
   const platforms = (field('platforms') ?? 'win32,linux,darwin,openharmony').split(',');
   if (platforms.length < 4) assert.ok(field('platform-reason'), `Explain the restricted test platforms: ${file}`);

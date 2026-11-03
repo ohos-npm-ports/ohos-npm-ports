@@ -265,7 +265,14 @@ try {
     const results = [];
     for (const mode of modes) {
       const project = join(base, mode);
-      cpSync(template, project, { recursive: true });
+      if (template) cpSync(template, project, { recursive: true });
+      else {
+        mkdirSync(project, { recursive: true });
+        writeFileSync(join(project, 'package.json'), `${JSON.stringify({
+          name: 'port-consumer', version: '1.0.0', private: true,
+          dependencies: { 'consumer-deps': 'file:./consumer-deps-1.0.0.tgz' },
+        }, null, 2)}\n`);
+      }
       caseDirectories.push(project);
       cpSync(join(base, packed.filename), join(project, packed.filename));
       const pkg = JSON.parse(readFileSync(join(project, 'package.json')));
