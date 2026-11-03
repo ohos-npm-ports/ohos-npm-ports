@@ -10,8 +10,8 @@ const excluded = JSON.parse(readFileSync(join(repo, '.github/fixtures/consumer/e
 const directories = discoverPorts(repo).map((dir) => relative(repo, dir));
 for (const dir of directories) {
   if (testSpec(dir)) continue;
-  if (process.env.CONSUMER_REQUIRE_ALL === 'true') assert.fail(`Missing test.js: ${dir}`);
-  console.error(`::notice::No functional test.js: ${dir}; generic install matrix still applies`);
+  if (process.env.CONSUMER_REQUIRE_ALL === 'true') assert.fail(`Missing test.mjs: ${dir}`);
+  console.error(`::notice::No functional test.mjs: ${dir}; generic install matrix still applies`);
 }
 const active = directories.filter((dir) => !Object.hasOwn(excluded, basename(dir)) && testSpec(dir)?.role === 'primary');
 const supporting = new Set(closure(active).filter((dir) => testSpec(dir)?.role === 'support'));

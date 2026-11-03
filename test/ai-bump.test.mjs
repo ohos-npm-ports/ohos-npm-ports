@@ -32,7 +32,7 @@ test('AI repair accepts any source file inside the selected port only', () => {
   assert.doesNotThrow(() => assertPortPaths([
     'ports/b/bufferutil/NPMBUILD',
     'ports/b/bufferutil/patches/new.patch',
-    'ports/b/bufferutil/test.js',
+    'ports/b/bufferutil/test.mjs',
     'ports/b/bufferutil/ohos/helper.cjs',
   ], 'ports/b/bufferutil'));
   assert.throws(() => assertPortPaths(['cli/build.mjs'], 'ports/b/bufferutil'), /outside/);
@@ -58,7 +58,7 @@ test('staging keeps tracked and declared source files and removes build outputs'
 
     write('ports/b/bufferutil/NPMBUILD', 'version="4.1.0"\n');
     write('report/new-files/ports/b/bufferutil/patches/0002-openharmony.patch', 'new patch\n');
-    write('report/new-files/ports/b/bufferutil/test.js', 'console.log("test");\n');
+    write('report/new-files/ports/b/bufferutil/test.mjs', 'console.log("test");\n');
     write('report/new-files/ports/b/bufferutil/ohos/helper.cjs', 'module.exports = {};\n');
     write('ports/b/bufferutil/bufferutil-4.1.0/package.json', '{}\n');
     write('ports/b/bufferutil/package/package.json', '{}\n');
@@ -74,13 +74,13 @@ test('staging keeps tracked and declared source files and removes build outputs'
       'ports/b/bufferutil/NPMBUILD',
       'ports/b/bufferutil/ohos/helper.cjs',
       'ports/b/bufferutil/patches/0002-openharmony.patch',
-      'ports/b/bufferutil/test.js',
+      'ports/b/bufferutil/test.mjs',
     ]);
     assert.deepEqual(git('status', '--porcelain', '--', 'ports/b/bufferutil').split('\n'), [
       'M  ports/b/bufferutil/NPMBUILD',
       'A  ports/b/bufferutil/ohos/helper.cjs',
       'A  ports/b/bufferutil/patches/0002-openharmony.patch',
-      'A  ports/b/bufferutil/test.js',
+      'A  ports/b/bufferutil/test.mjs',
     ]);
   } finally {
     process.chdir(previous);
@@ -125,11 +125,11 @@ test('AI containers configure PATH and use the documented npm-ports command', ()
   const repair = script.slice(script.indexOf('function repair'), script.indexOf('function stageRepair'));
   const verify = script.slice(script.indexOf('function verify'), script.indexOf('function comment'));
   assert.match(prompt, /npm-ports lint \$\{state\.portDirectory\}/);
-  assert.match(prompt, /npm-ports check \$\{state\.portDirectory\}/);
+  assert.match(prompt, /npm-ports package \$\{state\.portDirectory\}/);
   assert.doesNotMatch(prompt, /cli\/npm-ports/);
   assert.match(repair, /export PATH="\/workspace\/cli:\$PATH"/);
   assert.match(verify, /export PATH="\/workspace\/cli:\$PATH"/);
-  assert.match(verify, /npm-ports lint "\$1" && npm-ports check "\$1"/);
+  assert.match(verify, /npm-ports lint "\$1" && npm-ports package "\$1"/);
 });
 
 test('AI restores report ownership before the host reads it', () => {

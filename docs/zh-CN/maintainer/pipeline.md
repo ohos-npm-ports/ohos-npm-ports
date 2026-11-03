@@ -34,19 +34,19 @@ port 目录为 `ports/<首字母>/<name>` 或 `ports/<首字母>/<name>@<版本�
 ## 5. 构建、私仓与 artifact
 
 ```sh
-npm-ports check "${{ matrix.dir }}"
+npm-ports package "${{ matrix.dir }}"
 ```
 
-随后 `npm-ports validate-publish` 执行 `npm-ports pack --no-build`。包名、repository、revision 和同 port 槽位引用已在 `check()` 前的 normalize 阶段统一注入，打包器再次幂等规范化后，使用 `/storage/Users/currentUser/.harmonybrew/opt/ohos-selfsign/bin/selfsign --force` 统一为发布目录中的 AArch64 ELF 签名。随后生成 tarball，启动临时 Verdaccio，真实发布并安装全部主包和槽位包。上传的是私仓实际导出且通过 integrity 校验的 tarball，不另做 bottle。
+随后 `npm-ports validate-publish` 执行 `npm-ports pack --no-build`。包名、repository、revision 和同 port 槽位引用已在 `package()` 后的 normalize 阶段统一注入，打包器再次幂等规范化后，使用 `/storage/Users/currentUser/.harmonybrew/opt/ohos-selfsign/bin/selfsign --force` 统一为发布目录中的 AArch64 ELF 签名。随后生成 tarball，启动临时 Verdaccio，真实发布并安装全部主包和槽位包。上传的是私仓实际导出且通过 integrity 校验的 tarball，不另做 bottle。
 
 ### 哪些 port 构建，哪些直接取 npm 上的包
 
 `detect-changes` 先决定本轮哪些 port 需要产出 tarball（`matrix`：改动的 port 和它们的依赖者；只改基础设施时是 `sentinel-ports.json` 里的哨兵 port；main push 上再加上 npm 缺版本的 port，保证发布自愈），再把它们分成两路：
 
-- `build-matrix`：现场构建。条件是任意一条成立：port 目录（test.js 除外）有改动。`build-infrastructure.json` 里的文件有改动（此时矩阵里只有哨兵和改动的 port）。这个版本在 npm 上还没有。手动 dispatch（全部 port）。
+- `build-matrix`：现场构建。条件是任意一条成立：port 目录（test.mjs 除外）有改动。`build-infrastructure.json` 里的文件有改动（此时矩阵里只有哨兵和改动的 port）。这个版本在 npm 上还没有。手动 dispatch（全部 port）。
 - `fetch-matrix`：其余 port。`fetch` job 用 `fetch-published.mjs` 下载已发布的主包和槽位包，核对 registry 的 integrity，写出和构建产物同格式的 manifest（`origin: "npm"`），再以同样的 `port-<name>` artifact 名上传，consumer 不需要区分来源。
 
-`infrastructure.json` 是会触发 CI 的全部文件，`build-infrastructure.json` 是其中会改变构建产物的子集（`ci.yml` 的构建步骤、`cli/` 里的构建代码、`tool-versions.json` 等）。只改基础设施时不再测试全部 port，只测 `sentinel-ports.json` 里的哨兵 port（需要是带 primary `test.js` 的轻量 port）：改的是构建基础设施，哨兵重新构建；改的是 consumer 脚本等测试基础设施，哨兵取 npm 上已发布的包。需要全量验证时手动 dispatch。
+`infrastructure.json` 是会触发 CI 的全部文件，`build-infrastructure.json` 是其中会改变构建产物的子集（`ci.yml` 的构建步骤、`cli/` 里的构建代码、`tool-versions.json` 等）。只改基础设施时不再测试全部 port，只测 `sentinel-ports.json` 里的哨兵 port（需要是带 primary `test.mjs` 的轻量 port）：改的是构建基础设施，哨兵重新构建；改的是 consumer 脚本等测试基础设施，哨兵取 npm 上已发布的包。需要全量验证时手动 dispatch。
 
 注意两点：
 
@@ -66,15 +66,15 @@ main push 上的发布列表按 npm 现状判定：构建矩阵里主包版本�
 
 
 
-manifest 记录 `sourceSha`、`portDir` 和每个包的名称、版本、文件名与 SHA-512。test.js 单独变化不触发重新发布。
+manifest 记录 `sourceSha`、`portDir` 和每个包的名称、版本、文件名与 SHA-512。test.mjs 单独变化不触发重新发布。
 
 ## 6. 五平台 consumer 与 conclusion
 
 `artifacts` job 等 `build` 和 `fetch` 都结束，并且首次外部贡献者审批通过之后，才决定是否放行 consumer。只有 build 和 fetch 全部成功才运行 consumer，任一失败时直接由 `conclusion` 汇总构建错误，不再启动必然缺少 artifact 的消费任务。
 
-通用安装验证不再要求 `test.js`：`consumer-install` 在 Windows x64、Linux x64/arm64 和 macOS arm64 上形成矩阵，`consumer-install-openharmony` 在 ci-runner 中运行。它们根据构建矩阵自动选择 port，下载本轮 artifact，在各平台的临时 Verdaccio 中发布并安装主包，按 os/cpu 检查槽位、所有应安装的包、版本和 bin，再执行 npm ci。全量 dispatch 覆盖所有 port，普通变更覆盖受影响 port，artifact replay 同样启用，不需要任何 port 专属入口。
+通用安装验证不再要求 `test.mjs`：`consumer-install` 在 Windows x64、Linux x64/arm64 和 macOS arm64 上形成矩阵，`consumer-install-openharmony` 在 ci-runner 中运行。它们根据构建矩阵自动选择 port，下载本轮 artifact，在各平台的临时 Verdaccio 中发布并安装主包，按 os/cpu 检查槽位、所有应安装的包、版本和 bin，再执行 npm ci。全量 dispatch 覆盖所有 port，普通变更覆盖受影响 port，artifact replay 同样启用，不需要任何 port 专属入口。
 
-`test.js` 只承担额外的功能验证。每个 primary port 继续在五个平台执行真实工程或 API 测试，普通 OS 比较 baseline 和 overrides，OpenHarmony 验证 overrides。合并槽位与主包来自同一 manifest，不把 `test.js` 缺失解释为未做安装验证。
+`test.mjs` 只承担额外的功能验证。每个 primary port 继续在五个平台执行真实工程或 API 测试，普通 OS 比较 baseline 和 overrides，OpenHarmony 验证 overrides。合并槽位与主包来自同一 manifest，不把 `test.mjs` 缺失解释为未做安装验证。
 
 `conclusion` 同时汇总变更检测、首次外部审批、构建、通用安装和原有功能测试结果，任一必需结果失败都会使总检查失败，供分支保护使用。`publish` 排在 `conclusion` 之后，不属于它的汇总范围，PR 上不会运行。
 
@@ -86,7 +86,7 @@ bump 只根据 `upstream` 查询 npm registry。主 port 跟随指定 dist-tag�
 
 bump 构建失败后，维护者可以添加 `request-ai-bump` 标签请求 AI 修复。工作流只接受同仓库、机器人创建、目标为 main 且只修改一个 port 的单提交 PR，并检查标签操作者具有写权限。开始后触发标签会被移除，执行状态直接查看 PR Checks，不维护额外状态标签。
 
-AI 可以修改该 port 内已有 Git 跟踪的骨架文件，包括 `test.js`、补丁和辅助代码，且必须保持目标版本。新增源文件由 AI 按仓库相对路径显式写入报告目录，宿主校验后加入验证，其他未跟踪文件作为构建产物清理。工作流独立执行 `npm-ports lint` 和 `npm-ports check`，再从全新克隆应用修复补丁、amend 原提交并使用 force-with-lease 推送。AI 容器不接触 App 或仓库凭据，AI 自己声明成功不能代替真实构建。推送后的完整 CI 仍是合并前的必要检查。
+AI 可以修改该 port 内已有 Git 跟踪的骨架文件，包括 `test.mjs`、补丁和辅助代码，且必须保持目标版本。新增源文件由 AI 按仓库相对路径显式写入报告目录，宿主校验后加入验证，其他未跟踪文件作为构建产物清理。工作流独立执行 `npm-ports lint` 和 `npm-ports package`，再从全新克隆应用修复补丁、amend 原提交并使用 force-with-lease 推送。AI 容器不接触 App 或仓库凭据，AI 自己声明成功不能代替真实构建。推送后的完整 CI 仍是合并前的必要检查。
 
 ## 8. 验证边界
 

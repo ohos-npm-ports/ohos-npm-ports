@@ -84,7 +84,7 @@ The NPMBUILD lifecycle validates the pinned npm source, preserves unaffected ups
 hashes, tests three desktop dispatch paths, validates the capability server and
 browser bootstrap, packs the artifact, installs it into a clean consumer and
 repeats the implementation tests from the installed package. The standard
-`test.js` checks actual installs on the five consumer matrix targets without
+`test.mjs` checks actual installs on the five consumer matrix targets without
 starting or downloading a browser. Browser downloads during consumer baseline
 installation are disabled in the temporary fixture only.
 

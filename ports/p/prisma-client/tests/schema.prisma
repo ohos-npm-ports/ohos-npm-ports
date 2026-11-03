@@ -1,0 +1,14 @@
+generator client {
+  provider              = "prisma-client"
+  output                = "./client"
+  runtime               = "nodejs"
+  moduleFormat          = "cjs"
+  importFileExtension   = "js"
+}
+datasource db {
+  provider = "sqlite"
+}
+model Widget {
+  id   Int    @id @default(autoincrement())
+  name String
+}

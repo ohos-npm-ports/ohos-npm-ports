@@ -66,7 +66,8 @@ test('dependency closure includes every required artifact', () => {
 
 test('port metadata supplies versions and consumer test options', () => {
   assert.equal(testSpec('ports/n/nw').setup, true);
-  assert.equal(testSpec('ports/v/vite-plus').format, 'cjs');
+  assert.ok(testSpec('ports/v/vite-plus').file.endsWith('/test.mjs'));
+  assert.equal(testSpec('ports/l/lightningcss@1.32').upstream, 'lightningcss');
   assert.equal(testSpec('ports/l/lightningcss@1.32').timeout, 600);
   assert.equal(testSpec('ports/l/lightningcss@1.32').project, 'node');
   assert.equal(testSpec('ports/l/lightningcss@1.32').version, '1.32.0');
@@ -82,11 +83,11 @@ test('debug selection is explicit and rejects non-primary roots', () => {
   assert.throws(() => execFileSync(process.execPath, ['.github/scripts/consumer-plan.mjs'], { input: '', env: { ...env, CONSUMER_SELECTION: '["ports/b/bufferutil"]' }, stdio: ['pipe', 'pipe', 'pipe'] }));
 });
 
-test('every declared test parses in its selected module format', () => {
+test('every declared test parses as an ES module', () => {
   for (const dir of directories) {
     const spec = testSpec(dir);
     if (!spec) continue;
-    execFileSync(process.execPath, ['--input-type', spec.format === 'esm' ? 'module' : 'commonjs', '--check'], { input: readFileSync(spec.file), stdio: ['pipe', 'pipe', 'pipe'] });
+    execFileSync(process.execPath, ['--check', spec.file], { stdio: ['pipe', 'pipe', 'pipe'] });
   }
 });
 
@@ -128,8 +129,8 @@ test('infrastructure edits publish only the versions npm is missing', () => {
   assert.deepEqual(publishing('.github/workflows/ci.yml', 'ports/d/domparser-rs', 'ports/v/vite-plus').sort(), ['ports/d/domparser-rs', 'ports/v/vite-plus']);
 });
 
-test('a version missing from npm is published even when a later push only touches test.js', () => {
-  assert.deepEqual(publishing('ports/v/vite-plus/test.js', 'ports/v/vite-plus'), ['ports/v/vite-plus']);
+test('a version missing from npm is published even when a later push only touches test.mjs', () => {
+  assert.deepEqual(publishing('ports/v/vite-plus/test.mjs', 'ports/v/vite-plus'), ['ports/v/vite-plus']);
 });
 
 test('nothing is published unless the publish check is requested', () => {
@@ -174,16 +175,16 @@ test('consumer jobs and publish validation use the image time service compatibil
 });
 
 test('test-only edits run consumers without republishing the port', () => {
-  const value = plan('ports/v/vite-plus/test.js');
+  const value = plan('ports/v/vite-plus/test.mjs');
   assert.equal(value['consumer-enabled'], 'true');
   assert.ok(JSON.parse(value['consumer-ports']).includes('ports/v/vite-plus'));
   assert.ok(JSON.parse(value.matrix).includes('ports/v/vite-plus'));
-  assert.deepEqual(publishing('ports/v/vite-plus/test.js'), []);
+  assert.deepEqual(publishing('ports/v/vite-plus/test.mjs'), []);
 });
 
 test('test and build edits publish the changed port once, and only while its version is missing', () => {
-  assert.deepEqual(publishing('ports/v/vite-plus/test.js\nports/v/vite-plus/NPMBUILD', 'ports/v/vite-plus'), ['ports/v/vite-plus']);
-  assert.deepEqual(publishing('ports/v/vite-plus/test.js\nports/v/vite-plus/NPMBUILD'), []);
+  assert.deepEqual(publishing('ports/v/vite-plus/test.mjs\nports/v/vite-plus/NPMBUILD', 'ports/v/vite-plus'), ['ports/v/vite-plus']);
+  assert.deepEqual(publishing('ports/v/vite-plus/test.mjs\nports/v/vite-plus/NPMBUILD'), []);
 });
 
 // What gets built and what is fetched from npm, with every port published except the ones named.
@@ -229,12 +230,12 @@ test('a changed port is rebuilt while the ports that depend on it are fetched', 
   assert.deepEqual(unchangedVersion.build, ['ports/d/domparser-rs']);
 });
 
-test('a test.js edit tests the port from npm instead of rebuilding it', () => {
-  const { value, build, fetch } = split('ports/v/vite-plus/test.js');
+test('a test.mjs edit tests the port from npm instead of rebuilding it', () => {
+  const { value, build, fetch } = split('ports/v/vite-plus/test.mjs');
   assert.deepEqual(build, []);
   assert.ok(fetch.includes('ports/v/vite-plus'));
   assert.ok(JSON.parse(value['consumer-ports']).includes('ports/v/vite-plus'));
-  assert.deepEqual(split('ports/v/vite-plus/test.js\nports/v/vite-plus/NPMBUILD').build, ['ports/v/vite-plus']);
+  assert.deepEqual(split('ports/v/vite-plus/test.mjs\nports/v/vite-plus/NPMBUILD').build, ['ports/v/vite-plus']);
 });
 
 test('without registry knowledge and for manual full builds everything is built', () => {

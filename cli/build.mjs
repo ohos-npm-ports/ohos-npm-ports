@@ -131,8 +131,8 @@ function runHooks(port, component, phases) {
   });
 }
 
-export function runLifecycle(port, through = 'check') {
-  const phases = ['prepare', 'build', 'package', 'check'];
+export function runLifecycle(port, through = 'package') {
+  const phases = ['prepare', 'build', 'package'];
   if (!phases.includes(through)) throw new Error(`Unknown lifecycle phase: ${through}`);
   const selected = phases.slice(0, phases.indexOf(through) + 1);
   if (selected.includes('package')) selected.splice(selected.indexOf('package') + 1, 0, 'normalize');
@@ -147,12 +147,8 @@ export function packagePort(port) {
   return runLifecycle(port, 'package');
 }
 
-export function checkPort(port) {
-  return runLifecycle(port, 'check');
-}
-
 export function packPort(root, port, { build = true, signer = signPackages } = {}) {
-  if (build) checkPort(port);
+  if (build) packagePort(port);
   const staged = normalizePackages(port);
   console.log(`Staged ${staged.map(({ pkg }) => `${pkg.name}@${pkg.version}`).join(', ')}`);
   signer(staged);

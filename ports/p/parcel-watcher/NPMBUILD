@@ -122,23 +122,6 @@ b.writeSnapshot(dir, snap, {}).then(
   (e) => { console.error("writeSnapshot failed:", e.message); process.exit(1); }
 );'
   rm -rf node_modules package-lock.json
-
-}
-
-check() {
-  # 消费侧冒烟：npm pack 后按名安装（file: 目录是 symlink，不装依赖）
-  cd "$root_dir"
-  package_version=$(node -p "require('./${pkgname}-${version}/package.json').version")
-  rm -rf smoke && mkdir smoke && cd smoke
-  echo '{"name":"pw-smoke","private":true}' >package.json
-  npm pack --silent "../${pkgname}-${version}" >/dev/null
-  npm install --no-audit --no-fund "./ohos-npm-ports-${pkgname}-${package_version}.tgz" >/dev/null
-  node -e "const b = require('@ohos-npm-ports/${pkgname}'); console.log('consumer smoke:', typeof b.writeSnapshot)"
-
-  cd "$root_dir"
-  rm -rf smoke
-
-  echo "OK: @ohos-npm-ports/${pkgname}@${version}"
 }
 
 slot_openharmony_arm64_build() {
@@ -202,24 +185,13 @@ SHIM
   ]
 }
 JSON
-}
-
-slot_openharmony_arm64_check() {
-  # --- verify package contents ---
   cd "${pkgname}-${version}"
-
-  actual_name=$(node -e "console.log(require('./package.json').name)")
-  [ "$actual_name" = "@ohos-npm-ports/${pkgname}" ]
-  package_version=$(node -p "require('./package.json').version")
   node -e '
   const pkg = require("./package.json");
   if (pkg.main !== "index.js") throw new Error("main must be the shim");
-  console.log("package.json OK");
 '
   node --check index.js
   grep -q "require('./watcher.node')" index.js
-
-  # 真函数冒烟：default 后端（0001 后即 inotify）真实扫一次目录并落快照
   node -e '
 const b = require("./");
 const fs = require("fs"), path = require("path"), os = require("os");
@@ -229,31 +201,7 @@ const snap = path.join(os.tmpdir(), "pws-snap.txt");
 b.writeSnapshot(dir, snap, {}).then(
   () => {
     if (!fs.existsSync(snap)) { console.error("snapshot file missing"); process.exit(1); }
-    console.log("OK: writeSnapshot (default=inotify)");
   },
   (e) => { console.error("writeSnapshot failed:", e.message); process.exit(1); }
 );'
-
-  # 消费侧冒烟：npm pack 后按名安装（file: 目录是 symlink，不装依赖）
-  cd "$root_dir"
-  rm -rf smoke && mkdir smoke && cd smoke
-  echo '{"name":"pws-smoke","private":true}' >package.json
-  npm pack --silent "../${pkgname}-${version}" >/dev/null
-  npm install --no-audit --no-fund "./ohos-npm-ports-${pkgname}-${package_version}.tgz" >/dev/null
-  node -e "const b = require('@ohos-npm-ports/${pkgname}'); console.log('consumer smoke:', typeof b.writeSnapshot)"
-
-  # 槽位冒烟：按 @parcel/watcher 的动态拼名（alias 安装形态）require 命中
-  mkdir -p node_modules/@parcel/watcher-openharmony-arm64
-  cp -r "node_modules/@ohos-npm-ports/${pkgname}/." node_modules/@parcel/watcher-openharmony-arm64/
-  node -e '
-const name = `@parcel/watcher-${process.platform}-${process.arch}`;   // 复刻 index.js 的拼名
-const b = require(name);
-if (typeof b.writeSnapshot !== "function") throw new Error("slot require missed");
-console.log("slot-name require (dynamic name construction) OK:", name);
-'
-
-  cd "$root_dir"
-  rm -rf smoke
-
-  echo "OK: @ohos-npm-ports/${pkgname}@${version}"
 }

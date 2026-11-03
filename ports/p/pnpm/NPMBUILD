@@ -147,26 +147,6 @@ EOF
             }
         }
     ' "${main_dir}" "${build_dir}/wrapper-pristine.json"
-}
-
-check() {
-  echo "=== test: assertions ==="
-  main_dir="${build_dir}/pnpm-wrapper-${version}"
-  slot_dir="${build_dir}/${slot_name}"
-
-  # 包名/版本断言
-  node -e '
-        const p = require("'"${main_dir}"'/package.json");
-        const s = require("'"${slot_dir}"'/package.json");
-        if (p.name !== "@ohos-npm-ports/pnpm") throw new Error("main name: " + p.name);
-        if (p.version !== s.version) throw new Error("main version: " + p.version);
-        if (p.optionalDependencies["@ohos-npm-ports/'"${slot_name}"'"] !== s.version) throw new Error("slot ref missing");
-        if (s.name !== "@ohos-npm-ports/'"${slot_name}"'") throw new Error("slot name: " + s.name);
-        if (s.version !== p.version) throw new Error("slot version: " + s.version);
-        if (s.os[0] !== "openharmony" || s.cpu[0] !== "arm64") throw new Error("slot os/cpu");
-    '
-
-  # 二进制执行
   "${slot_dir}/pnpm" --version
 
   # loader 平台分支：openharmony 命中槽位，其他平台仍走上游包
@@ -184,41 +164,6 @@ check() {
             if (c.length === 0 || !c.every((s) => s.startsWith("@pnpm/exe."))) throw new Error("'"$plat"': " + JSON.stringify(c));
         ')
   done
-
-  # 消费冒烟：双包 npm pack 后干净工程安装，跑 install.js 链接二进制并执行
-  smoke_dir="${build_dir}/smoke"
-  rm -rf "${smoke_dir}"
-  mkdir -p "${smoke_dir}/pkgs-slot" "${smoke_dir}/pkgs-main" "${smoke_dir}/proj"
-  npm pack "${slot_dir}" --pack-destination "${smoke_dir}/pkgs-slot" >/dev/null
-  npm pack "${main_dir}" --pack-destination "${smoke_dir}/pkgs-main" >/dev/null
-  slot_tgz=$(ls "${smoke_dir}/pkgs-slot/"*.tgz)
-  main_tgz=$(ls "${smoke_dir}/pkgs-main/"*.tgz)
-  cd "${smoke_dir}/proj"
-  echo '{"name":"smoke"}' >package.json
-  npm install --force --ignore-scripts "${slot_tgz}" "${main_tgz}" >/dev/null
-  cd node_modules/@ohos-npm-ports/pnpm
-  node install.js
-  test -x pnpm
-  head -c 4 pnpm | od -An -tx1 | grep -q '7f 45 4c 46'
-  ./pnpm --version
-
-  mkdir "${smoke_dir}/alias"
-  (
-    cd "${smoke_dir}/alias"
-    echo '{"name":"alias-smoke"}' >package.json
-    npm install --force --ignore-scripts "pnpm@file:${main_tgz}" "${slot_tgz}" >/dev/null
-    node node_modules/pnpm/install.js
-    test -x node_modules/pnpm/pnpm
-    ./node_modules/pnpm/pnpm --version
-  )
-
-  # 真正跑一次 install：0007 修的锁目录问题只有执行才会暴露。
-  # 未打 0007 时这里报 ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK（/tmp 只读）。
-  (cd "${smoke_dir}/proj" && ./node_modules/@ohos-npm-ports/pnpm/pnpm install --lockfile-only)
-
-  # 两个目录必须与 NPMBUILD packages 一致，在构建期先断言产物存在
   test -d "${work_dir}/build/${slot_name}"
   test -d "${work_dir}/build/pnpm-wrapper-${version}"
-
-  echo "=== done: ${build_dir}/pnpm-wrapper-${version} + ${build_dir}/${slot_name} ==="
 }

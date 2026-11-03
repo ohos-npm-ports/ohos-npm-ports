@@ -117,13 +117,9 @@ package() {
     echo "parent package must not ship native libraries" >&2
     exit 1
   fi
-}
-
-check() {
   export ZIG_GLOBAL_CACHE_DIR="${root_dir}/zig-cache"
   export ZIG_LIBC="${root_dir}/ohos-libc.txt"
   test -s "$ZIG_LIBC"
-  # --- 包静态断言 ---
   cd "${root_dir}/${package_dir}"
   grep -q '"#opentui/parser-worker": "./parser.worker.js"' package.json
 
@@ -161,99 +157,6 @@ check() {
     exit 1
   fi
 
-  # --- e2e 冒烟脚手架：临时槽位（真实 native、与槽位 port 同源） ---
-  cd "${root_dir}/${source_dir}/packages/native"
-  sh scripts/prepare-zig-deps.sh
-  zig build -Dlibrary-target="${ohos_triple}" -Doptimize=ReleaseFast
-  [ -f "${root_dir}/${native_lib}" ] || {
-    echo "no libopentui.so under lib/${ohos_triple}" >&2
-    exit 1
-  }
-  python3 -c "import ctypes; ctypes.CDLL('${root_dir}/${native_lib}'); print('dlopen OK')"
-
-  slot_name="${root_dir}/smoke-slot"
-  mkdir -p "$slot_name"
-  cd "$slot_name"
-  cat >index.js <<'EOF'
-import { fileURLToPath } from "node:url"
-
-export default fileURLToPath(new URL("./libopentui.so", import.meta.url))
-EOF
-  cat >index.bun.js <<'EOF'
-const module = await import("./libopentui.so", { with: { type: "file" } })
-
-export default module.default
-EOF
-  cat >index.d.ts <<'EOF'
-declare const path: string
-export default path
-EOF
-  cat >package.json <<EOF
-{
-  "name": "@ohos-npm-ports/opentui-core-openharmony-arm64",
-  "version": "${version}",
-  "description": "Prebuilt openharmony-arm64 binaries for @opentui/core",
-  "type": "module",
-  "main": "index.js",
-  "module": "index.js",
-  "types": "index.d.ts",
-  "license": "MIT",
-  "exports": {
-    ".": {
-      "bun": "./index.bun.js",
-      "import": "./index.js",
-      "types": "./index.d.ts"
-    }
-  },
-  "os": ["openharmony"],
-  "cpu": ["arm64"]
-}
-EOF
-  cp "${root_dir}/${native_lib}" libopentui.so
-  cp "${root_dir}/${source_dir}/LICENSE" LICENSE
-  cd "${root_dir}/${source_dir}/packages/native/src/vendor"
-  cp wuffs/LICENSE "$slot_name/LICENSE-WUFFS"
-  cp stb/LICENSE "$slot_name/LICENSE-STB"
-  cp libwebp/COPYING "$slot_name/LICENSE-LIBWEBP"
-  cp libwebp/PATENTS "$slot_name/PATENTS-LIBWEBP"
-  cp libwebp/AUTHORS "$slot_name/AUTHORS-LIBWEBP"
-  cp lcms2/LICENSE "$slot_name/LICENSE-LCMS2"
-  cp "${root_dir}/${source_dir}/packages/core/THIRD_PARTY_LICENSES/GHOSTTY" "$slot_name/LICENSE-GHOSTTY"
-
-  # --- e2e：bun 渲染 + compile 独立二进制（native 经消费方 bundler 内嵌）+ node import ---
-  app_dir="${root_dir}/smoke-app"
-  mkdir -p "${app_dir}/node_modules/@ohos-npm-ports" "${app_dir}/node_modules/@opentui"
-  cd "$app_dir"
-  printf '{"name":"smoke","version":"1.0.0"}\n' >package.json
-  bun add web-tree-sitter@0.25.10
-  cp -r "${root_dir}/${package_dir}" node_modules/@ohos-npm-ports/opentui-core
-  cp -r "$slot_name" node_modules/@opentui/core-openharmony-arm64
-
-  cat >app.mjs <<'EOF'
-import { createTestRenderer } from "@ohos-npm-ports/opentui-core/testing"
-import { BoxRenderable } from "@ohos-npm-ports/opentui-core"
-
-const setup = await createTestRenderer({ width: 30, height: 10 })
-const box = new BoxRenderable(setup.renderer, { width: 10, height: 3, border: true, title: "ohos" })
-setup.renderer.root.add(box)
-await setup.renderOnce()
-const frame = setup.captureCharFrame()
-if (!frame.includes("ohos")) throw new Error("frame missing box title")
-console.log("SMOKE-OK bun-render")
-await setup.renderer.destroy()
-EOF
-  bun app.mjs
-
-  bun build --compile app.mjs --outfile smoke-bin
-  mkdir isolated
-  cp smoke-bin isolated/
-  cd isolated
-  ./smoke-bin
-
-  cd "$app_dir"
-  node -e 'import("@ohos-npm-ports/opentui-core").then(() => console.log("SMOKE-OK node-import"))'
-
-  echo "OK: @ohos-npm-ports/opentui-core ${version} rebuilt from source (slot: openharmony-arm64)"
 }
 
 slot_openharmony_arm64_prepare() {
@@ -383,12 +286,7 @@ EOF
   cp lcms2/LICENSE "${root_dir}/${package_dir}/LICENSE-LCMS2"
   cp "${root_dir}/${source_dir}/packages/core/THIRD_PARTY_LICENSES/GHOSTTY" \
     "${root_dir}/${package_dir}/LICENSE-GHOSTTY"
-}
-
-slot_openharmony_arm64_check() {
   cd "${root_dir}/${package_dir}"
-  actual_name=$(node -e "console.log(require('./package.json').name)")
-  [ "$actual_name" = "@ohos-npm-ports/${pkgname}" ]
   node -e '
     const pkg = require("./package.json");
     if (pkg.os[0] !== "openharmony" || pkg.cpu[0] !== "arm64") {
@@ -396,6 +294,4 @@ slot_openharmony_arm64_check() {
     }
   '
   python3 -c "import ctypes; ctypes.CDLL('./libopentui.so'); print('dlopen OK')"
-
-  echo "OK: @ohos-npm-ports/${pkgname} ${version} packed with source-built core"
 }

@@ -72,10 +72,6 @@ fs.writeFileSync(`${root}/native/package.json`, JSON.stringify({
  exports:{'./package.json':'./package.json'}, files:['tsrs','*.d.ts','LICENSE','NOTICE'],
 },null,2)+'\n');
 JS
-}
-
-check() {
-  package_version=$(node -p "require('${build_dir}/main/package.json').version")
   build_dir="$build_dir" node --input-type=module <<'JS'
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
@@ -97,14 +93,4 @@ for(const [name,v] of Object.entries(old.optionalDependencies)) assert.equal(pkg
 for(const k of ['name','version','repository','optionalDependencies']) {delete old[k];delete pkg[k];}
 assert.deepEqual(pkg,old);
 JS
-  (cd "$build_dir/native" && npm pack --pack-destination "$build_dir")
-  (cd "$build_dir/main" && npm pack --pack-destination "$build_dir")
-  rm -rf "$build_dir/consumer"
-  mkdir -p "$build_dir/consumer"
-  (cd "$build_dir/consumer" && npm init -y && npm install --force --ignore-scripts --omit=optional \
-    "tsrs@file:$build_dir/ohos-npm-ports-tsrs-$package_version.tgz" \
-    "@tsrs/openharmony-arm64@file:$build_dir/ohos-npm-ports-tsrs-openharmony-arm64-$package_version.tgz")
-  node "$work_dir/smoke.mjs" "$build_dir/consumer"
-  cp "$build_dir/tsrs-0.18.0/npm/sdk/smoke/consumer.mjs" "$build_dir/consumer/upstream-smoke.mjs"
-  (cd "$build_dir/consumer" && timeout 180 node upstream-smoke.mjs "$build_dir/consumer/api-fixture")
 }

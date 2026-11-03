@@ -27,7 +27,6 @@ export function cli(name, args, options = {}, key) {
   return native ? command(path, args, options) : command(process.execPath, [path, ...args], options);
 }
 export function write(path, contents) { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, contents); }
-export function report(result, assets = []) { writeFileSync(process.env.PORT_TEST_REPORT, JSON.stringify({ result, assets })); }
 export function bunScript(source) {
   const path = join(process.cwd(), '.port-tests/runtime-probe.mjs');
   write(path, source);

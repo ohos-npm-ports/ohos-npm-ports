@@ -195,13 +195,13 @@ function promptFor(state) {
   return `你需要修复一个 npm 包移植到 OpenHarmony 后的自动版本升级 PR。
 
 仓库位于 /workspace，PR 标题：${state.title}
-只允许修改 ${state.portDirectory}/ 内已有 Git 跟踪的源文件。若需要新增源文件，修复完成后必须按仓库相对路径把最终内容复制到 /report/new-files/，例如 /report/new-files/${state.portDirectory}/test.js 或 /report/new-files/${state.portDirectory}/ohos/helper.cjs。未按此声明的工作区新文件会作为构建产物清理。目标上游版本必须保持为 ${state.port.version}，不得通过降级、删除测试、跳过检查或屏蔽错误来制造成功。
+只允许修改 ${state.portDirectory}/ 内已有 Git 跟踪的源文件。若需要新增源文件，修复完成后必须按仓库相对路径把最终内容复制到 /report/new-files/，例如 /report/new-files/${state.portDirectory}/test.mjs 或 /report/new-files/${state.portDirectory}/ohos/helper.cjs。未按此声明的工作区新文件会作为构建产物清理。目标上游版本必须保持为 ${state.port.version}，不得通过降级、删除测试、跳过检查或屏蔽错误来制造成功。
 
-先执行 npm-ports check ${state.portDirectory} 复现失败。查看 git diff HEAD^ HEAD 了解本次升级，检查现有补丁和构建参数，必要时对照上游同版本源码与变更。保留已有的 OpenHarmony 适配，不要修改其他 port、CLI、文档或工作流，不要执行 git commit 或 git push，不要读取或输出 DEEPSEEK_API_KEY。
+先执行 npm-ports package ${state.portDirectory} 复现失败。查看 git diff HEAD^ HEAD 了解本次升级，检查现有补丁和构建参数，必要时对照上游同版本源码与变更。保留已有的 OpenHarmony 适配，不要修改其他 port、CLI、文档或工作流，不要执行 git commit 或 git push，不要读取或输出 DEEPSEEK_API_KEY。
 
 修复后必须实际执行并通过：
 npm-ports lint ${state.portDirectory}
-npm-ports check ${state.portDirectory}
+npm-ports package ${state.portDirectory}
 
 最后把简洁的中文报告写入 /report/report.md，从二级标题开始，按“现象”“根因”“修复”“验证”组织。只有真实命令通过后才能写验证成功。`;
 }
@@ -256,7 +256,7 @@ function verify(env = process.env) {
   try {
     run('docker', [
       ...dockerArguments(state, env),
-      image, 'sh', '-lc', 'export PATH="/workspace/cli:$PATH"\nnpm-ports lint "$1" && npm-ports check "$1"', 'sh', state.portDirectory,
+      image, 'sh', '-lc', 'export PATH="/workspace/cli:$PATH"\nnpm-ports lint "$1" && npm-ports package "$1"', 'sh', state.portDirectory,
     ]);
   } finally {
     restoreOwnership(env);

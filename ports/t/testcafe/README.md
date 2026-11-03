@@ -18,7 +18,7 @@ Viewport/full-page/element screenshots and PNG thumbnails are supported. Set `TE
 
 Native Automation, headless mode, video recording, and browsers other than Haitai are not implemented by this backend. It keeps the active test tab in the foreground; parallel foreground-driven sessions are not validated. Pure JavaScript code is added; upstream authorship and license remain intact.
 
-The NPMBUILD lifecycle verifies the pinned upstream archive, checks the permitted file-change set, packs and installs the result, runs unit/platform-routing tests, and checks the CLI. `test.js` provides the repository's baseline/override consumer contract. Physical-device browser verification is additional evidence, not a capability of the build container.
+The NPMBUILD lifecycle verifies the pinned upstream archive, the permitted file-change set and the packaged layout. `test.mjs` installs the result and runs the baseline/override consumer contract, unit/platform-routing tests and CLI checks. Physical-device browser verification is additional evidence, not a capability of the build container.
 
 ## Device regression
 

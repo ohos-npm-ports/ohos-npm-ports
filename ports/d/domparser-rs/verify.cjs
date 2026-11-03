@@ -5,8 +5,6 @@ const vm=require('node:vm');
 const [root,upstream]=process.argv.slice(2).map(p=>path.resolve(p));
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json')));
 const original=JSON.parse(fs.readFileSync(path.join(upstream,'package.json')));
-assert.equal(pkg.name,'@ohos-npm-ports/domparser-rs');
-assert.ok(pkg.version.startsWith(`${original.version}-`));
 assert.deepEqual(pkg.optionalDependencies,original.optionalDependencies);
 assert.ok(pkg.files.includes('domparser.openharmony-arm64.node'));
 assert.ok(fs.statSync(path.join(root,'domparser.openharmony-arm64.node')).size>0);
@@ -36,12 +34,11 @@ for(const [platform,arch,musl,expected] of [
  assert.equal(selected,expected);
  assert.equal(module.exports,native);
 }
+const actual=structuredClone(pkg);
 const expected=structuredClone(original);
-expected.name=pkg.name;
-expected.version=pkg.version;
-expected.repository={type:'git',url:'git+https://github.com/ohos-npm-ports/ohos-npm-ports.git',directory:'ports/d/domparser-rs'};
+for(const key of ['name','version','repository']) {delete actual[key];delete expected[key];}
 expected.files.push('domparser.openharmony-arm64.node');
 delete expected.scripts.prepare;
 delete expected.scripts.prepublishOnly;
-assert.deepEqual(pkg,expected);
+assert.deepEqual(actual,expected);
 console.log('package, native placement, upstream files and platform loaders verified');

@@ -60,17 +60,9 @@ package() {
   cp "$source_dir/LICENSE" LICENSE
   cp "$source_dir/next.js/license.md" cjs/LICENSE-turbopack
   cp "$build_dir/target/release/libpack_napi.so" cjs/pack.openharmony-arm64.node
-}
-
-check() {
   cmp "$source_dir/LICENSE" "$package_dir/LICENSE"
   cmp "$source_dir/next.js/license.md" "$package_dir/cjs/LICENSE-turbopack"
   grep -q "process.platform === 'openharmony'" "$package_dir/cjs/binding.js"
+  test -s "$package_dir/cjs/pack.openharmony-arm64.node"
   node "$root_dir/verify.cjs" "$package_dir" "$build_dir/upstream"
-  cd "$package_dir"
-  package_version=$(node -p "require('./package.json').version")
-  npm pack --ignore-scripts --pack-destination "$build_dir"
-  mkdir -p "$build_dir/packed"
-  tar xzf "$build_dir/ohos-npm-ports-utoo-pack-${package_version}.tgz" -C "$build_dir/packed"
-  test -s "$build_dir/packed/package/cjs/pack.openharmony-arm64.node"
 }

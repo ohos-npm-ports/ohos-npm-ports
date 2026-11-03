@@ -48,25 +48,25 @@ npm-ports lint [port|--all]
 
 `npm-ports lint` 检查元数据、首字母目录、发布短名冲突、产物路径、Bash 语法、孤立 patch、遗留 publish.sh、旧元数据别名、版本字面量、重复全局声明、重复 SHA-256、readelf、签名逻辑、连续空行和构建内直接发布等现行规则。`npm-ports lint` 不能替代真实构建，也不能证明上游 patch 仍然兼容。
 
-## 构建、检查与打包
+## 构建、测试与打包
 
 ```sh
 npm-ports prepare <port>
 npm-ports build <port>
 npm-ports package <port>
-npm-ports check <port>
+npm-ports test <port> [--no-build]
 npm-ports pack <port> [--no-build]
 ```
 
-这些命令按 `prepare() → build() → package() → normalize → check()` 的顺序自动执行到对应阶段：
+构建命令按 `prepare() → build() → package() → normalize` 的顺序自动执行到对应阶段：
 
 - `npm-ports prepare`：执行 `prepare()`。
 - `npm-ports build`：自动执行 `prepare()` 和 `build()`。
-- `npm-ports package`：再执行 `package()`，随后统一注入全部发布包的名称、repository、最终发布版本和同 port 槽位引用。
-- `npm-ports check`：再执行 `check()`，验证规范化后的实际发布目录。上游版本使用 `${version}`，最终发布版本从实际 package.json 读取。
-- `npm-ports pack`：执行完整生命周期，统一为发布目录中的 AArch64 ELF 签名，然后生成 npm tarball。`--no-build` 只复用已经通过检查的发布目录。
+- `npm-ports package`：再执行 `package()` 和其中的产物断言，随后统一注入全部发布包的名称、repository、最终发布版本和同 port 槽位引用。
+- `npm-ports test`：打包并通过临时 registry 安装，在当前平台执行 port 的 `test.mjs`。`--no-build` 复用已有 artifacts。
+- `npm-ports pack`：执行完整构建生命周期，统一为发布目录中的 AArch64 ELF 签名，然后生成 npm tarball。`--no-build` 复用发布目录。
 
-同一主包或槽位的钩子在同一 Bash 进程内执行，主包和槽位之间隔离。槽位在同一 NPMBUILD 中声明，不另建独立 port。字段、钩子和执行规则的详细规范见 [NPMBUILD 配方规范](port-spec.md)。
+构建断言放在 `build()` 或 `package()`，安装后的功能测试统一放在 `test.mjs`，不再有独立的 `check()` 阶段。同一主包或槽位的钩子在同一 Bash 进程内执行，主包和槽位之间隔离。槽位在同一 NPMBUILD 中声明，不另建独立 port。字段、钩子和执行规则的详细规范见 [NPMBUILD 配方规范](port-spec.md)。
 
 ## 上游升级与修订
 

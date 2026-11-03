@@ -8,6 +8,7 @@ import { chooseTag, packPort, publishPort, runLifecycle, normalizePackages } fro
 import { bumpPorts, updatePortText } from '../cli/bump.mjs';
 import { bumpPr } from '../cli/bump-pr.mjs';
 import { createPort } from '../cli/create.mjs';
+import { executeConsumerTest } from '../cli/consumer-test-runner.mjs';
 import { lintPort, lintPublishedNames } from '../cli/lint.mjs';
 import { loadPort } from '../cli/port.mjs';
 import { distTagVersion, publishedIntegrity } from '../cli/registry.mjs';
@@ -151,15 +152,15 @@ test('normalization injects final manifests and is idempotent', (t) => {
 test('lifecycle automatically runs prerequisites and isolates slot hooks', (t) => {
   const { root, dir } = fixture(t);
   const file = join(dir, 'NPMBUILD');
-  const hooks = (prefix) => ['prepare', 'build', 'package', 'check'].map((phase) => {
+  const hooks = (prefix) => ['prepare', 'build', 'package'].map((phase) => {
     const environment = !prefix && phase === 'build' ? 'export NPM_PORTS_TEST_ENV=ready; '
-      : phase === 'check' ? (prefix ? 'test -z "${NPM_PORTS_TEST_ENV:-}"; ' : 'test "$NPM_PORTS_TEST_ENV" = ready; ') : '';
+      : phase === 'package' ? (prefix ? 'test -z "${NPM_PORTS_TEST_ENV:-}"; ' : 'test "$NPM_PORTS_TEST_ENV" = ready; ') : '';
     return `${prefix}${phase}() { ${environment}test "$PWD" = "$NPMBUILD_SLOT_DIR"; printf '%s\\n' '${prefix}${phase}' >> "$NPMBUILD_DIR/lifecycle.log"; }`;
   }).join('\n');
   writeFileSync(file, `${readFileSync(file, 'utf8').replace('@ohos-npm-ports/demo-openharmony-arm64:slot', '@ohos-npm-ports/demo-openharmony-arm64:slots/demo')}\n${hooks('')}\n${hooks('slot_demo_')}\n`);
   mkdirSync(join(dir, 'slots', 'demo'), { recursive: true });
   writeFileSync(join(dir, 'slots', 'demo', 'package.json'), JSON.stringify({ version: '1.2.3' }));
-  runLifecycle(loadPort(root, dir), 'check');
+  runLifecycle(loadPort(root, dir), 'package');
   const main = JSON.parse(readFileSync(join(dir, 'main', 'package.json')));
   assert.equal(main.name, '@ohos-npm-ports/demo');
   assert.equal(main.version, '1.2.3-4');
@@ -167,9 +168,43 @@ test('lifecycle automatically runs prerequisites and isolates slot hooks', (t) =
   assert.equal(JSON.parse(readFileSync(join(dir, 'slots', 'demo', 'package.json'))).name, '@ohos-npm-ports/demo-openharmony-arm64');
   assert.equal(JSON.parse(readFileSync(join(dir, 'slots', 'demo', 'package.json'))).version, '1.2.3-4');
   assert.deepEqual(readFileSync(join(dir, 'lifecycle.log'), 'utf8').trim().split('\n'), [
-    'prepare', 'build', 'package', 'check',
-    'slot_demo_prepare', 'slot_demo_build', 'slot_demo_package', 'slot_demo_check',
+    'prepare', 'build', 'package',
+    'slot_demo_prepare', 'slot_demo_build', 'slot_demo_package',
   ]);
+});
+
+test('consumer test runner provides package context and writes the returned report', async (t) => {
+  const projectDir = mkdtempSync(join(tmpdir(), 'npm-ports-consumer-test-'));
+  t.after(() => rmSync(projectDir, { recursive: true, force: true }));
+  mkdirSync(join(projectDir, 'node_modules/consumer-deps'), { recursive: true });
+  mkdirSync(join(projectDir, 'node_modules/example'), { recursive: true });
+  writeFileSync(join(projectDir, 'package.json'), JSON.stringify({ name: 'project', version: '1.0.0' }));
+  writeFileSync(join(projectDir, 'node_modules/consumer-deps/package.json'), JSON.stringify({ name: 'consumer-deps', version: '1.0.0', main: 'index.cjs' }));
+  writeFileSync(join(projectDir, 'node_modules/consumer-deps/index.cjs'), 'module.exports = {};\n');
+  writeFileSync(join(projectDir, 'node_modules/example/package.json'), JSON.stringify({
+    name: 'example', version: '1.2.3', type: 'module', exports: { '.': './index.js', './package.json': './package.json' },
+  }));
+  writeFileSync(join(projectDir, 'node_modules/example/index.js'), 'export const answer = 42;\n');
+  const file = join(projectDir, 'test.mjs');
+  const report = join(projectDir, 'report.json');
+  writeFileSync(file, `import assert from 'node:assert/strict';
+import { writeFileSync } from 'node:fs';
+export function setup({ projectDir }) { writeFileSync(projectDir + '/setup.txt', 'ready'); }
+export default async function test(context) {
+  const { answer } = await context.importPackage('example');
+  assert.equal(answer, 42);
+  assert.equal(context.requirePackage('example/package.json').version, '1.2.3');
+  assert.ok(context.resolvePackage('example/package.json').endsWith('package.json'));
+  assert.equal(context.tools('./package.json').name, 'consumer-deps');
+  assert.equal(context.run(process.execPath, ['-e', 'console.log("ok")'], { capture: true }).stdout.trim(), 'ok');
+  return { result: { answer, mode: context.mode, portVersion: context.portVersion }, assets: [] };
+}
+`);
+  await executeConsumerTest({ file, phase: 'setup', projectDir });
+  assert.equal(readFileSync(join(projectDir, 'setup.txt'), 'utf8'), 'ready');
+  const result = await executeConsumerTest({ file, mode: 'overrides', portVersion: '1.2.3-4', projectDir, report });
+  assert.deepEqual(result.result, { answer: 42, mode: 'overrides', portVersion: '1.2.3-4' });
+  assert.deepEqual(JSON.parse(readFileSync(report, 'utf8')), result);
 });
 
 test('lifecycle preserves early-exit pipeline behavior', (t) => {
@@ -330,14 +365,14 @@ test('registry lookups treat only E404 as an unpublished version', () => {
   assert.throws(() => publishedIntegrity('@ohos-npm-ports/demo', '1.0.0-1', { exec: () => '"sha1-abc"' }), /no sha512 integrity/);
 });
 
-test('unbumped ports are changed ports that keep their version, ignoring test.js, new and deleted ports', () => {
+test('unbumped ports are changed ports that keep their version, ignoring test.mjs, new and deleted ports', () => {
   const versions = { 'ports/a/same': '1.0.0-1', 'ports/b/bumped': '1.0.0-1', 'ports/c/testonly': '1.0.0-1' };
   const bumped = { ...versions, 'ports/b/bumped': '1.0.0-2' };
   const head = { ...bumped, 'ports/d/new': '1.0.0-1' };
   delete head['ports/e/gone'];
   const base = { ...versions, 'ports/e/gone': '1.0.0-1' };
   const lookup = (table) => (dir) => table[dir] ?? null;
-  const changed = ['ports/a/same/patches/x.patch', 'ports/b/bumped/NPMBUILD', 'ports/c/testonly/test.js', 'ports/d/new/NPMBUILD', 'ports/e/gone/NPMBUILD', 'cli/build.mjs', 'ports/a/same/NPMBUILD'];
+  const changed = ['ports/a/same/patches/x.patch', 'ports/b/bumped/NPMBUILD', 'ports/c/testonly/test.mjs', 'ports/d/new/NPMBUILD', 'ports/e/gone/NPMBUILD', 'cli/build.mjs', 'ports/a/same/NPMBUILD'];
   assert.deepEqual(unbumpedPorts(changed, { baseVersion: lookup(base), headVersion: lookup(head) }), ['ports/a/same']);
 });
 

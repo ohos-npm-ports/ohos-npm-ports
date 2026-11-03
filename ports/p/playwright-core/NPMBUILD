@@ -83,9 +83,6 @@ package() {
   tar -zxf "$source_dir/packages/playwright-core/playwright-core-$version.tgz" \
     -C "$artifact_dir" --strip-components=1
   rm "$source_dir/packages/playwright-core/playwright-core-$version.tgz"
-}
-
-check() {
   (
     cd "$build_dir/$artifact_dir"
 
@@ -95,9 +92,7 @@ check() {
     grep -q 'require("../../index.js")' lib/ohos/index.js
     node -e '
       const pkg = require("./package.json");
-      if (pkg.name !== "@ohos-npm-ports/playwright-core") throw new Error(`unexpected name: ${pkg.name}`);
       if (!pkg.exports["./lib/ohos"]) throw new Error("exports[./lib/ohos] missing");
-      console.log("verify OK:", pkg.name, pkg.version);
     '
 
     elf_files=$(find . -type f -exec sh -c 'od -An -tx1 -N4 "$1" | grep -q "7f 45 4c 46"' _ {} \; -print)
@@ -111,18 +106,13 @@ check() {
       for (const name of ["chromium", "firefox", "webkit"]) {
         if (typeof pw[name]?.launch !== "function") throw new Error(`playwright-core.${name}.launch missing`);
       }
-      console.log("index.js smoke OK: chromium/firefox/webkit present");
     '
     node -e '
       const ohos = require("./lib/ohos");
       for (const name of ["launchViaAa", "takeScreenshot", "resolveLaunchConfig"]) {
         if (!(name in ohos)) throw new Error(`lib/ohos export missing: ${name}`);
       }
-      // A leftover bare require("playwright-core") would throw here in a
-      // direct (non-aliased) @ohos-npm-ports install, since there is no
-      // node_modules/playwright-core in that layout.
       if (typeof ohos.chromium?.launch !== "function") throw new Error("lib/ohos re-export of playwright-core is broken");
-      console.log("lib/ohos smoke OK: launchViaAa/takeScreenshot present, playwright-core re-export resolves");
     '
 
     grep -q 'ohosExecutablePath' lib/coreBundle.js
@@ -133,7 +123,6 @@ check() {
       process.env.PATH = "";
       const { chromium } = require("./index.js");
       if (chromium.executablePath() !== "aa") throw new Error("executablePath must resolve local aa");
-      console.log("local aa executablePath smoke OK");
     '
     node -e '
       const ohos = require("./lib/ohos");
@@ -143,7 +132,6 @@ check() {
       process.env.HARMONY_BROWSER = "huaweiBrowser";
       const huawei = ohos.resolveLaunchConfig({});
       if (huawei.bundleName !== "com.huawei.hmos.browser") throw new Error(`HARMONY_BROWSER override = ${huawei.bundleName}`);
-      console.log("default browser smoke OK:", def.bundleName);
     '
     test ! -e lib/ohos/hdc.js
     test ! -e lib/ohos/ohos-aa.js
@@ -152,6 +140,4 @@ check() {
       exit 1
     fi
   )
-
-  echo "==> done: $build_dir/$artifact_dir"
 }

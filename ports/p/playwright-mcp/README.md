@@ -10,6 +10,6 @@ On OpenHarmony, use an installed TCP CDP browser (default: Haitai), or pass
 provide Chromium, Firefox or WebKit binaries for OpenHarmony. Desktop launch
 behavior remains that of upstream core.
 
-`PLAYWRIGHT_CORE_TARBALL=/absolute/path/to/core.tgz npm-ports check ports/p/playwright-mcp` verifies an
+`PLAYWRIGHT_CORE_TARBALL=/absolute/path/to/core.tgz npm-ports test ports/p/playwright-mcp` verifies an
 unpublished matching core tarball through a consumer-only npm override; the
 published MCP manifest always retains the registry alias.

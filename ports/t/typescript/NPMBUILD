@@ -93,38 +93,7 @@ package() {
   "files": ["lib", "LICENSE", "NOTICE.txt"]
 }
 EOF
-}
-
-check() {
-  cd "${build_dir}"
-  echo "=== test: 槽位包二进制 ==="
-  test -s "${slot_name}/lib/lib.d.ts"
-
-  echo "=== test: 主包接线（版本/槽位 optionalDependencies/getExePath 指向）==="
-  node -e '
-        const fs = require("fs");
-        const main = JSON.parse(fs.readFileSync(process.argv[1] + "/package.json", "utf8"));
-        if (main.name !== "@ohos-npm-ports/typescript") process.exit(1);
-        const slot = JSON.parse(fs.readFileSync(process.argv[2] + "/package.json", "utf8"));
-        if (main.version !== slot.version) process.exit(1);
-        if (main.optionalDependencies["@ohos-npm-ports/typescript-openharmony-arm64"] !== slot.version) process.exit(1);
-    ' "${build_dir}/typescript-${version}" "${build_dir}/${slot_name}"
+  test -s "${build_dir}/${slot_name}/lib/lib.d.ts"
   grep -qF "@ohos-npm-ports/typescript-openharmony-arm64" \
     "${build_dir}/typescript-${version}/lib/getExePath.js"
-
-  echo "=== test: 槽位包二进制真跑 typecheck ==="
-  smoke_dir="$(mktemp -d)"
-  cd "${smoke_dir}"
-  printf '{"compilerOptions":{"strict":true}}' >tsconfig.json
-  printf 'const n: number = "x";\n' >bad.ts
-  "${build_dir}/${slot_name}/lib/tsc" --version
-  "${build_dir}/${slot_name}/lib/tsc" --noEmit -p tsconfig.json >out.txt 2>&1 || true
-  grep -q 'error TS' out.txt || {
-    cat out.txt >&2
-    exit 1
-  }
-  cd "${build_dir}"
-  rm -rf "${smoke_dir}"
-
-  echo "OK: ${slot_package_name} + @ohos-npm-ports/${pkgname} ${version}"
 }

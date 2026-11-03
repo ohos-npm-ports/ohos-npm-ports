@@ -191,7 +191,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Build
-        run: cli/npm-ports check "${{ matrix.dir }}"
+        run: cli/npm-ports package "${{ matrix.dir }}"
 
       - name: Validate publish through temporary Verdaccio
         id: registry
