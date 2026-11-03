@@ -70,6 +70,7 @@ test('port metadata supplies versions and consumer test options', () => {
   assert.equal(testSpec('ports/l/lightningcss@1.32').upstream, 'lightningcss');
   assert.equal(testSpec('ports/l/lightningcss@1.32').timeout, 600);
   assert.equal(testSpec('ports/l/lightningcss@1.32').project, 'node');
+  assert.equal(testSpec('ports/l/lightningcss@1.32').fixture, '');
   assert.equal(testSpec('ports/l/lightningcss@1.32').version, '1.32.0');
   assert.equal(testSpec('ports/l/lightningcss@1.32').portVersion, loadPort(process.cwd(), 'ports/l/lightningcss@1.32').portVersion);
   assert.equal(testSpec('ports/l/lightningcss@1.32').portPackage, '@ohos-npm-ports/lightningcss');

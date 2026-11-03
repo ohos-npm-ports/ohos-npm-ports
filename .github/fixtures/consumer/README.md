@@ -10,7 +10,7 @@ consumer 验证由以下几部分协作完成：
 - `cli/consumer-test-runner.mjs`：加载测试模块，提供消费工程上下文并保存报告。
 - `.github/scripts/consumer-plan.mjs`：选择变化的 port 并输出安装与功能测试矩阵。CI 基础设施变化时只验证 `sentinel-ports.json` 里的哨兵 port。
 - `.github/scripts/run-port-consumer.mjs`：artifact 校验、临时 Verdaccio、真实 npm alias overrides、安装、`npm ci` 和 baseline 结果对比。没有针对具体包的特殊分支。
-- `projects/node/`：默认最小 npm 工程，不安装前端框架，不自动 build/start。需要专属工程时使用配方内的 fixture，而不是在 runner 中维护包名分支。
+- runner 在临时目录生成默认最小 npm 工程，不安装前端框架，不自动 build/start。需要专属工程时使用配方内的 fixture，而不是在 runner 中维护包名分支。
 
 ## test.mjs 协议
 
