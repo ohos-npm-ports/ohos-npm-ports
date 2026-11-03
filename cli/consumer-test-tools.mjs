@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
-import { installedPackage } from '../../scripts/installed-package.mjs';
+import { installedPackage } from './installed-package.mjs';
 
 const local = createRequire(join(process.cwd(), 'package.json'));
 export function packageRoot(name, resolver = local) { return dirname(installedPackage(resolver, name).path); }

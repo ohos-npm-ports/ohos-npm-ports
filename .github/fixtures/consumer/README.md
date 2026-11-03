@@ -9,7 +9,7 @@ consumer 验证由以下几部分协作完成：
 - `cli/consumer-test.mjs`：发现测试并展开配套构建依赖，供 CI 与 `npm-ports test` 共用。
 - `cli/consumer-test-runner.mjs`：加载测试模块，提供消费工程上下文并保存报告。
 - `.github/scripts/consumer-plan.mjs`：选择变化的 port 并输出安装与功能测试矩阵。CI 基础设施变化时只验证 `sentinel-ports.json` 里的哨兵 port。
-- `.github/scripts/run-port-consumer.mjs`：artifact 校验、临时 Verdaccio、真实 npm alias overrides、安装、`npm ci` 和 baseline 结果对比。没有针对具体包的特殊分支。
+- `cli/run-port-consumer.mjs`：artifact 校验、临时 Verdaccio、真实 npm alias overrides、安装、`npm ci` 和 baseline 结果对比。没有针对具体包的特殊分支。
 - runner 在临时目录生成默认最小 npm 工程，不安装前端框架，不自动 build/start。需要专属工程时使用配方内的 fixture，而不是在 runner 中维护包名分支。
 
 ## test.mjs 协议
@@ -93,7 +93,7 @@ runner 不调用前端 build/start，也不读取 scenario.json。`test.mjs` 自
 
 - `infrastructure.json` 是「改动后需全量验证」的唯一清单。`ci.yml` 的 `paths` 必须与之一致，由 `consumer-plan.test.mjs` 校验。`*.md` 不触发全量。
 - `build-infrastructure.json` 是其中会改变构建产物的子集，必须同时列在 `infrastructure.json`。只改其余文件时，哨兵取 npm 上已发布的 tarball，不重新构建。全部 port 的验证用手动 dispatch。`sentinel-ports.json` 里的 port 必须带 primary `test.mjs` 且构建轻量。
-- `.github/scripts/tool-versions.json` 固定 npm、Verdaccio、playwright-core 的精确版本，升级需单独提交。npm 安装带 `fetch-retries` 并对工具安装重试 3 次。
+- `cli/tool-versions.json` 固定 npm、Verdaccio、playwright-core 的精确版本，升级需单独提交。npm 安装带 `fetch-retries` 并对工具安装重试 3 次。
 - 每个 OS 一个独立 consumer job（`consumer-tests-<os>-<arch>`），避免单个 matrix 超过 GitHub 的 256 项上限。共用步骤在 `.github/actions/consumer-job`。
 - 失败时 runner 写 `FAIL ...` 到 step summary，并把 Verdaccio 日志、npm `_logs`、`.port-tests` 保存到 `.consumer-logs/`，由 `consumer-logs-*` artifact 上传，保留 3 天。
 - workflow 带 `concurrency`（PR 内新推送取消旧运行，main 不取消）和最小 `permissions`。

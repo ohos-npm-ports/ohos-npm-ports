@@ -16,7 +16,7 @@ const published = (...unpublished) => JSON.stringify(directories
 const publishing = (file, ...unpublished) => JSON.parse(plan(file, { PUBLISH_CHECK: 'true', PUBLISHED_PACKAGES: published(...unpublished) }).publish);
 
 test('infrastructure edits select only the sentinel ports', () => {
-  const value = plan('.github/fixtures/consumer/test-tools.mjs');
+  const value = plan('cli/consumer-test-tools.mjs');
   assert.deepEqual(new Set(JSON.parse(value.matrix)), new Set(sentinels));
   assert.deepEqual(new Set(JSON.parse(value['generic-ports'])), new Set(sentinels));
   assert.equal(value['generic-enabled'], 'true');
@@ -37,14 +37,14 @@ test('sentinels exist, are not excluded and carry a primary test', () => {
 });
 
 test('manual full builds select every port, including ports without consumers', () => {
-  const value = plan('.github/scripts/run-port-consumer.mjs', { BUILD_ALL: 'true' });
+  const value = plan('cli/run-port-consumer.mjs', { BUILD_ALL: 'true' });
   assert.deepEqual(new Set(JSON.parse(value.matrix)), new Set(directories));
   assert.ok(JSON.parse(value.matrix).includes('ports/p/parcel-watcher'));
   assert.deepEqual(JSON.parse(value.publish), []);
 });
 
 test('artifact replay enables generic install even without a build matrix', () => {
-  const value = plan('.github/scripts/run-port-consumer.mjs', { BUILD_ALL: 'true', ARTIFACT_RUN_ID: '12345' });
+  const value = plan('cli/run-port-consumer.mjs', { BUILD_ALL: 'true', ARTIFACT_RUN_ID: '12345' });
   assert.equal(value['generic-enabled'], 'true');
   assert.deepEqual(new Set(JSON.parse(value['generic-ports'])), new Set(directories));
 });
@@ -108,7 +108,7 @@ test('workflow path filters match the infrastructure list', () => {
 
 test('documentation edits never select the full matrix', () => {
   assert.equal(isInfrastructure('.github/fixtures/consumer/README.md'), false);
-  assert.equal(isInfrastructure('.github/scripts/tool-versions.json'), true);
+  assert.equal(isInfrastructure('cli/tool-versions.json'), true);
   assert.equal(plan('.github/fixtures/consumer/README.md')['consumer-enabled'], 'false');
 });
 
@@ -121,7 +121,7 @@ test('every OS has its own consumer job below the matrix limit', () => {
 test('publish list holds only versions missing from npm, never other ports in the matrix', () => {
   assert.deepEqual(publishing('ports/l/lightningcss@1.32/NPMBUILD', 'ports/l/lightningcss@1.32'), ['ports/l/lightningcss@1.32']);
   assert.deepEqual(publishing('ports/l/lightningcss@1.32/NPMBUILD'), []);
-  assert.deepEqual(publishing('.github/scripts/run-port-consumer.mjs'), []);
+  assert.deepEqual(publishing('cli/run-port-consumer.mjs'), []);
   assert.deepEqual(publishing('.github/fixtures/consumer/README.md'), []);
 });
 
@@ -196,7 +196,7 @@ const split = (files, { env = {}, unpublished = [] } = {}) => {
 const same = (actual, expected) => assert.deepEqual([...actual].sort(), [...expected].sort());
 
 test('editing only test infrastructure rebuilds nothing: the sentinels are tested from npm', () => {
-  for (const file of ['.github/scripts/run-port-consumer.mjs', '.github/actions/install-matrix/action.yml', '.github/fixtures/consumer/test-tools.mjs', 'cli/bump.mjs', 'test/npm-ports.test.mjs']) {
+  for (const file of ['cli/run-port-consumer.mjs', '.github/actions/install-matrix/action.yml', 'cli/consumer-test-tools.mjs', 'cli/bump.mjs', 'test/npm-ports.test.mjs']) {
     const { value, matrix, build, fetch } = split(file);
     same(matrix, sentinels);
     assert.deepEqual(build, [], file);
@@ -207,7 +207,7 @@ test('editing only test infrastructure rebuilds nothing: the sentinels are teste
 });
 
 test('build infrastructure rebuilds the sentinels only', () => {
-  for (const file of ['.github/workflows/ci.yml', 'cli/build.mjs', 'cli/port.mjs', 'cli/runtime.sh', 'cli/sign.mjs', 'cli/semver.mjs', 'cli/npm-ports', 'cli/validate-publish.mjs', '.github/scripts/tool-versions.json']) {
+  for (const file of ['.github/workflows/ci.yml', 'cli/build.mjs', 'cli/port.mjs', 'cli/runtime.sh', 'cli/sign.mjs', 'cli/semver.mjs', 'cli/npm-ports', 'cli/validate-publish.mjs', 'cli/tool-versions.json']) {
     const { build, fetch } = split(file);
     same(build, sentinels);
     assert.deepEqual(fetch, [], file);
@@ -243,7 +243,7 @@ test('without registry knowledge and for manual full builds everything is built'
   const unknown = plan('.github/workflows/ci.yml');
   assert.deepEqual(JSON.parse(unknown['build-matrix']), JSON.parse(unknown.matrix));
   assert.deepEqual(JSON.parse(unknown['fetch-matrix']), []);
-  const manual = split('.github/scripts/run-port-consumer.mjs', { env: { BUILD_ALL: 'true' } });
+  const manual = split('cli/run-port-consumer.mjs', { env: { BUILD_ALL: 'true' } });
   same(manual.build, directories);
   assert.deepEqual(manual.fetch, []);
 });
@@ -262,7 +262,7 @@ test('build infrastructure is the part of the infrastructure that shapes build o
     assert.ok(isInfrastructure(entry), `${entry} must also be listed as infrastructure so that it triggers CI`);
     assert.ok(isBuildInfrastructure(entry), entry);
   }
-  for (const file of ['.github/workflows/bump.yml', '.github/scripts/consumer-plan.mjs', '.github/scripts/run-install-matrix.mjs', '.github/scripts/fetch-published.mjs', '.github/actions/consumer-job/action.yml', '.github/fixtures/consumer/test-tools.mjs', 'cli/bump.mjs', 'cli/lint.mjs', 'cli/registry.mjs', 'test/npm-ports.test.mjs']) {
+  for (const file of ['.github/workflows/bump.yml', '.github/scripts/consumer-plan.mjs', '.github/scripts/run-install-matrix.mjs', 'cli/fetch-published.mjs', '.github/actions/consumer-job/action.yml', 'cli/consumer-test-tools.mjs', 'cli/bump.mjs', 'cli/lint.mjs', 'cli/registry.mjs', 'test/npm-ports.test.mjs']) {
     assert.ok(isInfrastructure(file), file);
     assert.ok(!isBuildInfrastructure(file), `${file} only changes how tarballs are tested`);
   }

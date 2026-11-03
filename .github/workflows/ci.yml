@@ -18,16 +18,12 @@ on:
       - "ports/**"
       - ".github/workflows/ci.yml"
       - ".github/workflows/bump.yml"
-      - ".github/scripts/fetch-published.mjs"
       - ".github/scripts/fetch-published.test.mjs"
-      - ".github/scripts/tool-versions.json"
       - ".github/scripts/ci-workflow.test.mjs"
-      - ".github/scripts/run-port-consumer.mjs"
       - ".github/scripts/run-install-matrix.mjs"
       - ".github/scripts/consumer-plan.mjs"
       - ".github/scripts/consumer-plan.test.mjs"
       - ".github/scripts/install-matrix.test.mjs"
-      - ".github/scripts/installed-package.mjs"
       - ".github/scripts/consumer-coverage.mjs"
       - ".github/scripts/consumer-browser.mjs"
       - ".github/actions/consumer-job/action.yml"
@@ -41,16 +37,12 @@ on:
       - "ports/**"
       - ".github/workflows/ci.yml"
       - ".github/workflows/bump.yml"
-      - ".github/scripts/fetch-published.mjs"
       - ".github/scripts/fetch-published.test.mjs"
-      - ".github/scripts/tool-versions.json"
       - ".github/scripts/ci-workflow.test.mjs"
-      - ".github/scripts/run-port-consumer.mjs"
       - ".github/scripts/run-install-matrix.mjs"
       - ".github/scripts/consumer-plan.mjs"
       - ".github/scripts/consumer-plan.test.mjs"
       - ".github/scripts/install-matrix.test.mjs"
-      - ".github/scripts/installed-package.mjs"
       - ".github/scripts/consumer-coverage.mjs"
       - ".github/scripts/consumer-browser.mjs"
       - ".github/actions/consumer-job/action.yml"
@@ -99,7 +91,7 @@ jobs:
           PUBLISH_CHECK: ${{ github.event_name == 'push' && 'true' || 'false' }}
         run: |
           if [ "${{ github.event_name }}" = workflow_dispatch ]; then
-            printf '.github/scripts/run-port-consumer.mjs\n' | node .github/scripts/consumer-plan.mjs >> "$GITHUB_OUTPUT"
+            printf 'cli/run-port-consumer.mjs\n' | node .github/scripts/consumer-plan.mjs >> "$GITHUB_OUTPUT"
             if [ -n "$ARTIFACT_RUN_ID" ]; then
               echo 'matrix=[]' >> "$GITHUB_OUTPUT"
               echo 'build-matrix=[]' >> "$GITHUB_OUTPUT"
@@ -228,7 +220,7 @@ jobs:
       - uses: actions/checkout@v7
       - name: Download the published tarballs
         id: published
-        run: node .github/scripts/fetch-published.mjs "${{ matrix.dir }}"
+        run: node cli/fetch-published.mjs "${{ matrix.dir }}"
       - name: Upload published packages
         uses: actions/upload-artifact@v7
         with:
@@ -445,7 +437,7 @@ jobs:
             -e CONSUMER_PORT -e REPLAY_ARTIFACTS -e EXPECTED_PLATFORM -e EXPECTED_ARCH \
             -e GITHUB_SHA -e GITHUB_STEP_SUMMARY -e PORT_TEST_BROWSER_ENDPOINT \
             ghcr.io/ohos-npm-ports/ci-runner:latest \
-            node .github/scripts/run-port-consumer.mjs .port-artifacts
+            node cli/run-port-consumer.mjs .port-artifacts
 
       - name: Upload diagnostic logs
         if: failure()

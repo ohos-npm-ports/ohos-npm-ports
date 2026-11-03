@@ -7,11 +7,11 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { artifactsForPort, registryConfig } from './consumer-registry.mjs';
+import { artifactsForPort, registryConfig } from '../../cli/consumer-registry.mjs';
 import { loadPort } from '../../cli/port.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const versions = JSON.parse(readFileSync(join(repo, '.github/scripts/tool-versions.json'), 'utf8'));
+const versions = JSON.parse(readFileSync(join(repo, 'cli/tool-versions.json'), 'utf8'));
 const scope = '@ohos-npm-ports/';
 
 export function platformMatches(manifest, platform = process.platform, arch = process.arch) {

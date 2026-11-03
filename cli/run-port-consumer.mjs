@@ -9,12 +9,12 @@ import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { registryConfig } from './consumer-registry.mjs';
-import { testSpec, closure } from './consumer-plan.mjs';
+import { testSpec, closure } from './consumer-test.mjs';
 import { installedPackage } from './installed-package.mjs';
 
-const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const fixture = join(repo, '.github/fixtures/consumer');
-const versions = JSON.parse(readFileSync(join(repo, '.github/scripts/tool-versions.json'), 'utf8'));
+const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const fixture = join(repo, 'cli');
+const versions = JSON.parse(readFileSync(join(repo, 'cli/tool-versions.json'), 'utf8'));
 const logDirectory = resolve(process.env.CONSUMER_LOG_DIR ?? '.consumer-logs');
 const caseDirectories = [];
 const artifactRoot = resolve(process.argv[2] ?? '.port-artifacts');
@@ -160,7 +160,7 @@ async function portTests(project, specs, mode, primary, phase = 'test') {
   for (const [index, spec] of specs.filter((entry) => phase === 'setup' ? entry.setup : entry.portDir === primary || entry.role === 'support').entries()) {
     const report = join(testDir, `${phase}-${index}.json`);
     console.log(`Port ${phase}: ${spec.portDir} (${mode})`);
-    await run([runner, spec.file, phase, mode, String(spec.portDir === primary), report], project, false, { PORT_TEST_PORT_VERSION: spec.portVersion, PORT_TEST_NPM_CLI: npmCli, PORT_TEST_HELPER: pathToFileURL(join(fixture, 'test-tools.mjs')).href }, spec.timeout * 1000);
+    await run([runner, spec.file, phase, mode, String(spec.portDir === primary), report], project, false, { PORT_TEST_PORT_VERSION: spec.portVersion, PORT_TEST_NPM_CLI: npmCli, PORT_TEST_HELPER: pathToFileURL(join(fixture, 'consumer-test-tools.mjs')).href }, spec.timeout * 1000);
     if (phase === 'setup') continue;
     const result = JSON.parse(readFileSync(report));
     assert.ok(result.result && typeof result.result === 'object', `Invalid report from ${spec.portDir}`);

@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
-import { artifactsForPort, registryConfig } from './consumer-registry.mjs';
+import { artifactsForPort, registryConfig } from '../../cli/consumer-registry.mjs';
 
 const tools = process.env.CONSUMER_REGISTRY_TOOLS;
 for (const historical of [false, true]) test(`local artifact install preserves ${historical ? 'a different port historical version' : 'ordinary dependencies'}`, { skip: !tools, timeout: 120000 }, async (t) => {

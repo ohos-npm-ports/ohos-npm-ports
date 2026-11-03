@@ -7,5 +7,5 @@
   "cli/sign.mjs",
   "cli/npm-ports",
   "cli/validate-publish.mjs",
-  ".github/scripts/tool-versions.json"
+  "cli/tool-versions.json"
 ]

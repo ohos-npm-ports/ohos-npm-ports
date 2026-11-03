@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { packPort } from './build.mjs';
 import { closure, testSpec } from './consumer-test.mjs';
 
-const consumerRunner = fileURLToPath(new URL('../.github/scripts/run-port-consumer.mjs', import.meta.url));
-const fetchPublished = fileURLToPath(new URL('../.github/scripts/fetch-published.mjs', import.meta.url));
+const consumerRunner = fileURLToPath(new URL('./run-port-consumer.mjs', import.meta.url));
+const fetchPublished = fileURLToPath(new URL('./fetch-published.mjs', import.meta.url));
 
 export function testPort(root, port, { build = true } = {}) {
   if (!testSpec(port.relative, root)) throw new Error(`${port.relative}: no test.mjs declared`);

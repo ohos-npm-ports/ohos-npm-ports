@@ -57,7 +57,7 @@ if (process.argv[2] === 'serve') {
   if (!testSpec(process.argv[2])?.browser) process.exit(0);
   const app = mkdtempSync(join(tmpdir(), 'consumer-browser-'));
   const npmCli = process.platform === 'win32' ? join(resolve(process.execPath, '..'), 'node_modules/npm/bin/npm-cli.js') : execFileSync('sh', ['-c', 'command -v npm'], { encoding: 'utf8' }).trim();
-  execFileSync(process.execPath, [npmCli, 'install', '--prefix', app, '--no-audit', '--no-fund', `playwright-core@${JSON.parse(readFileSync(join(script, '../tool-versions.json'), 'utf8'))['playwright-core']}`], { stdio: 'inherit', timeout: 300000 });
+  execFileSync(process.execPath, [npmCli, 'install', '--prefix', app, '--no-audit', '--no-fund', `playwright-core@${JSON.parse(readFileSync(join(script, '../../cli/tool-versions.json'), 'utf8'))['playwright-core']}`], { stdio: 'inherit', timeout: 300000 });
   execFileSync(process.execPath, [join(app, 'node_modules/playwright-core/cli.js'), 'install', ...(process.platform === 'linux' ? ['--with-deps'] : []), 'chromium'], { stdio: 'inherit', timeout: 600000 });
   const log = openSync('.consumer-browser.log', 'a');
   const ready = resolve('.consumer-browser.ready');
