@@ -60,7 +60,7 @@ function manifests(directory, selected) {
       try { execFileSync('git', [...args, 'cat-file', '-e', `${manifest.sourceSha}^{commit}`], { cwd: repo, stdio: 'ignore' }); }
       catch { execFileSync('git', [...args, 'fetch', '--no-tags', 'origin', manifest.sourceSha], { cwd: repo, stdio: 'inherit' }); }
       const inputs = (ref) => execFileSync('git', [...args, 'ls-tree', '-r', ref, '--', manifest.portDir], { cwd: repo, encoding: 'utf8' })
-        .split('\n').filter((line) => line && !line.endsWith('/test.js')).join('\n');
+        .split('\n').filter((line) => line && !line.endsWith('/test.mjs')).join('\n');
       assert.equal(inputs('HEAD'), inputs(manifest.sourceSha), `Replayed build inputs changed: ${manifest.portDir}`);
     } else {
       assert.equal(manifest.sourceSha, process.env.GITHUB_SHA, `Artifact from a different commit: ${path}`);

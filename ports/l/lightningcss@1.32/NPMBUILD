@@ -102,19 +102,3 @@ if (!output.includes('.a') || !output.includes('red')) throw new Error('unexpect
 JS
 
 }
-
-check() {
-  package_version=$(node -p "require('./package.json').version")
-  mkdir -p /tmp/lightningcss-consumer
-  npm pack --pack-destination /tmp/lightningcss-consumer
-  mkdir -p /tmp/lightningcss-consumer/project
-  cd /tmp/lightningcss-consumer/project
-  npm install --no-audit --no-fund /tmp/lightningcss-consumer/ohos-npm-ports-lightningcss-${package_version}.tgz
-  node - <<'JS'
-const { transform } = require('@ohos-npm-ports/lightningcss');
-const { code } = transform({ filename: 'consumer.css', code: Buffer.from('.consumer { color: red }'), minify: true });
-const output = code.toString();
-console.log('packed consumer transform() output:', output);
-if (!output.includes('.consumer') || !output.includes('red')) throw new Error('packed consumer transform failed');
-JS
-}

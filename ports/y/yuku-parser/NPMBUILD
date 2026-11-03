@@ -2,7 +2,7 @@
 pkgname="yuku-parser"
 upstream="yuku-parser"
 version="0.19.0"
-revision=1
+revision=2
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
 sha256="3655d771568e9e326a99ff5e43a6e72d4150f8098125c125e9e05d20c13172e5"
 dist_tag="latest"
@@ -42,7 +42,7 @@ prepare() {
   # 因此 binding 必须嵌在 bundled yuku-core 内，而不是 parser 根目录。
   #
   # 发布目录名必须与 NPMBUILD packages 一致，并留在配方目录根下，
-  # 所以中间件放 STAGE，成品由 package() 落到 OUT，check() 不删 OUT。
+  # 所以中间件放 STAGE，成品由 package() 落到 OUT。
   # ============================================================
 
   # ===== fetch =====
@@ -70,7 +70,7 @@ build() {
   echo "=== build: 打 patch + grep marker + 交叉编译 yuku-core binding ==="
   cd "${stage_dir}/src"
 
-  # check() 拿它断言 patch 只改了 package.json
+  # package() 拿它断言 patch 只改了 package.json
   find . -type f -exec sha256sum {} + | sed 's|\./||' | sort >"${work_dir}/before.sha256"
 
   patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
@@ -97,9 +97,8 @@ package() {
     cp "${stage_dir}/yuku/npm/yuku-core/${file}" "${core_dir}/${file}"
   done
 
-  # bundled yuku-core 的 manifest 必须去掉上游 optionalDependencies（否则 npm 会
-  # 再拉一套非 OHOS 的 binding），并把包内 OpenHarmony binding 加进 files，
-  # 否则 npm pack 会按上游 files 白名单把它排除掉。
+  # 桌面平台 optionalDependencies 提升到主包，确保它们进入 npm ci 的锁文件。
+  # 包内 OpenHarmony binding 加进 files，否则 npm pack 会按上游 files 白名单排除它。
   node - "${stage_dir}/yuku/npm/yuku-core/package.json" "${core_dir}/package.json" "${slot_name}" "${version}" <<'NODE'
 const fs = require("node:fs");
 const [source, target, slot, version] = process.argv.slice(2);
@@ -120,22 +119,22 @@ NODE
   cp "${stage_dir}/yuku-core.node" "${core_dir}/${slot_name}/yuku-core.node"
 
   cd "${output_dir}"
-  node - "${slot_name}" "${version}" <<'NODE'
+  node - "${slot_name}" "${version}" "${stage_dir}/yuku/npm/yuku-core/package.json" <<'NODE'
 const fs = require("node:fs");
-const [slot, version] = process.argv.slice(2);
+const [slot, version, coreSource] = process.argv.slice(2);
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
 if (pkg.version !== version) { console.error(`bad version: ${pkg.version}`); process.exit(1); }
 if (!pkg.bundledDependencies?.includes("yuku-core")) { console.error("yuku-core is not bundled"); process.exit(1); }
+const upstreamCore = JSON.parse(fs.readFileSync(coreSource, "utf8"));
+pkg.optionalDependencies = { ...upstreamCore.optionalDependencies };
+fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
 const core = JSON.parse(fs.readFileSync("node_modules/yuku-core/package.json", "utf8"));
 if (core.name !== "yuku-core" || core.version !== pkg.version) { console.error(`bad core manifest: ${core.name}@${core.version}`); process.exit(1); }
 if (!core.files?.includes(slot)) { console.error(`core files do not include ${slot}`); process.exit(1); }
-if (core.optionalDependencies) { console.error("core still lists upstream optional bindings"); process.exit(1); }
+if (core.optionalDependencies) { console.error("nested optional dependencies would be missing from the lock file"); process.exit(1); }
+if (!pkg.optionalDependencies?.["@yuku-core/binding-linux-x64-gnu"]) { console.error("main package is missing desktop optional bindings"); process.exit(1); }
 console.log("OK: manifests");
 NODE
-}
-
-check() {
-  echo "=== test: 哈希不变量 + 真实 loader 解析冒烟 ==="
   rm -f "${output_dir}/package.json.orig"
   cd "${output_dir}"
 
@@ -146,23 +145,9 @@ check() {
     "${work_dir}/after.sha256" >"${work_dir}/after.filtered"
   diff "${work_dir}/before.filtered" "${work_dir}/after.filtered"
 
-  # 容器 node 报 openharmony，这次 parse 走的是真实 yuku-core loader 的包内 binding
-  node --input-type=module -e '
-      import { parse, TokenKind } from "./index.js";
-      const result = parse("const answer: number = 40 + 2;", { path: "sample.ts" });
-      const declaration = result.program?.body?.[0];
-      if (result.program?.type !== "Program") throw new Error("parse did not return a Program");
-      if (declaration?.type !== "VariableDeclaration" || declaration.kind !== "const") throw new Error("unexpected declaration");
-      if (result.diagnostics.length !== 0) throw new Error(`unexpected diagnostics: ${result.diagnostics.length}`);
-      if (TokenKind.Const === undefined) throw new Error("TokenKind export is missing");
-      console.log("loader smoke:", result.program.type, declaration.type, declaration.kind);
-    '
-
   cd "${work_dir}"
   rm -rf "${stage_dir}"
   rm -f "${work_dir}"/before.sha256 "${work_dir}"/after.sha256 \
     "${work_dir}"/before.filtered "${work_dir}/after.filtered"
   test -d "${output_dir}"
-
-  echo "OK: @ohos-npm-ports/${pkgname} ${version} built and smoke-tested"
 }

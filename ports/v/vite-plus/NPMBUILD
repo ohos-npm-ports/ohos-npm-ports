@@ -153,7 +153,7 @@ package() {
   cp -a "${stage_dir}/tgz" "${output_dir}"
   cd "${output_dir}"
   patch -p1 <"${work_dir}/patches/0006-fix-core-version.patch"
-  node "${work_dir}/test.js" "${output_dir}"
+  node "${work_dir}/verify-core.mjs" "${output_dir}"
 
   cp "${stage_dir}/src/packages/cli/${binding}" "${binding}"
 
@@ -162,18 +162,10 @@ package() {
       if (p.version !== process.argv[1]) { console.error("bad version: " + p.version); process.exit(1); }
       console.log("OK: manifest");
     ' "${version}"
-}
-
-check() {
-  echo "=== test: loader 接线断言 ==="
-  cd "${output_dir}"
-
   grep -q "process.platform === 'openharmony'" binding/index.cjs
   grep -q "require('./${pkgname}.openharmony-arm64.node')" binding/index.cjs
 
   cd "${work_dir}"
   rm -rf "${stage_dir}"
   test -d "${output_dir}"
-
-  echo "OK: @ohos-npm-ports/${pkgname} ${version} built and verified"
 }

@@ -5,8 +5,6 @@ const vm = require('node:vm');
 const [root, upstream] = process.argv.slice(2).map(p => path.resolve(p));
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json')));
 const original = JSON.parse(fs.readFileSync(path.join(upstream, 'package.json')));
-assert.equal(pkg.name, '@ohos-npm-ports/utoo-pack');
-assert.ok(pkg.version.startsWith(`${original.version}-`));
 assert.equal(pkg.dependencies['domparser-rs'], 'npm:@ohos-npm-ports/domparser-rs@0.0.7-1');
 assert.deepEqual(pkg.optionalDependencies, original.optionalDependencies);
 assert.equal(pkg.dependencies['@utoo/pack-shared'], '1.5.31');
@@ -44,11 +42,10 @@ for(const name of fs.readdirSync(upstream,{recursive:true})) {
   : fs.readFileSync(old);
  assert.deepEqual(fs.readFileSync(current),expected,name);
 }
+const actual=structuredClone(pkg);
 const expected=structuredClone(original);
-expected.name=pkg.name;
-expected.version=pkg.version;
-expected.repository={...original.repository,type:'git',url:'git+https://github.com/ohos-npm-ports/ohos-npm-ports.git',directory:'ports/u/utoo-pack'};
+for(const key of ['name','version','repository']) {delete actual[key];delete expected[key];}
 expected.dependencies['domparser-rs']='npm:@ohos-npm-ports/domparser-rs@0.0.7-1';
 delete expected.scripts.prepublishOnly;
-assert.deepEqual(pkg,expected);
+assert.deepEqual(actual,expected);
 console.log('package, native placement, upstream files and platform loaders verified');

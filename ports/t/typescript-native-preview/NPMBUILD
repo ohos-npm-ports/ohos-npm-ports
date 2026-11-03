@@ -87,37 +87,15 @@ package() {
   "files": ["lib", "LICENSE", "NOTICE.txt"]
 }
 EOF
-}
-
-check() {
   cd "${package_dir}"
-
-  node -e "
-const p = require('./package.json');
-if (p.name !== '@ohos-npm-ports/typescript-native-preview') throw new Error('name: ' + p.name);
-if (p.version !== require('${slot_dir}/package.json').version) throw new Error('version: ' + p.version);
+  node -e '
+const p = require("./package.json");
 const d = Object.keys(p.optionalDependencies || {});
-if (d.length !== 8) throw new Error('optionalDependencies: ' + d.join(','));
-if (!d.includes('@typescript/native-preview-linux-arm64')) throw new Error('missing linux-arm64 slot');
-if (!d.includes('@ohos-npm-ports/typescript-native-preview-openharmony-arm64')) throw new Error('missing openharmony slot');
-"
+if (d.length !== 8) throw new Error("optionalDependencies: " + d.join(","));
+if (!d.includes("@typescript/native-preview-linux-arm64")) throw new Error("missing linux-arm64 slot");
+if (!d.includes("@ohos-npm-ports/typescript-native-preview-openharmony-arm64")) throw new Error("missing openharmony slot");
+'
   node --check lib/getExePath.js
   node --check lib/tsgo.js
   node --check bin/tsgo
-
-  # e2e：槽位包二进制真跑一次 typecheck
-  smoke_dir="$(mktemp -d)"
-  cd "${smoke_dir}"
-  printf '{"compilerOptions":{"strict":true}}' >tsconfig.json
-  printf 'const n: number = "x";\n' >bad.ts
-  "${slot_dir}/lib/tsgo" --version
-  "${slot_dir}/lib/tsgo" --noEmit -p tsconfig.json >out.txt 2>&1 || true
-  grep -q 'error TS2322' out.txt || {
-    cat out.txt >&2
-    exit 1
-  }
-  cd "${package_dir}"
-  rm -rf "${smoke_dir}"
-
-  echo "OK: ${slot_package_name} + @ohos-npm-ports/${pkgname} ${version} (tsgo ${version}, openharmony-arm64, typecheck smoke passed)"
 }

@@ -25,7 +25,7 @@ test('temporary publishing and artifact upload apply to every build event', () =
 test('the build step uses the image toolchain without refreshing Homebrew', () => {
   const build = step('Build', job('build'));
   assert.doesNotMatch(build, /HOMEBREW|brew (update|upgrade)|brew --prefix rust/);
-  assert.match(build, /cli\/npm-ports check "\$\{\{ matrix\.dir \}\}"/);
+  assert.match(build, /cli\/npm-ports package "\$\{\{ matrix\.dir \}\}"/);
   assert.doesNotMatch(build, /python_bin|PYTHON|setup-ci-runner|brew (install|upgrade)/);
   assert.doesNotMatch(workflow, /HOMEBREW_NO_INSTALL_UPGRADE/);
   const installMatrix = readFileSync('.github/actions/install-matrix/action.yml', 'utf8');

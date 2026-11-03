@@ -28,7 +28,7 @@ prepare() {
   # 0.19.0 的 codegen 本身不含原生二进制，因此无需槽位包或交叉编译。
   #
   # 发布目录名必须与 NPMBUILD packages 一致，并留在配方目录根下，
-  # 所以中间件放 STAGE，成品由 package() 落到 OUT，check() 不删 OUT。
+  # 所以中间件放 STAGE，成品由 package() 落到 OUT。
   # ============================================================
 
   # ===== fetch =====
@@ -73,12 +73,7 @@ package() {
       }
       console.log("OK: manifest");
     ' "${version}"
-}
-
-check() {
-  echo "=== test: 哈希不变量 + 真实 ESM 冒烟 ==="
   rm -f "${output_dir}/package.json.orig"
-  cd "${output_dir}"
 
   # 剔除 patch 允许改写的 package.json，其余须逐字节一致
   find . -type f -exec sha256sum {} + | sed 's|\./||' | sort >"${work_dir}/after.sha256"
@@ -86,55 +81,9 @@ check() {
   grep -v '  package\.json$' "${work_dir}/after.sha256" >"${work_dir}/after.filtered"
   diff "${work_dir}/before.filtered" "${work_dir}/after.filtered"
 
-  # 走包的真实 ESM 入口，覆盖格式化、压缩与 source map 三条路径
-  node --input-type=module - <<'JS'
-import assert from 'node:assert/strict';
-import { generate } from './dist/index.js';
-
-const ast = {
-  type: 'Program',
-  sourceType: 'module',
-  start: 0,
-  end: 6,
-  body: [{
-    type: 'ExpressionStatement',
-    start: 0,
-    end: 6,
-    expression: {
-      type: 'BinaryExpression',
-      operator: '+',
-      start: 0,
-      end: 5,
-      left: { type: 'Literal', value: 1, start: 0, end: 1 },
-      right: { type: 'Literal', value: 2, start: 4, end: 5 },
-    },
-  }],
-};
-
-const pretty = generate(ast);
-assert.equal(pretty.code, '1 + 2;');
-assert.deepEqual(pretty.diagnostics, []);
-assert.equal(pretty.map, null);
-
-const compact = generate(ast, { minify: true });
-assert.equal(compact.code, '1+2');
-
-const mapped = generate(ast, {
-  sourceMap: { source: '1 + 2;', file: 'out.js', sourceFileName: 'in.js' },
-});
-assert.equal(mapped.code, '1 + 2;');
-assert.equal(mapped.map.version, 3);
-assert.equal(mapped.map.file, 'out.js');
-assert.deepEqual(mapped.map.sources, ['in.js']);
-assert.ok(mapped.map.mappings.length > 0);
-console.log('codegen smoke:', pretty.code, '| minified:', compact.code);
-JS
-
   cd "${work_dir}"
   rm -rf "${stage_dir}"
   rm -f "${work_dir}"/before.sha256 "${work_dir}"/after.sha256 \
     "${work_dir}"/before.filtered "${work_dir}/after.filtered"
   test -d "${output_dir}"
-
-  echo "OK: @ohos-npm-ports/${pkgname} ${version} built and smoke-tested"
 }

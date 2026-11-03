@@ -164,9 +164,6 @@ package() {
       exit 1
     }
   done
-}
-
-check() {
   # @prisma/engines compatibility surface (for the overrides route): the prisma
   # CLI accesses exactly these 4 symbols plus the default constant, and matches
   # the upstream values (@prisma/engines-version exports the bare commit;
@@ -187,55 +184,4 @@ check() {
       if (lib.version().commit !== "6a3747c37ff169c90047725a05a6ef02e32ac97e") { console.error("engine commit mismatch"); process.exit(1); }
       console.log("OK: @prisma/engines compatibility surface present at " + p);
     '
-  # Real functional smoke: db push + generate + a PrismaClient round-trip.
-  node -e '
-      const path = require("path");
-      const { execSync } = require("child_process");
-      const fs = require("fs");
-      const os = require("os");
-
-      const pkg = require("'"${build_dir}"'/pkg/index.js");
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prisma-engines-smoke-"));
-      process.chdir(dir);
-
-      fs.writeFileSync("schema.prisma", `
-generator client {
-  provider = "prisma-client-js"
-  output   = "client"
-}
-datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
-}
-model Widget {
-  id   Int    @id @default(autoincrement())
-  name String
-}
-`);
-
-      process.env.PRISMA_SCHEMA_ENGINE_BINARY = pkg.schemaEngineBinaryPath;
-      process.env.PRISMA_QUERY_ENGINE_LIBRARY = pkg.queryEngineLibraryPath;
-
-      execSync(
-        `npx --yes prisma@${process.argv[1]} db push --schema schema.prisma --skip-generate`,
-        { stdio: "inherit" },
-      );
-      execSync(
-        `npx --yes prisma@${process.argv[1]} generate --schema schema.prisma`,
-        { stdio: "inherit" },
-      );
-
-      const { PrismaClient } = require(path.join(dir, "client"));
-      (async () => {
-        const prisma = new PrismaClient();
-        const w = await prisma.widget.create({ data: { name: "smoke-test" } });
-        if (w.name !== "smoke-test") throw new Error("unexpected row: " + JSON.stringify(w));
-        const found = await prisma.widget.findUnique({ where: { id: w.id } });
-        if (!found || found.name !== "smoke-test") throw new Error("read-back failed");
-        await prisma.$disconnect();
-        console.log("OK: native OHOS query-engine + schema-engine work end to end");
-      })();
-    ' "${version}"
-
-  echo "OK: @ohos-npm-ports/prisma-engines built and smoke-tested"
 }

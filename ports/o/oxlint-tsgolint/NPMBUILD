@@ -32,7 +32,7 @@ prepare() {
   # 槽位包名因此固定为 @oxlint-tsgolint/openharmony-arm64。
   #
   # 发布目录名必须与 NPMBUILD packages 一致，并留在配方目录根下，
-  # 所以中间件放 STAGE，成品由 package() 落到 OUT，check() 不删 OUT。
+  # 所以中间件放 STAGE，成品由 package() 落到 OUT。
   # ============================================================
 
   brew install -y go
@@ -82,7 +82,7 @@ build() {
   chmod +x tsgolint
 
   cd "${stage_dir}/src"
-  # check() 拿它断言 patch 只改了 manifest 与 loader
+  # package() 拿它断言 patch 只改了 manifest 与 loader
   find . -type f -exec sha256sum {} + | sed 's|\./||' | sort >"${work_dir}/before.sha256"
 }
 
@@ -120,10 +120,6 @@ package() {
   ]
 }
 EOF
-}
-
-check() {
-  echo "=== test: 哈希不变量 + 真实入口 lint 冒烟 ==="
   rm -f "${output_dir}/package.json.orig"
   cd "${output_dir}"
 
@@ -136,23 +132,9 @@ check() {
     "${work_dir}/after.sha256" >"${work_dir}/after.filtered"
   diff "${work_dir}/before.filtered" "${work_dir}/after.filtered"
 
-  # oxlint 走的就是这条入口：lint 一个故意写错类型的文件，期望对应诊断
-  smoke_dir="${stage_dir}/smoke"
-  mkdir -p "${smoke_dir}"
-  cd "${smoke_dir}"
-  printf '{"compilerOptions":{"strict":true}}' >tsconfig.json
-  printf 'const n = 1 as unknown as string | undefined;\n' >bad.ts
-  "${output_dir}/bin/tsgolint.js" -tsconfig tsconfig.json bad.ts >out.txt 2>&1 || true
-  grep -q 'no-unsafe-type-assertion' out.txt || {
-    cat out.txt >&2
-    exit 1
-  }
-
   cd "${work_dir}"
   rm -rf "${stage_dir}"
   rm -f "${work_dir}"/before.sha256 "${work_dir}"/after.sha256 \
     "${work_dir}"/before.filtered "${work_dir}/after.filtered"
   test -d "${output_dir}"
-
-  echo "OK: @ohos-npm-ports/${pkgname} ${version} built and smoke-tested"
 }

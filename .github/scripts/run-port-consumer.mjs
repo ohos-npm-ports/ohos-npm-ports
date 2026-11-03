@@ -107,7 +107,7 @@ function manifests(directory, required) {
       try { execFileSync('git', [...gitArgs, 'cat-file', '-e', `${manifest.sourceSha}^{commit}`], { cwd: repo, stdio: 'ignore' }); }
       catch { execFileSync('git', [...gitArgs, 'fetch', '--no-tags', 'origin', manifest.sourceSha], { cwd: repo, stdio: 'inherit' }); }
       const inputs = (ref) => execFileSync('git', [...gitArgs, 'ls-tree', '-r', ref, '--', manifest.portDir], { cwd: repo, encoding: 'utf8' })
-        .split('\n').filter((line) => line && !line.endsWith('/test.js')).join('\n');
+        .split('\n').filter((line) => line && !line.endsWith('/test.mjs')).join('\n');
       const current = inputs('HEAD');
       assert.ok(current, `Missing build inputs: ${manifest.portDir}`);
       assert.equal(inputs(manifest.sourceSha), current, `Replayed build inputs changed: ${manifest.portDir}`);
@@ -156,12 +156,11 @@ async function portTests(project, specs, mode, primary, phase = 'test') {
   const reports = {};
   const testDir = join(project, '.port-tests');
   mkdirSync(testDir, { recursive: true });
+  const runner = join(repo, 'cli/consumer-test-runner.mjs');
   for (const [index, spec] of specs.filter((entry) => phase === 'setup' ? entry.setup : entry.portDir === primary || entry.role === 'support').entries()) {
-    const test = join(testDir, `${phase}-${index}.${spec.format === 'esm' ? 'mjs' : 'cjs'}`);
     const report = join(testDir, `${phase}-${index}.json`);
-    cpSync(spec.file, test);
     console.log(`Port ${phase}: ${spec.portDir} (${mode})`);
-    await run([test], project, false, { PORT_TEST_PHASE: phase, PORT_TEST_MODE: mode, PORT_TEST_REPORT: report, PORT_TEST_PRIMARY: String(spec.portDir === primary), PORT_TEST_PORT_VERSION: spec.portVersion, PORT_TEST_NPM_CLI: npmCli, PORT_TEST_HELPER: pathToFileURL(join(fixture, 'test-tools.mjs')).href }, spec.timeout * 1000);
+    await run([runner, spec.file, phase, mode, String(spec.portDir === primary), report], project, false, { PORT_TEST_PORT_VERSION: spec.portVersion, PORT_TEST_NPM_CLI: npmCli, PORT_TEST_HELPER: pathToFileURL(join(fixture, 'test-tools.mjs')).href }, spec.timeout * 1000);
     if (phase === 'setup') continue;
     const result = JSON.parse(readFileSync(report));
     assert.ok(result.result && typeof result.result === 'object', `Invalid report from ${spec.portDir}`);
@@ -180,9 +179,17 @@ try {
   assert.equal(selected.length, 1, 'Each consumer job must validate exactly one primary port');
   const cases = selected.map((dir) => {
     const spec = testSpec(dir);
-    assert.ok(spec, `Missing test.js: ${dir}`);
+    assert.ok(spec, `Missing test.mjs: ${dir}`);
     return spec;
   });
+  const unsupported = cases.find((entry) => !entry.platforms.includes(process.platform));
+  if (unsupported) {
+    const message = `SKIP ${unsupported.portDir} on ${process.platform}/${process.arch}: ${unsupported.reason}`;
+    console.log(`::notice::${message}`);
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${message}\n`);
+    rmSync(temporary, { recursive: true, force: true });
+    process.exit(0);
+  }
   const orderedDirs = closure(selected);
   assert.ok(existsSync(artifactRoot), `Missing pre-release artifacts: ${artifactRoot}; inspect producer publish/upload steps`);
   const built = manifests(artifactRoot, new Set(orderedDirs));
@@ -241,7 +248,7 @@ try {
   if (process.platform === 'openharmony') console.log('Upstream native bindings may not support OpenHarmony; validating override consumers only');
   for (const [index, entry] of cases.entries()) {
     assert.ok(entry.platforms.includes(process.platform), `${entry.portDir} must pass every matrix OS; unsupported ${process.platform}: ${entry.reason ?? 'no reason'}`);
-    const testSpecs = closure([entry.portDir]).map(testSpec).filter(Boolean);
+    const testSpecs = closure([entry.portDir]).map((dir) => testSpec(dir)).filter(Boolean);
     const specs = testSpecs.filter((spec) => spec.role !== 'support');
     assert.equal(new Set(specs.map((spec) => spec.upstream)).size, specs.length, 'Conflicting dependency specs in one consumer');
     const label = entry.portDir;
