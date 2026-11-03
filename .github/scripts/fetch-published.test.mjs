@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { fetchPort, slotNames } from './fetch-published.mjs';
+import { fetchPort, slotNames } from '../../cli/fetch-published.mjs';
 
 const sha = 'a'.repeat(40);
 const main = '@ohos-npm-ports/demo';

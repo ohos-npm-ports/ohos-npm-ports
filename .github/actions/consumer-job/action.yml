@@ -54,7 +54,7 @@ runs:
         EXPECTED_PLATFORM: ${{ inputs.platform }}
         EXPECTED_ARCH: ${{ inputs.arch }}
       shell: bash
-      run: node .github/scripts/run-port-consumer.mjs .port-artifacts
+      run: node cli/run-port-consumer.mjs .port-artifacts
     - name: Upload diagnostic logs
       if: failure()
       uses: actions/upload-artifact@v7

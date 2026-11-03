@@ -135,7 +135,7 @@ test('only pull_request runs share a concurrency group', () => {
 });
 
 test('tool versions are exact', () => {
-  const versions = JSON.parse(readFileSync('.github/scripts/tool-versions.json', 'utf8'));
+  const versions = JSON.parse(readFileSync('cli/tool-versions.json', 'utf8'));
   assert.ok(Object.keys(versions).length > 0);
   for (const [name, version] of Object.entries(versions)) assert.match(version, /^\d+\.\d+\.\d+$/, name);
 });
@@ -146,7 +146,7 @@ test('workflow files that change the build are in both push and pull_request pat
     workflow.slice(workflow.indexOf('  pull_request:'), workflow.indexOf('\npermissions:')),
   ];
   for (const block of blocks) {
-    for (const file of ['.github/workflows/ci.yml', '.github/scripts/tool-versions.json', '.github/scripts/ci-workflow.test.mjs']) {
+    for (const file of ['.github/workflows/ci.yml', '.github/scripts/ci-workflow.test.mjs']) {
       assert.ok(block.includes(`"${file}"`), file);
     }
     for (const directory of ['cli', 'test']) assert.ok(block.includes(`"${directory}/**"`), directory);

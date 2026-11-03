@@ -8,8 +8,8 @@ import { createHash } from 'node:crypto';
 import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadPort } from '../../cli/port.mjs';
-import { packageMetadata } from '../../cli/registry.mjs';
+import { loadPort } from './port.mjs';
+import { packageMetadata } from './registry.mjs';
 
 const scope = '@ohos-npm-ports/';
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -87,7 +87,7 @@ export function fetchPort(root, dir, { sourceSha, metadataOf = packageMetadata, 
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   const sourceSha = process.env.GITHUB_SHA ?? execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
   const dirs = process.argv.slice(2);
   assert.ok(dirs.length > 0, 'Usage: fetch-published.mjs <port dir>...');

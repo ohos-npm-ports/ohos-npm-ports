@@ -6,7 +6,7 @@ import { appendFileSync, closeSync, existsSync, mkdirSync, mkdtempSync, openSync
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { registryConfig } from '../.github/scripts/consumer-registry.mjs';
+import { registryConfig } from '../cli/consumer-registry.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const registry = 'http://127.0.0.1:4873';
@@ -108,7 +108,7 @@ exec "$REAL_NPM" "$@"
     const expected = readFileSync(expectedFile, 'utf8').split('\n').filter(Boolean);
     assert.ok(expected.length > 0, 'NPMBUILD did not declare any package');
 
-    const versions = JSON.parse(readFileSync(join(repo, '.github/scripts/tool-versions.json'), 'utf8'));
+    const versions = JSON.parse(readFileSync(join(repo, 'cli/tool-versions.json'), 'utf8'));
     for (let attempt = 1; ; attempt++) {
       try {
         await run(realNpm, ['install', '--prefix', join(temporary, 'app'), '--no-audit', '--no-fund', '--fetch-retries=5', `verdaccio@${versions.verdaccio}`]);
