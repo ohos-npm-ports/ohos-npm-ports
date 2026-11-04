@@ -68,7 +68,6 @@ build() {
   patch -p1 <"${work_dir}/patches/0001-workspace-config-ohos.patch"
   patch -p1 <"${work_dir}/patches/0002-rustc-compat-fixes.patch"
   patch -p1 <"${work_dir}/patches/0005-build-rs-no-git-required.patch"
-  # toybox patch can silently no-op on a malformed header; assert it landed.
   grep -q '\[patch.crates-io\]' Cargo.toml
   grep -q 'PanicHookInfo' libs/user-facing-errors/src/lib.rs
   grep -q 'GIT_HASH=6a3747c' query-engine/query-engine-node-api/build.rs

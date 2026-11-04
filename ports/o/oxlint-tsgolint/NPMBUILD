@@ -23,7 +23,7 @@ prepare() {
   #   1. clone tsgolint v7.0.2003（含 typescript-go submodule），按上游 justfile
   #      的方式打 patches/0*.patch，go build 出静态二进制
   #   2. 下载官方 oxlint-tsgolint@7.0.2003 tarball，钉住 sha256
-  #   3. 打两个 patch：改写 manifest + 给 loader 加 openharmony 分支，grep marker
+  #   3. 打两个 patch：改写 manifest + 给 loader 加 openharmony 分支
   #   4. 二进制与槽位包 manifest 一起塞进
   #      @oxlint-tsgolint/openharmony-arm64/
   #   5. 哈希不变量 + 走真实入口的 lint 冒烟
@@ -83,12 +83,10 @@ build() {
 }
 
 package() {
-  echo "=== package: 打 patch + grep marker + 嵌入二进制与槽位 manifest ==="
+  echo "=== package: 应用 patch + 嵌入二进制与槽位 manifest ==="
   cd "${stage_dir}/src"
 
   patch -p1 <"${work_dir}/patches/0002-openharmony-loader.patch"
-  # patch 对零上下文 hunk 的越界行号会静默套用到文件末尾（exit 0）
-  grep -q "\"version\": \"${version}\"" package.json
   grep -q "openharmony" bin/tsgolint.js
   node --check bin/tsgolint.js
 

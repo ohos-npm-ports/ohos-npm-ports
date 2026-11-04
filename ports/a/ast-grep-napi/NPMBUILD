@@ -32,16 +32,11 @@ build() {
 
   extract_resource "npm" "$NPMBUILD_WORK_DIR/ast-grep-napi-${version}"
   cd "$NPMBUILD_WORK_DIR/ast-grep-napi-${version}"
-  for patch in "$NPMBUILD_DIR"/patches/*.patch; do
-    patch -p1 <"$patch"
-  done
+  manifest_add_files package.json 'ast-grep-napi.openharmony-arm64.node'
+  manifest_remove_script package.json prepublishOnly
   grep -q "\"version\": \"${version}\"" package.json
   grep -q '"ast-grep-napi.openharmony-arm64.node"' package.json
   grep -q '"@ast-grep/napi-linux-arm64-gnu": "'"${version}"'"' package.json
-  if grep -q '"prepublishOnly"' package.json; then
-    echo "prepublishOnly still present" >&2
-    exit 1
-  fi
 
   cp "../ast-grep-napi.node" "ast-grep-napi.openharmony-arm64.node"
   chmod +x "ast-grep-napi.openharmony-arm64.node"

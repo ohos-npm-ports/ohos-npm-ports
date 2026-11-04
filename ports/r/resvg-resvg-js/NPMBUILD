@@ -2,7 +2,7 @@
 pkgname="resvg-resvg-js"
 upstream="@resvg/resvg-js"
 version="2.6.2"
-revision=5
+revision=6
 dist_tag="latest"
 
 packages=(
@@ -18,7 +18,7 @@ source_name=resvg-js
 build() {
   # Native cargo build: this container's rustc host triple is already
   # aarch64-unknown-linux-ohos, so no cross-compile target/toolchain wrapper is
-  # needed. We build the cdylib directly with `cargo build --release` instead
+  # needed. We build the cdylib directly with `cargo build --locked --release` instead
   # of going through `napi build` — upstream's devDependencies pin
   # `@napi-rs/cli@^2.18.0`, which does not recognize `openharmony` as a host
   # platform, and unlike lightningcss we don't need its `--js`/`--dts`
@@ -29,7 +29,7 @@ build() {
   extract_source "$NPMBUILD_WORK_DIR/${source_name}-${version}"
 
   cd "$NPMBUILD_WORK_DIR/${source_name}-${version}"
-  patch -p1 <"$NPMBUILD_DIR/patches/0001-update-package-json.patch"
+  manifest_add_files package.json 'resvgjs.linux-arm64-ohos.node'
   patch -p1 <"$NPMBUILD_DIR/patches/0002-openharmony-loader.patch"
 
   # The committed rust-toolchain file pins nightly-2023-12-11 via rustup, which
@@ -38,7 +38,18 @@ build() {
   # lookup if any tool in the chain checks for it.
   rm -f rust-toolchain
 
-  cargo build --release
+  # Clang does not honor SOURCE_DATE_EPOCH here. Lock dependencies and pin
+  # mimalloc's __DATE__/__TIME__ macros to the source archive timestamp.
+  patch -p1 <"$NPMBUILD_DIR/patches/0003-add-cargo-lock.patch"
+  source_date_epoch="$(stat -c %Y Cargo.toml)"
+  build_date="$(date -u -d "@${source_date_epoch}" '+%b %e %Y')"
+  build_time="$(date -u -d "@${source_date_epoch}" '+%H:%M:%S')"
+  cflags_reproducible='-Wno-builtin-macro-redefined'
+  cflags_reproducible+=" -D__DATE__='\"${build_date}\"'"
+  cflags_reproducible+=" -D__TIME__='\"${build_time}\"'"
+  export CC_SHELL_ESCAPED_FLAGS=1
+  export CFLAGS="${CFLAGS:-} ${cflags_reproducible}"
+  cargo build --locked --release
 
   test -f target/release/libresvg_js.so
   cp target/release/libresvg_js.so resvgjs.linux-arm64-ohos.node

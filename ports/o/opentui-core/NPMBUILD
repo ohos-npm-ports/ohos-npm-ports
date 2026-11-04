@@ -79,7 +79,6 @@ build() {
   patch -p1 <"${port_dir}/patches/0003-ohos-weak-pthread-tryjoin.patch"
   patch -p1 <"${port_dir}/patches/0004-skip-native-abi-check.patch"
   patch -p1 <"${port_dir}/patches/0005-ohos-zig-target.patch"
-  # toybox patch 对错 header 静默 no-op，打完必须 grep marker
   grep -q '"#opentui/parser-worker"' packages/core/scripts/build.ts
   grep -q 'core-openharmony-arm64' packages/core/src/platform/runtime-assets.bun.ts
   grep -q 'core-openharmony-arm64' packages/core/src/platform/runtime-assets.node.ts
@@ -212,7 +211,6 @@ slot_openharmony_arm64_build() {
   cd "${root_dir}/${source_dir}"
   patch -p1 <"${port_dir}/patches/0003-ohos-weak-pthread-tryjoin.patch"
   patch -p1 <"${port_dir}/patches/0005-ohos-zig-target.patch"
-  # toybox patch 对错 header 静默 no-op，打完必须 grep marker
   grep -q 'linkage = .weak' packages/native/src/clipboard/host.zig
   grep -q '"aarch64-linux-ohos"' packages/native/build.zig
 

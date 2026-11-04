@@ -121,8 +121,6 @@ build() {
 
   # --- verify package contents ---
 
-  # toybox patch can silently no-op on a malformed header, so confirm the
-  # patches actually landed rather than trusting patch's exit code.
   grep -q 'turbo-linux-arm64' bin/turbo
   grep -q 'platform === "openharmony"' bin/turbo
 

@@ -2,7 +2,7 @@
 pkgname="lightningcss"
 upstream="lightningcss"
 version="1.32.0"
-revision=3
+revision=4
 dist_tag="legacy-1.32"
 
 packages=(
@@ -10,13 +10,16 @@ packages=(
 )
 source="https://github.com/parcel-bundler/lightningcss/archive/refs/tags/v${version}.tar.gz"
 sha256="ca67b9ba532d439f5f91d23debfc2543d6decac130ee88bc4c66202fc7173ad9"
+resource "npm" \
+  "https://registry.npmjs.org/lightningcss/-/lightningcss-${version}.tgz" \
+  "c83e81ea213c9e419c5877460a6788f0d0931d58a4aa9fea92fac1a99a1550e8"
 
 build() {
   extract_source "$NPMBUILD_WORK_DIR/${pkgname}-${version}"
 
   cd "$NPMBUILD_WORK_DIR/${pkgname}-${version}"
   find . -type f -exec sha256sum {} + | sort >/tmp/lightningcss-${version}-before.sha256
-  patch -p1 <"$NPMBUILD_DIR/patches/0001-update-package-json.patch"
+  manifest_add_files package.json 'lightningcss.linux-arm64-ohos.node'
   patch -p1 <"$NPMBUILD_DIR/patches/0002-openharmony-loader.patch"
   node - "${version}" <<'JS'
 const assert = require('node:assert/strict');
@@ -51,6 +54,15 @@ JS
   test -f lightningcss.linux-arm64-ohos.node
   llvm-strip --strip-all lightningcss.linux-arm64-ohos.node
   chmod +x lightningcss.linux-arm64-ohos.node
+
+  extract_resource "npm" "$NPMBUILD_WORK_DIR/npm"
+  node -e '
+  const fs = require("fs");
+  const pkg = JSON.parse(fs.readFileSync("package.json"));
+  const upstream = JSON.parse(fs.readFileSync(process.argv[1]));
+  pkg.optionalDependencies = upstream.optionalDependencies;
+  fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+  ' "$NPMBUILD_WORK_DIR/npm/package.json"
 
   built_version=$(node -e "console.log(require('./package.json').version)")
   [ "$built_version" = "${version}" ]

@@ -29,7 +29,7 @@ prepare() {
   # 构建方式：
   #   1. 下载官方 yuku-parser@${version} tarball 与 yuku monorepo v${version}，
   #      钉住所有下载的 sha256
-  #   2. 打 patch 配置 bundledDependencies，grep marker
+  #   2. 打 patch 配置 bundledDependencies，并校验 manifest
   #   3. 用 zig 0.17 把 monorepo 里的 napi-zig yuku-core binding 交叉编译到
   #      aarch64-linux-musl（与 OHOS 同 libc 族）
   #   4. 零依赖重打包：上游 parser 全部内容进发布目录，并把上游 yuku-core 作为
@@ -52,15 +52,13 @@ prepare() {
 }
 
 build() {
-  echo "=== build: 打 patch + grep marker + 交叉编译 yuku-core binding ==="
+  echo "=== build: 应用 patch + 交叉编译 yuku-core binding ==="
   cd "${stage_dir}/src"
 
   # package() 拿它断言 patch 只改了 package.json
   find . -type f -exec sha256sum {} + | sed 's|\./||' | sort >"${work_dir}/before.sha256"
 
   patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
-  # patch 对零上下文 hunk 的越界行号会静默套用到文件末尾（exit 0）
-  grep -q "\"version\": \"${version}\"" package.json
   grep -q "\"bundledDependencies\"" package.json
   grep -q "\"yuku-core\"" package.json
 

@@ -1,22 +1,6 @@
 --- a/package.json
 +++ b/package.json
-@@ -26,13 +27,13 @@
-     "LICENSE",
-     "src",
-     "scripts/build-from-source.js",
--    "binding.gyp"
-+    "binding.gyp",
-+    "build/Release/watcher.node"
-   ],
-   "scripts": {
-     "prebuild": "prebuildify --napi --strip --tag-libc",
-     "format": "prettier --write \"./**/*.{js,mjs,json,md,ts,flow}\"",
-     "build": "node-gyp rebuild",
--    "install": "node scripts/build-from-source.js",
-     "test": "mocha"
-   },
-   "engines": {
-@@ -82,6 +83,7 @@
+@@ -82,6 +82,7 @@
      "@parcel/watcher-linux-arm-glibc": "2.6.0",
      "@parcel/watcher-linux-arm-musl": "2.6.0",
      "@parcel/watcher-android-arm64": "2.6.0",

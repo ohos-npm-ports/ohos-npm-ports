@@ -74,7 +74,6 @@ build() {
   mkdir -p "${source_dir}/vendor"
   extract_resource "iana_time_zone" "${source_dir}/vendor/iana-time-zone"
   (cd "${source_dir}" && patch -p1 <"${work_dir}/patches/0004-iana-time-zone-dlopen.patch")
-  # toybox patch 错 header 会静默 no-op，退出码不可信，grep marker 确认
   grep -q 'openharmony' "${source_dir}/pnpm/crates/detect-libc/src/lib.rs"
   grep -q 'iana-time-zone = { path' "${source_dir}/Cargo.toml"
   ! grep -q "$resource_iana_time_zone_sha256" "${source_dir}/Cargo.lock"

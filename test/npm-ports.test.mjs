@@ -281,6 +281,20 @@ test('lint separates current port revisions from cross-port dependency pins', (t
   assert.throws(() => lintPort(port), /use bare upstream version/);
 });
 
+test('lint rejects zero-context insertions into existing files', (t) => {
+  const { root, dir } = fixture(t);
+  const file = join(dir, 'NPMBUILD');
+  const patches = join(dir, 'patches');
+  const patch = join(patches, '0001-test.patch');
+  const port = loadPort(root, dir);
+  mkdirSync(patches);
+  writeFileSync(file, `${readFileSync(file, 'utf8')}# 0001-test.patch\n`);
+  writeFileSync(patch, '--- a/src/index.js\n+++ b/src/index.js\n@@ -999,0 +1000,1 @@\n+unexpected\n');
+  assert.throws(() => lintPort(port), /zero-context insertion into an existing file/);
+  writeFileSync(patch, '--- a/src/new.js\n+++ b/src/new.js\n@@ -0,0 +1,1 @@\n+expected\n');
+  assert.doesNotThrow(() => lintPort(port));
+});
+
 test('pack and dry-run publish use exact versioned artifacts', (t) => {
   const { root, dir } = fixture(t);
   const port = loadPort(root, dir);
