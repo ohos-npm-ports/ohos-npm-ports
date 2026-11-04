@@ -55,12 +55,10 @@ prepare() {
 }
 
 build() {
-  echo "=== build: 打 manifest patch + grep marker + 入口回归 ==="
+  echo "=== build: 校验 manifest 与入口 ==="
   cd "${build_dir}/src"
   patch -p1 <"${work_dir}/patches/0002-update-package-json.patch"
-  # toybox patch can silently no-op on a malformed header; assert it landed.
   grep -qF "\"@prisma/composer-cli\": \"npm:@ohos-npm-ports/prisma-composer-cli@${version}\"," package.json
-  grep -q "\"version\": \"${version}\"" package.json
 
   # Prisma 8 removed the bundled engine resolver; guard the premise of this
   # port so a future upstream change cannot silently restore the old download

@@ -141,3 +141,23 @@ extract_resource() {
   shift 2
   _npm_ports_extract "$url" "$sha256" "$destination" "$@"
 }
+
+manifest_add_files() {
+  if [ "$#" -lt 2 ]; then
+    echo 'manifest_add_files requires a package.json and at least one path' >&2
+    return 64
+  fi
+  local file="$1"
+  shift
+  "$NPM_PORTS_NODE" "$NPM_PORTS_MANIFEST" add-files "$file" "$@"
+}
+
+manifest_remove_script() {
+  if [ "$#" -lt 2 ]; then
+    echo 'manifest_remove_script requires a package.json and at least one script name' >&2
+    return 64
+  fi
+  local file="$1"
+  shift
+  "$NPM_PORTS_NODE" "$NPM_PORTS_MANIFEST" remove-scripts "$file" "$@"
+}

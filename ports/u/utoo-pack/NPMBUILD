@@ -49,6 +49,7 @@ build() {
 
 package() {
   cd "$package_dir"
+  manifest_remove_script package.json prepublishOnly
   patch -p1 <"$root_dir/patches/0001-package-json.patch"
   patch -p1 <"$root_dir/patches/0002-share-openharmony-binding.patch"
   grep -q '../cjs/pack.openharmony-arm64.node' esm/binding.js

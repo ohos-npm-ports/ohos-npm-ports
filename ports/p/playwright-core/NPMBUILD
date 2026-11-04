@@ -30,7 +30,7 @@ build() {
     patch -p1 <"$patch"
   done
 
-  echo "==> verifying patch markers"
+  echo "==> verifying OpenHarmony integration"
   test -f packages/playwright-core/src/ohos/launcher.ts
   grep -q 'harmonyBundleName' packages/protocol/spec/mixins.yml
   grep -q "isOpenHarmony() ? resolveCommandPath('ffmpeg')" packages/playwright-core/src/server/registry/index.ts

@@ -1,35 +1,47 @@
 diff --git a/package.json b/package.json
-index b6dcf6c..8e110da 100644
+index b6dcf6c..29e3086 100644
 --- a/package.json
 +++ b/package.json
-@@ -37,1 +37,2 @@
+@@ -34,7 +34,8 @@
+     "@nwutils/getter": "^0.3.1",
+     "@nwutils/runner": "^0.2.7",
+     "commander": "^15.0.0",
 -    "semver": "^7.8.5"
 +    "semver": "^7.8.5",
 +    "@ohos-npm-ports/playwright-core": "1.62.1-5"
+   },
+   "keywords": [
+     "nw",
 diff --git a/src/cli.js b/src/cli.js
-index ebad22b..6bd32b0 100644
+index ebad22b..6bd32b0 100755
 --- a/src/cli.js
 +++ b/src/cli.js
-@@ -10,1 +10,4 @@ import parse from "../src/parse.js";
+@@ -7,7 +7,10 @@ import { program } from "commander";
+
+ import parse from "../src/parse.js";
+
 -await cli();
 +import ohos from "./ohos/runtime.cjs";
 +
 +if (process.platform === "openharmony") await ohos.cli();
 +else await cli();
+
+ async function cli() {
+
 diff --git a/src/index.js b/src/index.js
 index cccbaca..b210dfa 100644
 --- a/src/index.js
 +++ b/src/index.js
-@@ -1,3 +1,3 @@
+@@ -1,12 +1,26 @@
 -import get from "@nwutils/getter";
 -import run from "@nwutils/runner";
 -
 +import process from "node:process";
 +const getUpstream = async options => (await import("@nwutils/getter")).default(options);
 +import runUpstream from "@nwutils/runner";
-@@ -4,0 +5,1 @@ import util from "./util.js";
+ import util from "./util.js";
 +import ohos from "./ohos/runtime.cjs";
-@@ -6,6 +7,18 @@ import util from "./util.js";
+
 -const { findpath } = util;
 -
 -export {
@@ -54,16 +66,31 @@ index cccbaca..b210dfa 100644
 +async function findpath(executable = "nwjs", options = {}) {
 +    if (process.platform !== "openharmony") return util.findpath(executable, options);
 +    throw new Error("No standalone NW executable is installed on OpenHarmony; use run() or the nw CLI");
-@@ -12,0 +26,1 @@ export {
+ }
 +export { findpath, get, run };
 diff --git a/src/postinstall.js b/src/postinstall.js
 index 5121d2d..b21f722 100644
 --- a/src/postinstall.js
 +++ b/src/postinstall.js
-@@ -6,1 +5,0 @@ import url from "node:url";
+@@ -3,12 +3,11 @@ import process from "node:process";
+ import path from "node:path";
+ import url from "node:url";
+
 -import get from "@nwutils/getter";
-@@ -11,1 +10,1 @@ import util from "./util.js";
+ import semver from "semver";
+
+ import util from "./util.js";
+
 -await postinstall()
 +if (process.platform !== "openharmony") await postinstall()
-@@ -20,0 +20,1 @@ async function postinstall() {
+     .catch((error) => {
+         if (error.code === "EPERM") {
+             console.error("Unable to create symlink since user did not run as Administrator.");
+@@ -18,6 +17,7 @@ await postinstall()
+     });
+
+ async function postinstall() {
 +    const { default: get } = await import("@nwutils/getter");
+     const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
+     /**
+      * @type {fs.PathLike}

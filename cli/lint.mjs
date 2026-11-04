@@ -11,11 +11,19 @@ function lintPatch(file, text, port) {
   }
   let existingPackageJson = false;
   let repositoryIndent = -1;
+  let patchSource = '';
   for (const line of text.split('\n')) {
-    if (line.startsWith('--- ')) existingPackageJson = line.trim() !== '--- /dev/null';
+    if (line.startsWith('--- ')) {
+      patchSource = line.slice(4).split('\t')[0];
+      existingPackageJson = patchSource !== '/dev/null';
+    }
     if (line.startsWith('+++ ')) {
       const target = line.slice(4).split('\t')[0];
       existingPackageJson &&= /^(?:b\/)?(?:.*\/)?package\.json$/.test(target);
+    }
+    const insertion = /^@@ -(\d+),0 \+\d+(?:,\d+)? @@/.exec(line);
+    if (patchSource !== '/dev/null' && insertion && Number(insertion[1]) !== 0) {
+      throw new Error(`${file}: zero-context insertion into an existing file; regenerate the hunk with context`);
     }
     if (existingPackageJson && /^[+-]\s*"repository"\s*:/.test(line)) {
       throw new Error(`${file}: repository URL and directory are injected by npm-ports, not patches`);

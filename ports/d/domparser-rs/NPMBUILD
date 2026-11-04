@@ -39,7 +39,8 @@ build() {
 
 package() {
   cd "$package_dir"
-  patch -p1 <"$root_dir/patches/0001-package-json.patch"
+  manifest_add_files package.json 'domparser.openharmony-arm64.node'
+  manifest_remove_script package.json prepublishOnly prepare
   cp "$build_dir/target/release/libdomparser_napi.so" domparser.openharmony-arm64.node
   grep -q "process.platform === 'openharmony'" "$package_dir/index.js"
   test -s "$package_dir/domparser.openharmony-arm64.node"

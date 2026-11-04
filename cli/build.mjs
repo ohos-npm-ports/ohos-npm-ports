@@ -128,6 +128,7 @@ function runHooks(port, component, phases) {
       NPMBUILD_SLOT_DIR: component.directory,
       NPMBUILD_WORK_DIR: join(component.directory, 'build'),
       NPM_PORTS_NODE: process.execPath,
+      NPM_PORTS_MANIFEST: fileURLToPath(new URL('./manifest.mjs', import.meta.url)),
       NPM_PORTS_NORMALIZE: fileURLToPath(new URL('./normalize.mjs', import.meta.url)),
     },
   });

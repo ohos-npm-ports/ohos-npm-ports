@@ -1,8 +1,19 @@
+diff --git a/pnpm-workspace.yaml b/pnpm-workspace.yaml
+index 96f145b..d19e0a5 100644
 --- a/pnpm-workspace.yaml
 +++ b/pnpm-workspace.yaml
-@@ -147,0 +148,1 @@
+@@ -145,6 +145,7 @@ minimumReleaseAgeExclude:
+   - '@babel/*'
+   - '@devframes/*'
+   - '@napi-rs/*'
 +  - '@ohos-npm-ports/*'
-@@ -205,0 +207,8 @@
+   - '@nkzw/*'
+   - '@oxc-node/*'
+   - '@oxc-minify/*'
+@@ -203,6 +204,14 @@ minimumReleaseAgeExclude:
+   - '@vitejs/devtools-*'
+   - resolve.exports@2.0.4
+ overrides:
 +  'yuku-codegen': npm:@ohos-npm-ports/yuku-codegen@0.10.2-1
 +  'yuku-parser': npm:@ohos-npm-ports/yuku-parser@0.10.2-1
 +  '@ast-grep/napi': npm:@ohos-npm-ports/ast-grep-napi@0.43.0-1
@@ -11,3 +22,6 @@
 +  '@parcel/watcher': npm:@ohos-npm-ports/parcel-watcher@2.5.1-2
 +  typescript: npm:@ohos-npm-ports/typescript@7.0.2-3
 +  '@napi-rs/cli>typescript': 6.0.3
+   rolldown: workspace:rolldown@*
+   vite: workspace:@voidzero-dev/vite-plus-core@*
+   vite-plus: workspace:vite-plus@*
