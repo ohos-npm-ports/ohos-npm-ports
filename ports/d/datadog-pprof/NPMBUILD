@@ -6,7 +6,7 @@ revision=1
 dist_tag="latest"
 
 packages=(
-  "datadog-pprof-${version}"
+  "build/datadog-pprof-${version}"
 )
 source="https://github.com/DataDog/pprof-nodejs/archive/refs/tags/v${version}.tar.gz"
 sha256="a9795e81d5b8db306cfb4b5564ff98942f427495098a190ebb89097a0551657d"
@@ -19,13 +19,10 @@ build() {
   # openharmony/arm64 and generates a working Makefile — no cross-compile
   # target/toolchain wrapper needed, same as the napi-rs ports.
 
-  fetch_source pprof.tar.gz
-  tar -zxf pprof.tar.gz
-  rm pprof.tar.gz
-  mv "pprof-nodejs-${version}" "${pkgname}-${version}"
+  extract_source "$NPMBUILD_WORK_DIR/${pkgname}-${version}"
 
-  cd "${pkgname}-${version}"
-  patch -p1 <../patches/0001-update-package-json.patch
+  cd "$NPMBUILD_WORK_DIR/${pkgname}-${version}"
+  patch -p1 <"$NPMBUILD_DIR/patches/0001-update-package-json.patch"
 
   # node-gyp isn't a devDependency of this package (upstream relies on it being
   # available globally / bundled with npm), so install it explicitly to get it
@@ -71,12 +68,10 @@ build() {
   # package keeps working everywhere else, not just on OHOS (node-gyp-build
   # resolves from a single prebuilds/ tree bundled in the one npm package,
   # same model as bufferutil).
-  fetch_resource "npm" official.tgz
-  tar -zxf official.tgz
-  cp -r package/prebuilds/darwin-arm64 package/prebuilds/darwin-x64 \
-    package/prebuilds/linux-arm64 package/prebuilds/linux-x64 \
-    package/prebuilds/win32-x64 prebuilds/
-  rm -rf package official.tgz
+  extract_resource "npm" "$NPMBUILD_WORK_DIR/npm"
+  cp -r "$NPMBUILD_WORK_DIR/npm/prebuilds/darwin-arm64" "$NPMBUILD_WORK_DIR/npm/prebuilds/darwin-x64" \
+    "$NPMBUILD_WORK_DIR/npm/prebuilds/linux-arm64" "$NPMBUILD_WORK_DIR/npm/prebuilds/linux-x64" \
+    "$NPMBUILD_WORK_DIR/npm/prebuilds/win32-x64" prebuilds/
 
   # node-gyp-build checks build/Release before prebuilds/ (its own local-build
   # fast path), and it would happily resolve to the addon still sitting there

@@ -8,21 +8,18 @@ sha256="d439a391e21a8b8d529481cbbec848b6182096e56382dbd4d394680bab9886f4"
 dist_tag="latest"
 
 packages=(
-  "testcafe-${version}"
+  "build/testcafe-${version}"
 )
 
 export npm_config_registry=https://registry.npmjs.org
 
 work_dir="$NPMBUILD_DIR"
-build_dir="$work_dir/.build"
-package_dir="$work_dir/testcafe-${version}"
+build_dir="$NPMBUILD_WORK_DIR"
+package_dir="$build_dir/testcafe-${version}"
 export OPENSSL_CONF=/dev/null
 
 prepare() {
-  mkdir -p "$build_dir"
-  fetch_source "$build_dir/upstream.tgz"
-  rm -rf "$build_dir/package"
-  tar -xzf "$build_dir/upstream.tgz" -C "$build_dir"
+  extract_source "$build_dir/package"
   node - "$build_dir/package" "$build_dir/upstream-hashes.json" <<'JS'
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const root=process.argv[2],hashes={};

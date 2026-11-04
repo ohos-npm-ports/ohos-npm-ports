@@ -11,22 +11,15 @@ packages=(
   "build/playwright-core-${version}"
 )
 script_dir="$NPMBUILD_DIR"
-build_dir="$script_dir/build"
+build_dir="$NPMBUILD_WORK_DIR"
 
 prepare() {
-  mkdir -p "$build_dir"
-  cd "$build_dir"
-
   source_dir="playwright-$version"
   artifact_dir="playwright-core-$version"
   lightningcss_spec="@ohos-npm-ports/lightningcss@1.33.0-1"
-  cd "$build_dir"
   echo "==> downloading playwright $version source"
-  fetch_source "$source_dir.tar.gz"
-  rm -rf "$source_dir"
-  tar -zxf "$source_dir.tar.gz"
-  rm "$source_dir.tar.gz"
-  cd "$source_dir"
+  extract_source "$build_dir/$source_dir"
+  cd "$build_dir/$source_dir"
 }
 
 build() {

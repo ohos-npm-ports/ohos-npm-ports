@@ -6,21 +6,18 @@ revision=3
 dist_tag="legacy-1.32"
 
 packages=(
-  "lightningcss-${version}"
+  "build/lightningcss-${version}"
 )
 source="https://github.com/parcel-bundler/lightningcss/archive/refs/tags/v${version}.tar.gz"
 sha256="ca67b9ba532d439f5f91d23debfc2543d6decac130ee88bc4c66202fc7173ad9"
 
 build() {
-  fetch_source "${pkgname}.tar.gz"
-  rm -rf "${pkgname}-${version}"
-  tar -zxf "${pkgname}.tar.gz"
-  rm "${pkgname}.tar.gz"
+  extract_source "$NPMBUILD_WORK_DIR/${pkgname}-${version}"
 
-  cd "${pkgname}-${version}"
+  cd "$NPMBUILD_WORK_DIR/${pkgname}-${version}"
   find . -type f -exec sha256sum {} + | sort >/tmp/lightningcss-${version}-before.sha256
-  patch -p1 <../patches/0001-update-package-json.patch
-  patch -p1 <../patches/0002-openharmony-loader.patch
+  patch -p1 <"$NPMBUILD_DIR/patches/0001-update-package-json.patch"
+  patch -p1 <"$NPMBUILD_DIR/patches/0002-openharmony-loader.patch"
   node - "${version}" <<'JS'
 const assert = require('node:assert/strict');
 const { createHash } = require('node:crypto');

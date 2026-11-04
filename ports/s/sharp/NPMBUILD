@@ -6,7 +6,7 @@ revision=1
 dist_tag="latest"
 
 packages=(
-  "pkg"
+  "build/pkg"
 )
 vips_version=8.18.7
 source="https://registry.npmjs.org/sharp/-/sharp-${version}.tgz"
@@ -56,11 +56,9 @@ build() {
   export LIBRARY_PATH="${brew_prefix}/lib"
 
   # --- libvips: build from source with JPEG 2000 (jp2 / openjpeg) support ---
-  fetch_resource "vips" vips.tar.xz
-  tar -xf vips.tar.xz
-  rm vips.tar.xz
-  cd "vips-${vips_version}"
-  patch -p1 <../patches/0001-libvips-disable-nls-and-tools-build.patch
+  extract_resource "vips" "$NPMBUILD_WORK_DIR/vips-${vips_version}"
+  cd "$NPMBUILD_WORK_DIR/vips-${vips_version}"
+  patch -p1 <"$NPMBUILD_DIR/patches/0001-libvips-disable-nls-and-tools-build.patch"
 
   # Every meson feature option here defaults to 'auto' (enable if the
   # corresponding brew package is present, silently skip otherwise), so this
@@ -84,15 +82,12 @@ build() {
       exit 1
     }
 
-  cd ..
-  vips_install="$(pwd)/vips-install"
+  cd "$NPMBUILD_WORK_DIR"
+  vips_install="$NPMBUILD_WORK_DIR/vips-install"
 
   # --- sharp: build from source against our libvips ---
-  fetch_source sharp.tgz
-  mkdir sharp-src
-  tar -xzf sharp.tgz -C sharp-src --strip-components=1
-  rm sharp.tgz
-  cd sharp-src
+  extract_source "$NPMBUILD_WORK_DIR/sharp-src"
+  cd "$NPMBUILD_WORK_DIR/sharp-src"
 
   export PKG_CONFIG_PATH="${vips_install}/lib/pkgconfig"
   export SHARP_FORCE_GLOBAL_LIBVIPS=1
@@ -104,7 +99,7 @@ build() {
   addon="sharp-openharmony-arm64-${version}.node"
   test -f "src/build/Release/${addon}"
 
-  cd ..
+  cd "$NPMBUILD_WORK_DIR"
 
   # --- assemble the npm package ---
   rm -rf pkg
@@ -112,7 +107,7 @@ build() {
   cp -r sharp-src/dist pkg/dist
   cp -r sharp-src/lib pkg/lib
   cp sharp-src/package.json pkg/package.json
-  (cd pkg && patch -p1 <../patches/0002-package-json.patch)
+  (cd pkg && patch -p1 <"$NPMBUILD_DIR/patches/0002-package-json.patch")
   cp "sharp-src/src/build/Release/${addon}" "pkg/src/build/Release/${addon}"
 
   # Ship the two libs we build under their bare SONAME (not the fully

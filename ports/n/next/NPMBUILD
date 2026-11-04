@@ -11,28 +11,24 @@ resource "upstream" \
 dist_tag="latest"
 
 packages=(
-  "@ohos-npm-ports/next-swc-openharmony-arm64:next-swc-openharmony-arm64"
-  "next-${version}"
+  "@ohos-npm-ports/next-swc-openharmony-arm64:build/next-swc-openharmony-arm64"
+  "build/next-${version}"
 )
-root_dir="$NPMBUILD_DIR"
+root_dir="$NPMBUILD_WORK_DIR"
+port_dir="$NPMBUILD_DIR"
 
 prepare() {
   # ===== deps =====
   command -v curl >/dev/null
   command -v cargo >/dev/null
 
-  rm -rf "$root_dir/src" "$root_dir/next-$version" "$root_dir/next-swc-openharmony-arm64"
-  mkdir -p "$root_dir/src" "$root_dir/next-swc-openharmony-arm64"
+  rm -rf "$root_dir/next-swc-openharmony-arm64"
+  mkdir -p "$root_dir/next-swc-openharmony-arm64"
 
-  fetch_resource "upstream" "$root_dir/next-source.tar.gz"
-  tar -zxf "$root_dir/next-source.tar.gz" -C "$root_dir/src" --strip-components=1
-  rm -f "$root_dir/next-source.tar.gz"
+  extract_resource "upstream" "$root_dir/src"
   rm -f "$root_dir/src/rust-toolchain.toml"
 
-  fetch_source "$root_dir/next.tgz"
-  tar -zxf "$root_dir/next.tgz" -C "$root_dir"
-  mv "$root_dir/package" "$root_dir/next-$version"
-  rm -f "$root_dir/next.tgz"
+  extract_source "$root_dir/next-$version"
 }
 
 build() {
@@ -42,9 +38,9 @@ build() {
   cd "$root_dir/src"
   git init
   git -c user.name=npm-ports -c user.email=npm-ports@localhost commit --allow-empty -m "Next.js $version source"
-  patch -p1 <"$root_dir/patches/0003-turbo-tasks-fs-ohos.patch"
+  patch -p1 <"$port_dir/patches/0003-turbo-tasks-fs-ohos.patch"
   grep -q "into_os_string" turbopack/crates/turbo-tasks-fs/src/disk.rs
-  patch -p1 <"$root_dir/patches/0004-openharmony-project-path.patch"
+  patch -p1 <"$port_dir/patches/0004-openharmony-project-path.patch"
   grep -q "into_os_string" crates/next-napi-bindings/src/next_api/project.rs
   # The upstream workspace enables nightly-only optimization flags. The build
   # image uses stable rustc, so bootstrap those flags without another toolchain.
@@ -58,13 +54,14 @@ build() {
 }
 
 package() {
+  cd "$root_dir"
   llvm-strip --strip-all \
     next-swc-openharmony-arm64/next-swc.openharmony-arm64.node
   chmod +x next-swc-openharmony-arm64/next-swc.openharmony-arm64.node
 
   cd "$root_dir/next-$version"
-  patch -p1 <"$root_dir/patches/0001-openharmony-loader.patch"
-  patch -p1 <"$root_dir/patches/0002-package-json.patch"
+  patch -p1 <"$port_dir/patches/0001-openharmony-loader.patch"
+  patch -p1 <"$port_dir/patches/0002-package-json.patch"
   cd "$root_dir"
 
   cat >next-swc-openharmony-arm64/package.json <<EOF

@@ -11,11 +11,11 @@ resource "upstream" \
 dist_tag="latest"
 
 packages=(
-  "@ohos-npm-ports/parcel-watcher-openharmony-arm64:slots/openharmony-arm64/parcel-watcher-openharmony-arm64-${version}"
-  "parcel-watcher-${version}"
+  "@ohos-npm-ports/parcel-watcher-openharmony-arm64:slots/openharmony-arm64/build/parcel-watcher-openharmony-arm64-${version}"
+  "build/parcel-watcher-${version}"
 )
 port_dir="$NPMBUILD_DIR"
-root_dir="$port_dir"
+root_dir="$NPMBUILD_WORK_DIR"
 
 build() {
   # Fork 重打包：官方 @parcel/watcher tgz + 源码构建的 openharmony binding。
@@ -35,11 +35,8 @@ build() {
   #      （.node 直接作 main 不进模块表，故槽位包 main 是 index.js shim）
 
   # --- binding 源码构建（容器 clang host 即 ohos，node-gyp 直编） ---
-  cd "$root_dir"
-  fetch_resource "upstream" "watcher-${version}.tar.gz"
-  tar -zxf "watcher-${version}.tar.gz"
-  rm "watcher-${version}.tar.gz"
-  cd "watcher-${version}"
+  extract_resource "upstream" "$root_dir/watcher-${version}"
+  cd "$root_dir/watcher-${version}"
 
   # 0001 移除 watchman 后端：OHOS 无 watchman，linux default 后端会先试它
   # （连接探测误判成功后 BSER 解析垃圾数据 SIGABRT）；去掉后 default 恒走
@@ -54,16 +51,13 @@ build() {
   test -f build/Release/watcher.node
 
   # --- 官方 tgz 重打包 ---
+  extract_source "$root_dir/${pkgname}-${version}"
   cd "$root_dir"
-  fetch_source "watcher.tgz"
-  tar -zxf watcher.tgz
-  rm watcher.tgz
-  mv package "${pkgname}-${version}"
   cp "${pkgname}-${version}/index.js" "$root_dir"/index.js.upstream
   cp "${pkgname}-${version}/wrapper.js" "$root_dir"/wrapper.js.upstream
   cd "${pkgname}-${version}"
-  patch -p1 <../patches/0002-package-json.patch
-  patch -p1 <../patches/0003-wrapper-static-slot-ref.patch
+  patch -p1 <"${port_dir}/patches/0002-package-json.patch"
+  patch -p1 <"${port_dir}/patches/0003-wrapper-static-slot-ref.patch"
   # 0003 marker：静态引用行必须真的打上（toybox patch 静默 no-op 防线）
   grep -q "require('@parcel/watcher-openharmony-arm64')" wrapper.js
   mkdir -p build/Release
@@ -138,14 +132,11 @@ slot_openharmony_arm64_build() {
   # 成功后 BSER 解析垃圾数据 SIGABRT；去掉后 default 恒走 inotify。
   pkgname=parcel-watcher-openharmony-arm64
   port_dir="$NPMBUILD_SLOT_DIR"
-  root_dir="$port_dir"
+  root_dir="$NPMBUILD_WORK_DIR"
 
   # --- binding 源码构建（容器 clang host 即 ohos，node-gyp 直编） ---
-  cd "$root_dir"
-  fetch_resource "upstream" "watcher-${version}.tar.gz"
-  tar -zxf "watcher-${version}.tar.gz"
-  rm "watcher-${version}.tar.gz"
-  cd "watcher-${version}"
+  extract_resource "upstream" "$root_dir/watcher-${version}"
+  cd "$root_dir/watcher-${version}"
 
   # 同主配方 patches/0001（watchman 后端移除），marker 复验
   patch -p1 <"${port_dir}/patches/0001-binding-gyp-drop-watchman.patch"

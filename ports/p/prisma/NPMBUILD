@@ -12,7 +12,7 @@ packages=(
   "build/pkg"
 )
 work_dir="$NPMBUILD_DIR"
-build_dir="${work_dir}/build"
+build_dir="$NPMBUILD_WORK_DIR"
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
 sha256="82571b05c3a41080e11bf9910d9faedb7eeb0eb14550f3669e9cffdd98f2e1c4"
 resource "composer" \
@@ -49,16 +49,9 @@ prepare() {
   rm -rf "${build_dir}"
   mkdir -p "${build_dir}"
   cd "${build_dir}"
-  fetch_source "src.tgz"
-  fetch_resource "composer" "composer.tgz"
-  fetch_resource "composer_cli" "composer-cli.tgz"
-  tar -zxf src.tgz
-  rm src.tgz
-  mv package src
-  mkdir composer-src composer-cli-src
-  tar -zxf composer.tgz -C composer-src --strip-components=1
-  tar -zxf composer-cli.tgz -C composer-cli-src --strip-components=1
-  rm composer.tgz composer-cli.tgz
+  extract_source "${build_dir}/src"
+  extract_resource "composer" "${build_dir}/composer-src"
+  extract_resource "composer_cli" "${build_dir}/composer-cli-src"
 }
 
 build() {

@@ -28,6 +28,8 @@ npm-ports validate-publish <port>
 - `npm-ports package` 执行完整构建生命周期、包断言和 normalize。
 - `npm-ports validate-publish` 打包全部产物、发布到临时 Verdaccio、校验 tarball 和 integrity，并在干净目录实际安装。
 
+需要排除旧构建产物影响时，先执行 `npm-ports clean <port>`。该命令保留源码和下载缓存，但会删除 artifacts，因此 clean 后必须重新构建，不能立即使用 `--no-build`。
+
 有 `test.mjs` 时还要执行：
 
 ```sh

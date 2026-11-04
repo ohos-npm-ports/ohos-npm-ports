@@ -17,7 +17,7 @@ slot_name="typescript-native-preview-openharmony-arm64"
 slot_package_name="@ohos-npm-ports/${slot_name}"
 tsgo_commit=9977d6d38fcc78de8ae71770f3aa08256e6cc861
 root_dir="$NPMBUILD_DIR"
-build_dir="${root_dir}/build"
+build_dir="$NPMBUILD_WORK_DIR"
 package_dir="${build_dir}/${pkgname}-${version}"
 slot_dir="${build_dir}/${slot_name}"
 source_dir="${build_dir}/typescript-go"
@@ -43,10 +43,7 @@ prepare() {
   rm -rf "${package_dir}" "${slot_dir}" "${source_dir}"
   mkdir -p "${build_dir}" "${slot_dir}/lib"
 
-  fetch_source "${build_dir}/native-preview.tgz"
-  tar -zxf "${build_dir}/native-preview.tgz" -C "${build_dir}"
-  rm "${build_dir}/native-preview.tgz"
-  mv "${build_dir}/package" "${package_dir}"
+  extract_source "${package_dir}"
 
   # 编译器源码：commit 由上游 npm 包 package.json 的 gitHead 钉死，保证与
   # 包内 JS 包装层（dist/ 等）出自同一棵树。

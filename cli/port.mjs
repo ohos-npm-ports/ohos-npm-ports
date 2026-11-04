@@ -73,7 +73,7 @@ export function loadPort(root, input) {
   const dir = portPath(root, input);
   const output = execFileSync('bash', ['-c', readScript, 'npm-ports', dir], {
     cwd: dir,
-    env: { ...process.env, NPMBUILD_DIR: dir, NPM_PORTS_RUNTIME: runtime },
+    env: { ...process.env, NPMBUILD_DIR: dir, NPMBUILD_WORK_DIR: join(dir, 'build'), NPM_PORTS_RUNTIME: runtime },
     encoding: 'utf8',
     maxBuffer: 1024 * 1024,
   });
@@ -163,6 +163,9 @@ export function validatePort(port) {
   if (new Set(port.packages).size !== port.packages.length) fail('duplicate package output');
   for (const output of port.packages) {
     if (!output || isAbsolute(output) || output.split('/').includes('..')) fail(`unsafe package output: ${output}`);
+    if (!/^build\/.+/.test(output) && !/^slots\/[^/]+\/build\/.+/.test(output)) {
+      fail(`package output must be inside build/ or slots/<slot>/build/: ${output}`);
+    }
   }
   return port;
 }

@@ -47,9 +47,11 @@ package() {
 }
 ```
 
-必填字段为 `pkgname`、`upstream`、`version`、`revision`、`dist_tag`、`packages` 和 `build()`。`packages` 按发布顺序列出全部产物。主包只写输出目录，由 `pkgname` 自动推导发布名。其他发布包使用 `发布名:输出目录` 声明，例如 `@ohos-npm-ports/example-openharmony-arm64:slots/openharmony-arm64/example-openharmony-arm64-${version}`。每个配方必须恰好有一个主包输出，所有发布名必须位于 `@ohos-npm-ports/` scope。`prepare()` 和 `package()` 按需实现，缺省时自动跳过。
+必填字段为 `pkgname`、`upstream`、`version`、`revision`、`dist_tag`、`packages` 和 `build()`。`packages` 按发布顺序列出全部产物。主包只写输出目录，由 `pkgname` 自动推导发布名，输出必须位于 `build/`。其他发布包使用 `发布名:输出目录` 声明，独立槽位输出位于 `slots/<slot>/build/`，例如 `@ohos-npm-ports/example-openharmony-arm64:slots/openharmony-arm64/build/example-openharmony-arm64-${version}`。每个配方必须恰好有一个主包输出，所有发布名必须位于 `@ohos-npm-ports/` scope。`prepare()` 和 `package()` 按需实现，缺省时自动跳过。
 
 版本、源码 URL、SHA-256 和共享路径等纯声明集中在生命周期函数之前，且同一变量只定义一次。当前 port 的上游版本统一引用 `${version}`，发布短名统一引用 `${pkgname}`，不要在不同钩子中重复抄写版本或包名。`prepare()` 与 `package()` 不重复声明同一份源码参数。跨 port 依赖的版本单独锁定，不能误用当前 port 的 revision。
+
+框架在主包目录下提供 `NPMBUILD_WORK_DIR=build`，在独立槽位目录下提供 `NPMBUILD_WORK_DIR=slots/<slot>/build`，并在钩子执行前创建该目录。中间文件和发布产物统一放在这里，不再各自选择工作区布局。`NPMBUILD_DIR` 始终是主 port 目录，`NPMBUILD_SLOT_DIR` 是当前主包或槽位目录，补丁等输入文件应通过这两个变量定位。
 
 配方自己的局部变量使用 `lower_snake_case`，例如 `build_dir`、`source_dir`、`archive_dir` 和 `slot_name`。只有 `npm-ports` 提供的 `NPMBUILD_*`、外部工具或子进程明确要求的环境变量使用大写，例如 `PATH`、`CARGO_HOME`、`CC`。不要为了风格统一而改写这些环境变量。
 
@@ -68,13 +70,15 @@ resource "pinned_tool" \
   "64 位小写十六进制摘要"
 
 prepare() {
-  fetch_source build/example.tgz
-  fetch_resource "source_archive" build/source.tar.gz
-  fetch_resource "pinned_tool" build/tool.tar.gz
+  extract_source "$NPMBUILD_WORK_DIR/example"
+  extract_resource "source_archive" "$NPMBUILD_WORK_DIR/source"
+  extract_resource "pinned_tool" "$NPMBUILD_WORK_DIR/tool"
 }
 ```
 
-下载源码和资源时必须使用 `fetch_source` 和 `fetch_resource`，辅助函数会自动进行 SHA-256 校验。禁止在钩子中另写 `curl` 下载及 SHA-256 校验逻辑。资源名使用 `lower_snake_case`。可通过 `${resource_<name>_url}` 和 `${resource_<name>_sha256}` 引用元数据。主包与槽位在各自工作目录中获取同一资源时仍分别校验。新增或升级来源必须提供校验值。
+普通源码包使用 `extract_source` 和 `extract_resource`，辅助函数会校验 SHA-256、清理目标目录、解包并默认剥离一层顶层目录。可通过 `--strip-components=N` 调整层数，或在 `--` 后追加 tar 排除规则等参数。需要保留原始 tarball 或自定义解包时，继续使用 `fetch_source` 和 `fetch_resource`。禁止在钩子中另写 `curl` 下载及 SHA-256 校验逻辑。资源名使用 `lower_snake_case`，可通过 `${resource_<name>_url}` 和 `${resource_<name>_sha256}` 引用元数据。
+
+下载以 SHA-256 为键缓存在 `${NPM_PORTS_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/npm-ports}/downloads`。缓存命中仍重新校验，主包、槽位和重复构建在同一文件系统内共享，CI 不配置跨任务缓存保存。`npm-ports clean <port>` 删除主包和独立槽位的 `build/` 以及 `artifacts/`，保留配方、补丁、测试和下载缓存。
 
 预览线可设置 `upstream_tag`。当 npm 预览版本与源码 tag 或 commit 没有可靠映射时，必须设置 `bump=false` 并说明耦合原因，避免自动升级生成错配 PR。独立版本变量、固定工具链版本或 commit 锁定的资源由维护者配套升级，不能随主版本误更新。
 
@@ -116,15 +120,15 @@ NPMBUILD 中禁止执行 `npm publish`。npm tarball 的生成和发布由 `npm-
 
 ```bash
 packages=(
-  "@ohos-npm-ports/example-openharmony-arm64:slots/openharmony-arm64/example-openharmony-arm64-1.2.3"
-  "example-1.2.3"
+  "@ohos-npm-ports/example-openharmony-arm64:slots/openharmony-arm64/build/example-openharmony-arm64-${version}"
+  "build/example-${version}"
 )
 slot_openharmony_arm64_build() {
-  # 使用 NPMBUILD_SLOT_DIR，构建槽位。
+  # 使用 NPMBUILD_WORK_DIR，构建槽位。
 }
 ```
 
-主包和槽位共享 version 和 revision，统一构建、打包、artifact、私仓验证和发布。`NPMBUILD_DIR` 始终是主 port 目录，`NPMBUILD_SLOT_DIR` 是当前主包或槽位的工作目录。
+主包和槽位共享 version 和 revision，统一构建、打包、artifact、私仓验证和发布。`NPMBUILD_DIR` 始终是主 port 目录，`NPMBUILD_SLOT_DIR` 是当前主包或槽位目录，`NPMBUILD_WORK_DIR` 对应各自的 `build/` 子目录。
 
 ## 7. patch 与静态约束
 

@@ -11,7 +11,7 @@ packages=(
 )
 slot_name="pnpm-exe.openharmony-arm64"
 work_dir="$NPMBUILD_DIR"
-build_dir="${work_dir}/build"
+build_dir="$NPMBUILD_WORK_DIR"
 source="https://github.com/pnpm/pnpm/archive/refs/tags/v${version}.tar.gz"
 sha256="baaffdb2671a414882d13379d978339a58a9e66fe099f1f00f05a47b6232322c"
 resource "npm" \
@@ -42,12 +42,8 @@ prepare() {
   echo "=== fetch: sources ==="
   rm -rf "${build_dir}"
   mkdir -p "${build_dir}"
-  fetch_source "${build_dir}/pnpm-src.tar.gz"
-  fetch_resource "npm" "${build_dir}/pnpm-npm.tgz"
-  fetch_resource "iana_time_zone" "${build_dir}/iana-time-zone.crate"
-  tar -zxf "${build_dir}/pnpm-src.tar.gz" -C "${build_dir}"
-  mkdir -p "${build_dir}/wrapper"
-  tar -zxf "${build_dir}/pnpm-npm.tgz" -C "${build_dir}/wrapper"
+  extract_source "${build_dir}/pnpm-${version}"
+  extract_resource "npm" "${build_dir}/wrapper"
   # pristine-diff 基线：补丁只允许碰 package.json 和 native-binary.mjs
   node -e '
         const fs = require("fs"), crypto = require("crypto"), path = require("path");
@@ -59,7 +55,7 @@ prepare() {
                 crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
         }
         fs.writeFileSync(process.argv[2], JSON.stringify(hashes, null, 1));
-    ' "${build_dir}/wrapper/package" "${build_dir}/wrapper-pristine.json"
+    ' "${build_dir}/wrapper" "${build_dir}/wrapper-pristine.json"
 }
 
 build() {
@@ -76,8 +72,7 @@ build() {
   done
   # iana-time-zone 运行时 dlopen 改写：vendor 进源码树再打
   mkdir -p "${source_dir}/vendor"
-  tar -zxf "${build_dir}/iana-time-zone.crate" -C "${source_dir}/vendor"
-  mv "${source_dir}/vendor/iana-time-zone-0.1.65" "${source_dir}/vendor/iana-time-zone"
+  extract_resource "iana_time_zone" "${source_dir}/vendor/iana-time-zone"
   (cd "${source_dir}" && patch -p1 <"${work_dir}/patches/0004-iana-time-zone-dlopen.patch")
   # toybox patch 错 header 会静默 no-op，退出码不可信，grep marker 确认
   grep -q 'openharmony' "${source_dir}/pnpm/crates/detect-libc/src/lib.rs"
@@ -123,7 +118,7 @@ package() {
 EOF
 
   main_dir="${build_dir}/pnpm-wrapper-${version}"
-  mv "${build_dir}/wrapper/package" "${main_dir}"
+  mv "${build_dir}/wrapper" "${main_dir}"
   (cd "${main_dir}" && patch -p1 <"${work_dir}/patches/0005-update-package-json.patch")
   (cd "${main_dir}" && patch -p1 <"${work_dir}/patches/0006-native-binary-openharmony.patch")
   grep -qF '@ohos-npm-ports/pnpm-exe.openharmony-arm64/pnpm' "${main_dir}/native-binary.mjs"

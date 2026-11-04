@@ -21,27 +21,25 @@ packages=(
 )
 
 work_dir="$NPMBUILD_DIR"
-build_dir="$work_dir/build"
+build_dir="$NPMBUILD_WORK_DIR"
 
 prepare() {
   brew install -y cmake openssl@3 zlib-ng-compat libxml2
-  mkdir -p "$build_dir"
-  fetch_resource "rust" "$build_dir/rust.tar.xz"
   if [ ! -x "$build_dir/rust/bin/rustc" ]; then
-    tar -xJf "$build_dir/rust.tar.xz" -C "$build_dir"
-    sh "$build_dir/rust-1.99.1-aarch64-unknown-linux-ohos/install.sh" \
+    extract_resource "rust" "$build_dir/rust-extract"
+    sh "$build_dir/rust-extract/install.sh" \
       --prefix="$build_dir/rust" --disable-ldconfig \
       --components=rustc,cargo,rust-std-aarch64-unknown-linux-ohos
+    rm -rf "$build_dir/rust-extract"
   fi
   export PATH="$build_dir/rust/bin:$PATH"
   export LD_LIBRARY_PATH="$(brew --prefix openssl@3)/lib:$(brew --prefix zlib-ng-compat)/lib:$(brew --prefix libxml2)/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
   export CARGO_HTTP_CAINFO="$(brew --prefix)/etc/openssl@3/cert.pem"
   rustc --version
 
-  fetch_resource "source_tag" "$build_dir/source.tar.gz"
   fetch_source "$build_dir/npm.tgz"
   if [ ! -d "$build_dir/tsrs-0.18.0" ]; then
-    tar -xzf "$build_dir/source.tar.gz" -C "$build_dir"
+    extract_resource "source_tag" "$build_dir/tsrs-0.18.0"
   fi
 }
 

@@ -6,7 +6,7 @@ revision=3
 dist_tag="latest"
 
 packages=(
-  "lightningcss-${version}"
+  "build/lightningcss-${version}"
 )
 source="https://github.com/parcel-bundler/lightningcss/archive/refs/tags/v${version}.tar.gz"
 sha256="3197aa5188b66d0d1e5026cbc8b65c4c0c53fdc949f9ed497fe75df2d13f722a"
@@ -17,15 +17,11 @@ build() {
   # needed — `napi build --platform` recognizes openharmony as the host and
   # produces the correctly-named binding directly.
 
-  fetch_source lightningcss.tar.gz
-  tar -zxf lightningcss.tar.gz
-  rm lightningcss.tar.gz
-  # GitHub source archives already extract to <repo>-<version>/, which happens
-  # to equal ${pkgname}-${version} here, so no rename is needed.
+  extract_source "$NPMBUILD_WORK_DIR/${pkgname}-${version}"
 
-  cd "${pkgname}-${version}"
-  patch -p1 <../patches/0001-update-package-json.patch
-  patch -p1 <../patches/0002-openharmony-loader.patch
+  cd "$NPMBUILD_WORK_DIR/${pkgname}-${version}"
+  patch -p1 <"$NPMBUILD_DIR/patches/0001-update-package-json.patch"
+  patch -p1 <"$NPMBUILD_DIR/patches/0002-openharmony-loader.patch"
 
   # --ignore-scripts: upstream's devDependencies include puppeteer (used only
   # by the website/docs tooling, unrelated to the napi build path below), and

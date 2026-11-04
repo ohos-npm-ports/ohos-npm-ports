@@ -12,15 +12,11 @@ packages=(
 )
 
 work_dir="$NPMBUILD_DIR"
-build_dir="$work_dir/build"
+build_dir="$NPMBUILD_WORK_DIR"
 output_dir="$build_dir/nw-${version}"
 
 prepare() {
-  mkdir -p "$build_dir"
-  fetch_source "$build_dir/nw.tgz"
-  rm -rf "$output_dir"
-  mkdir -p "$output_dir"
-  tar -xzf "$build_dir/nw.tgz" -C "$output_dir" --strip-components=1
+  extract_source "$output_dir"
   node - "$output_dir" "$build_dir/original.json" <<'JS'
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const root = process.argv[2];

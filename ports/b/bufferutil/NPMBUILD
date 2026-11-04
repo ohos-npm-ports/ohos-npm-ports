@@ -6,7 +6,7 @@ revision=1
 dist_tag="latest"
 
 packages=(
-  "bufferutil-${version}"
+  "build/bufferutil-${version}"
 )
 source="https://github.com/websockets/bufferutil/archive/refs/tags/v${version}.tar.gz"
 sha256="42971057cdc3acb64422aca071146d9d5bf73a42a142519d72db51896b0b0972"
@@ -16,22 +16,18 @@ resource "npm" \
 
 build() {
   # 准备源码
-  fetch_source bufferutil-${version}.tar.gz
-  tar -zxf bufferutil-${version}.tar.gz
-  cd bufferutil-${version}
-  patch -p1 <../patches/0001-update-package-json.patch
+  extract_source "$NPMBUILD_WORK_DIR/bufferutil-${version}"
+  cd "$NPMBUILD_WORK_DIR/bufferutil-${version}"
+  patch -p1 <"$NPMBUILD_DIR/patches/0001-update-package-json.patch"
 
   # 构建 addon
   npm install
   npm run prebuild
 
   # 把其他平台的预构建产物复制到包里面一起发布
-  cd ..
-  fetch_resource "npm" bufferutil-${version}.tgz
-  tar -zxf bufferutil-${version}.tgz
-  rm bufferutil-${version}.tgz
-  cp -r package/prebuilds/* bufferutil-${version}/prebuilds/
-  cd bufferutil-${version}/prebuilds
+  extract_resource "npm" "$NPMBUILD_WORK_DIR/npm"
+  cp -r "$NPMBUILD_WORK_DIR/npm/prebuilds/"* "$NPMBUILD_WORK_DIR/bufferutil-${version}/prebuilds/"
+  cd "$NPMBUILD_WORK_DIR/bufferutil-${version}/prebuilds"
   mv linux-x64/bufferutil.node linux-x64/@ohos-npm-ports+bufferutil.node
   mv win32-ia32/bufferutil.node win32-ia32/@ohos-npm-ports+bufferutil.node
   mv win32-x64/bufferutil.node win32-x64/@ohos-npm-ports+bufferutil.node

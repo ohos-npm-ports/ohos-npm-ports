@@ -2,7 +2,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { basename } from 'node:path';
-import { buildPort, packagePort, packPort, publishPort, runLifecycle } from './build.mjs';
+import { buildPort, cleanPort, packagePort, packPort, publishPort, runLifecycle } from './build.mjs';
 import { bumpPorts, updatePortText } from './bump.mjs';
 import { bumpPr } from './bump-pr.mjs';
 import { createPort } from './create.mjs';
@@ -19,6 +19,7 @@ Commands:
   create <upstream>          Create NPMBUILD (--set-name/--set-version, --no-fetch)
   edit <port>                Open NPMBUILD with $VISUAL/$EDITOR (default: vim)
   lint [port|--all]          Validate port structure and published names
+  clean <port>               Remove build outputs and artifacts; preserve downloads
   prepare <port>             Install dependencies and fetch sources
   build <port>               Run prepare() and build()
   package <port>             Build and stage package directories
@@ -121,6 +122,10 @@ try {
     if (args.length !== 1 || args[0].startsWith('--')) throw new Error('edit accepts exactly one port');
     const [port] = selected(root, args);
     openEditor(port);
+  } else if (command === 'clean') {
+    if (args.length !== 1 || args[0].startsWith('--')) throw new Error('clean accepts exactly one port');
+    const [port] = selected(root, args);
+    cleanPort(port);
   } else if (command === 'revision') {
     const [port] = selected(root, args);
     const requested = value('--set');

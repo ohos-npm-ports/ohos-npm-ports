@@ -51,12 +51,15 @@ npm-ports lint [port|--all]
 ## 构建、测试与打包
 
 ```sh
+npm-ports clean <port>
 npm-ports prepare <port>
 npm-ports build <port>
 npm-ports package <port>
 npm-ports test <port> [--no-build]
 npm-ports pack <port> [--no-build]
 ```
+
+`npm-ports clean` 一次接受一个 port，删除主包和独立槽位的 `build/` 以及 `artifacts/`，保留下载缓存和全部源文件。需要全新构建时先执行 clean，不要手动猜测和删除各配方的输出目录。
 
 构建命令按 `prepare() → build() → package() → normalize` 的顺序自动执行到对应阶段：
 

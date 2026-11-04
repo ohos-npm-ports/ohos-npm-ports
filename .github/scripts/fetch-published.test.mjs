@@ -12,7 +12,7 @@ const slot = '@ohos-npm-ports/demo-openharmony-arm64';
 const integrityOf = (content) => `sha512-${createHash('sha512').update(content).digest('base64')}`;
 
 // A port with a main package and one slot, the same shape build.mjs produces.
-function fixture(t, packages = '("@ohos-npm-ports/demo-openharmony-arm64:slot" "main")') {
+function fixture(t, packages = '("@ohos-npm-ports/demo-openharmony-arm64:slots/demo/build/slot" "build/main")') {
   const root = mkdtempSync(join(tmpdir(), 'fetch-published-'));
   const dir = join(root, 'ports', 'd', 'demo');
   mkdirSync(dir, { recursive: true });
@@ -85,7 +85,7 @@ test('a version that is not on npm cannot be fetched', (t) => {
 test('fetching fails instead of testing an incomplete set of packages', (t) => {
   const root = fixture(t);
   assert.throws(() => fetchPort(root, 'ports/d/demo', options(registry({ withSlot: false }))), /found 1 published package\(s\).*NPMBUILD builds 2/);
-  const single = fixture(t, '("main")');
+  const single = fixture(t, '("build/main")');
   assert.equal(fetchPort(single, 'ports/d/demo', options(registry({ withSlot: false }))).packages.length, 1);
 });
 

@@ -11,7 +11,7 @@ packages=(
 )
 commit="6a3747c37ff169c90047725a05a6ef02e32ac97e"
 work_dir="$NPMBUILD_DIR"
-build_dir="${work_dir}/build"
+build_dir="$NPMBUILD_WORK_DIR"
 source="https://github.com/prisma/${pkgname}/archive/${commit}.tar.gz"
 sha256="f4dee7fa06aa95115f46aa1cdaeeca591533313a27aaa59a74665f84009dd6f1"
 resource "rust_dist" \
@@ -52,20 +52,14 @@ prepare() {
   rm -rf "${build_dir}"
   mkdir -p "${build_dir}"
   cd "${build_dir}"
-  fetch_resource "rust_dist" "rust-dist.tar.gz"
-  mkdir -p rust-dist-extract
-  tar -zxf rust-dist.tar.gz -C rust-dist-extract --strip-components=1
-  rm rust-dist.tar.gz
+  extract_resource "rust_dist" "${build_dir}/rust-dist-extract"
   rust_home="${build_dir}/rust-dist"
   sh rust-dist-extract/install.sh --prefix="${rust_home}" --disable-ldconfig \
     --components=rustc,cargo,rust-std-aarch64-unknown-linux-ohos
   rm -rf rust-dist-extract
 
   echo "=== fetch: prisma-engines 源码（${commit}）==="
-  fetch_source "src.tar.gz"
-  tar -zxf src.tar.gz
-  rm src.tar.gz
-  mv "${pkgname}-${commit}" src
+  extract_source "${build_dir}/src"
 }
 
 build() {
@@ -83,17 +77,11 @@ build() {
   # socket2 and openssl-src lack an ohos arm in their cfg/target tables; the
   # vendored copies are fixed in place via [patch.crates-io] (0001).
   mkdir -p vendor
-  fetch_resource "socket2" "socket2.crate"
-  mkdir -p vendor/socket2-0.4.7
-  tar -zxf socket2.crate -C vendor/socket2-0.4.7 --strip-components=1
-  rm socket2.crate
+  extract_resource "socket2" "vendor/socket2-0.4.7"
   (cd vendor/socket2-0.4.7 && patch -p1 <"${work_dir}/patches/0003-socket2-ohos-target.patch")
   grep -q 'target_env = "ohos"' vendor/socket2-0.4.7/src/sys/unix.rs
 
-  fetch_resource "openssl_src" "openssl-src.crate"
-  mkdir -p "vendor/openssl-src-111.25.0+1.1.1t"
-  tar -zxf openssl-src.crate -C "vendor/openssl-src-111.25.0+1.1.1t" --strip-components=1
-  rm openssl-src.crate
+  extract_resource "openssl_src" "vendor/openssl-src-111.25.0+1.1.1t"
   (cd "vendor/openssl-src-111.25.0+1.1.1t" && patch -p1 <"${work_dir}/patches/0004-openssl-src-ohos-target.patch")
   grep -q 'aarch64-unknown-linux-ohos' 'vendor/openssl-src-111.25.0+1.1.1t/src/lib.rs'
 

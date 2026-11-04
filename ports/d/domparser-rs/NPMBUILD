@@ -13,25 +13,21 @@ resource "upstream" \
 dist_tag="latest"
 
 packages=(
-  "domparser-rs-${version}"
+  "build/domparser-rs-${version}"
 )
 
 root_dir="$NPMBUILD_DIR"
-build_dir="$root_dir/build"
+build_dir="$NPMBUILD_WORK_DIR"
 source_dir="$build_dir/source"
-package_dir="$root_dir/domparser-rs-${version}"
+package_dir="$build_dir/domparser-rs-${version}"
 
 prepare() {
   command -v cargo >/dev/null
   [ "$(rustc -vV | sed -n 's/^host: //p')" = aarch64-unknown-linux-ohos ]
 
-  mkdir -p "$build_dir"
-  fetch_resource "upstream" "$build_dir/source.tgz"
-  fetch_source "$build_dir/package.tgz"
-  rm -rf "$source_dir" "$package_dir" "$build_dir/upstream"
-  mkdir -p "$source_dir" "$package_dir" "$build_dir/upstream"
-  tar xzf "$build_dir/source.tgz" -C "$source_dir" --strip-components=1
-  tar xzf "$build_dir/package.tgz" -C "$build_dir/upstream" --strip-components=1
+  extract_resource "upstream" "$source_dir"
+  extract_source "$build_dir/upstream"
+  mkdir -p "$package_dir"
   cp -R "$build_dir/upstream/." "$package_dir/"
 }
 
