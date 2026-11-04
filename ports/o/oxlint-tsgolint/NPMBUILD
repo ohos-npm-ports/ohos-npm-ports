@@ -8,12 +8,12 @@ sha256="b21f089ca487fcfeb0d7200ac2db85d76674e5d66eff97e469ff82b4c33a6990"
 dist_tag="latest"
 
 packages=(
-  "oxlint-tsgolint-${version}"
+  "build/oxlint-tsgolint-${version}"
 )
 slot_name="@oxlint-tsgolint/openharmony-arm64"
 work_dir="$NPMBUILD_DIR"
-stage_dir="${work_dir}/build"
-output_dir="${work_dir}/${pkgname}-${version}"
+stage_dir="$NPMBUILD_WORK_DIR/stage"
+output_dir="$NPMBUILD_WORK_DIR/${pkgname}-${version}"
 
 prepare() {
   # ============================================================
@@ -31,8 +31,7 @@ prepare() {
   # 上游 loader 直接按 process.platform 拼槽位包名，没有 openharmony 分支；
   # 槽位包名因此固定为 @oxlint-tsgolint/openharmony-arm64。
   #
-  # 发布目录名必须与 NPMBUILD packages 一致，并留在配方目录根下，
-  # 所以中间件放 STAGE，成品由 package() 落到 OUT。
+  # 中间件与成品都位于统一工作目录，成品由 package() 组装。
   # ============================================================
 
   brew install -y go
@@ -53,10 +52,7 @@ prepare() {
   git -C tsgolint-src/typescript-go config user.email port@example.com
   git -C tsgolint-src/typescript-go config user.name port
 
-  fetch_source "src.tgz"
-  tar -zxf src.tgz
-  rm src.tgz
-  mv package src
+  extract_source "${stage_dir}/src"
 }
 
 build() {

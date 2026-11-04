@@ -11,17 +11,12 @@ packages=(
   "build/playwright-mcp-${version}"
 )
 script_dir="$NPMBUILD_DIR"
-root_dir="$script_dir/build"
+root_dir="$NPMBUILD_WORK_DIR"
 
 prepare() {
-  mkdir -p "$root_dir"
   cd "$root_dir"
 
-  fetch_source "mcp.tgz"
-  rm -rf package "${pkgname}-${version}"
-  tar -zxf mcp.tgz
-  rm mcp.tgz
-  mv package "${pkgname}-${version}"
+  extract_source "$root_dir/${pkgname}-${version}"
   node -e 'const fs=require("fs"),crypto=require("crypto");const p=process.argv[1];const hashes=Object.fromEntries(fs.readdirSync(p).filter(f=>f!=="package.json").map(f=>[f,crypto.createHash("sha256").update(fs.readFileSync(p+"/"+f)).digest("hex")]));fs.writeFileSync("upstream-hashes.json",JSON.stringify(hashes))' "$root_dir/${pkgname}-${version}"
 }
 

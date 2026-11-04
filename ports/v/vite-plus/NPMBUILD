@@ -11,7 +11,7 @@ resource "upstream" \
 dist_tag="latest"
 
 packages=(
-  "vite-plus-${version}"
+  "build/vite-plus-${version}"
 )
 vite_task_rev="a3c087a771a116f7c60220fc72738703eb45ac2e"
 binding="binding/${pkgname}.openharmony-arm64.node"
@@ -19,8 +19,8 @@ rust_channel="nightly-2026-08-02"
 rust_toolchain="${rust_channel}-aarch64-unknown-linux-ohos"
 pnpm_version="10"
 work_dir="$NPMBUILD_DIR"
-stage_dir="${work_dir}/build"
-output_dir="${work_dir}/${pkgname}-${version}"
+stage_dir="$NPMBUILD_WORK_DIR/stage"
+output_dir="$NPMBUILD_WORK_DIR/${pkgname}-${version}"
 vite_task_dir="${stage_dir}/vite-task"
 
 prepare() {
@@ -34,15 +34,8 @@ prepare() {
   mkdir -p "${stage_dir}"
   cd "${stage_dir}"
 
-  fetch_source tgz.tgz
-  tar -zxf tgz.tgz
-  rm tgz.tgz
-  mv package tgz
-
-  fetch_resource "upstream" src.tar.gz
-  tar -zxf src.tar.gz
-  rm src.tar.gz
-  mv "${pkgname}-${version}" src
+  extract_source "${stage_dir}/tgz"
+  extract_resource "upstream" "${stage_dir}/src"
 
   if [ ! -d "${vite_task_dir}/.git" ]; then
     git clone -q https://github.com/voidzero-dev/vite-task.git "${vite_task_dir}"

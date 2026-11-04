@@ -119,12 +119,14 @@ function runHooks(port, component, phases) {
     }),
   ].join('\n');
   console.log(`==> ${port.relative}${component.name === 'main' ? '' : `/${component.name}`}: ${phases.join(' -> ')}`);
+  mkdirSync(join(component.directory, 'build'), { recursive: true });
   run('bash', ['-c', script], {
     cwd: component.directory,
     env: {
       ...buildEnvironment(port),
       NPMBUILD_SLOT: component.name,
       NPMBUILD_SLOT_DIR: component.directory,
+      NPMBUILD_WORK_DIR: join(component.directory, 'build'),
       NPM_PORTS_NODE: process.execPath,
       NPM_PORTS_NORMALIZE: fileURLToPath(new URL('./normalize.mjs', import.meta.url)),
     },
@@ -137,6 +139,14 @@ export function runLifecycle(port, through = 'package') {
   const selected = phases.slice(0, phases.indexOf(through) + 1);
   if (selected.includes('package')) selected.splice(selected.indexOf('package') + 1, 0, 'normalize');
   for (const component of components(port)) runHooks(port, component, selected);
+}
+
+export function cleanPort(port) {
+  for (const component of components(port)) {
+    rmSync(join(component.directory, 'build'), { recursive: true, force: true });
+  }
+  rmSync(join(port.dir, 'artifacts'), { recursive: true, force: true });
+  console.log(`Cleaned ${port.relative}; download cache preserved`);
 }
 
 export function buildPort(port) {

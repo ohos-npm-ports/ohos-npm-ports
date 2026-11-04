@@ -6,7 +6,7 @@ revision=1
 dist_tag="latest"
 
 packages=(
-  "turbo-${version}"
+  "build/turbo-${version}"
 )
 ghostty_commit=5147c0a503cdeed7615cce245cdd815ed7a6b692
 rust_nightly=2026-07-03
@@ -41,11 +41,10 @@ build() {
   # zig for the TUI's libghostty-vt (ghostty's pinned commit requires
   # >= 0.17.0). Official static tarball; zig finds its lib/ via its own
   # realpath, so keep the extracted tree intact.
+  cd "$NPMBUILD_WORK_DIR"
   zig_version=0.17.0
   zig_dir="zig-aarch64-linux-${zig_version}"
-  fetch_resource "zig" "zig.tar.xz"
-  tar -xJf zig.tar.xz
-  rm zig.tar.xz
+  extract_resource "zig" "$NPMBUILD_WORK_DIR/${zig_dir}"
   chmod +x "${zig_dir}/zig"
   export PATH="$(pwd)/${zig_dir}:$PATH"
   # Keep zig's cache inside the working directory: /data/storage/... only
@@ -53,11 +52,8 @@ build() {
   export ZIG_GLOBAL_CACHE_DIR="$(pwd)/zig-cache"
 
   # --- rust nightly toolchain (upstream-pinned channel) ---
-  fetch_resource "rust_nightly" "rust-nightly.tar.gz"
-  mkdir -p rust-nightly-extract
-  tar -zxf rust-nightly.tar.gz -C rust-nightly-extract --strip-components=1
-  rm rust-nightly.tar.gz
-  rust_home="$(pwd)/rust-nightly"
+  extract_resource "rust_nightly" "$NPMBUILD_WORK_DIR/rust-nightly-extract"
+  rust_home="$NPMBUILD_WORK_DIR/rust-nightly"
   sh rust-nightly-extract/install.sh --prefix="${rust_home}" --disable-ldconfig \
     --components=rustc,cargo,rust-std-aarch64-unknown-linux-ohos
   rm -rf rust-nightly-extract
@@ -70,24 +66,17 @@ build() {
   cargo --version
 
   # --- sources ---
-  # Tarballs instead of git clone: the CI image has no git binary (cargo's own
-  # git deps go through libgit2, so they don't need it either).
-  fetch_source "turborepo.tar.gz"
-  mkdir -p "turborepo-${version}"
-  tar -zxf turborepo.tar.gz -C "turborepo-${version}" --strip-components=1
-  rm turborepo.tar.gz
+  # Tarballs avoid a full git clone; cargo still resolves its own git dependencies.
+  extract_source "$NPMBUILD_WORK_DIR/turborepo-${version}"
 
   # libghostty-vt-sys's build.rs git-clones ghostty at this pinned commit;
-  # pre-seed via GHOSTTY_SOURCE_DIR (no git binary here).
-  fetch_resource "ghostty" "ghostty.tar.gz"
-  mkdir -p ghostty-src
-  tar -zxf ghostty.tar.gz -C ghostty-src --strip-components=1
-  rm ghostty.tar.gz
-  export ghostty_source_dir="$(pwd)/ghostty-src"
+  # pre-seed via GHOSTTY_SOURCE_DIR.
+  extract_resource "ghostty" "$NPMBUILD_WORK_DIR/ghostty-src"
+  export ghostty_source_dir="$NPMBUILD_WORK_DIR/ghostty-src"
 
-  cd "turborepo-${version}"
-  patch -p1 <../patches/0002-openharmony-wrapper.patch
-  patch -p1 <../patches/0005-libghostty-vt-sys-ohos-zig-target.patch
+  cd "$NPMBUILD_WORK_DIR/turborepo-${version}"
+  patch -p1 <"$NPMBUILD_DIR/patches/0002-openharmony-wrapper.patch"
+  patch -p1 <"$NPMBUILD_DIR/patches/0005-libghostty-vt-sys-ohos-zig-target.patch"
 
   # Vendor the three crates that need OHOS fixes (same pattern bun-pty uses for
   # portable-pty), then wire up [patch.crates-io] + Cargo.lock via 0003/0004.
@@ -99,12 +88,12 @@ build() {
   cp -r "$(ls -d "$HOME"/.cargo/registry/src/*/zstd-sys-2.0.16+zstd.1.5.7 | head -1)" vendor/zstd-sys
   cp -r "$(ls -d "$HOME"/.cargo/registry/src/*/aws-lc-sys-0.46.0 | head -1)" vendor/aws-lc-sys
   chmod -R u+w vendor/nix vendor/zstd-sys vendor/aws-lc-sys
-  (cd vendor/nix && patch -p1 <../../../patches/0006-nix-0.26.2-ohos.patch)
-  (cd vendor/zstd-sys && patch -p1 <../../../patches/0007-zstd-sys-ohos-qsort.patch)
-  (cd vendor/aws-lc-sys && patch -p1 <../../../patches/0008-aws-lc-sys-ohos-cc-builder.patch)
+  (cd vendor/nix && patch -p1 <"$NPMBUILD_DIR/patches/0006-nix-0.26.2-ohos.patch")
+  (cd vendor/zstd-sys && patch -p1 <"$NPMBUILD_DIR/patches/0007-zstd-sys-ohos-qsort.patch")
+  (cd vendor/aws-lc-sys && patch -p1 <"$NPMBUILD_DIR/patches/0008-aws-lc-sys-ohos-cc-builder.patch")
 
-  patch -p1 <../patches/0003-workspace-cargo-manifest.patch
-  patch -p1 <../patches/0004-cargo-lock.patch
+  patch -p1 <"$NPMBUILD_DIR/patches/0003-workspace-cargo-manifest.patch"
+  patch -p1 <"$NPMBUILD_DIR/patches/0004-cargo-lock.patch"
 
   # --- build ---
   cargo build --release --locked -p turbo

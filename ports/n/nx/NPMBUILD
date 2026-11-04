@@ -8,7 +8,7 @@ sha256="7b28f6421f8547ebf1437655e903e25ac781e961e7068e40c3d0f6dcb76a0e1f"
 dist_tag="latest"
 
 packages=(
-  "nx-${version}"
+  "build/nx-${version}"
 )
 vt100_rev=b15dc3b0f7db94167a9c584f1d403899c0cc871d
 wezterm_rev=b538ee29e1e89eeb4832fb35ae095564dce34c29
@@ -35,6 +35,7 @@ build() {
   # Sparse, blob-filtered clone: the full monorepo checkout is huge. Cone mode
   # always includes root files, so Cargo.toml/Cargo.lock/tsconfig.base.json
   # come along with packages/nx.
+  cd "$NPMBUILD_WORK_DIR"
   git clone --depth 1 --filter=blob:none --sparse --branch "${version}" https://github.com/nrwl/nx src
   cd src
   git sparse-checkout set packages/nx
@@ -44,10 +45,7 @@ build() {
   # speak the git protocol; 0001 re-points them via [patch] sections.
   mkdir -p gitdeps/wezterm
 
-  fetch_resource "vt100" "vt100.tar.gz"
-  tar -zxf vt100.tar.gz
-  mv "vt100-rust-${vt100_rev}" gitdeps/vt100-rust
-  rm vt100.tar.gz
+  extract_resource "vt100" "$NPMBUILD_WORK_DIR/gitdeps/vt100-rust"
 
   # Only the pty/ and filedescriptor/ crates of the wezterm monorepo are used.
   fetch_resource "wezterm" "wezterm.tar.gz"
@@ -59,23 +57,23 @@ build() {
   # "ohos" gates; 0.25 predates them and its default features don't compile
   # there) + one tcgetattr call-site fix for the nix 0.26+ AsFd API.
   cd gitdeps/wezterm
-  patch -p1 <../../patches/0002-portable-pty-nix-bump.patch
-  cd ../..
+  patch -p1 <"$NPMBUILD_DIR/patches/0002-portable-pty-nix-bump.patch"
+  cd "$NPMBUILD_WORK_DIR"
 
   # --- apply source patches ---
 
   cd src
   # 0001: exclude jemalloc on target_env = "ohos" (tikv-jemalloc-sys fails to
   # build there) + the [patch] sections for ../gitdeps, with Cargo.lock updates.
-  patch -p1 <../patches/0001-nx-source-ohos.patch
+  patch -p1 <"$NPMBUILD_DIR/patches/0001-nx-source-ohos.patch"
   # 0003: whitelist openharmony; the `as string` cast is needed because
   # @types/node's Platform union has no 'openharmony' member (TS2367).
-  patch -p1 <../patches/0003-assert-supported-platform.patch
+  patch -p1 <"$NPMBUILD_DIR/patches/0003-assert-supported-platform.patch"
   # 0004: @ts-expect-error -> @ts-ignore — upstream compiles with tsgo, under
   # which the directive is used; plain tsc rejects it as unused (TS2578).
   # @ts-ignore is unused-safe under both and doesn't change the emitted JS.
-  patch -p1 <../patches/0004-tsc-expect-error-compat.patch
-  cd ..
+  patch -p1 <"$NPMBUILD_DIR/patches/0004-tsc-expect-error-compat.patch"
+  cd "$NPMBUILD_WORK_DIR"
 
   # --- build the native binding ---
 
@@ -86,13 +84,12 @@ build() {
   cp target/release/libnx.so nx.openharmony-arm64.node
   llvm-strip --strip-all nx.openharmony-arm64.node
   chmod +x nx.openharmony-arm64.node
-  cd ..
+  cd "$NPMBUILD_WORK_DIR"
 
   # --- fetch the upstream npm tarball (metadata + carry-over assets + deps) ---
 
-  fetch_source "nx.tgz"
-  tar -zxf nx.tgz
-  mv package "${pkgname}-${version}"
+  fetch_source "$NPMBUILD_WORK_DIR/nx.tgz"
+  extract_source "$NPMBUILD_WORK_DIR/${pkgname}-${version}"
   # Pristine file list of the published dist, for the parity check below.
   cd "${pkgname}-${version}"
   find dist -type f | sort >../published-dist.list
@@ -218,5 +215,6 @@ build() {
 }
 
 package() {
+  cd "$NPMBUILD_WORK_DIR"
   test -s "${pkgname}-${version}/dist/src/native/nx.openharmony-arm64.node"
 }

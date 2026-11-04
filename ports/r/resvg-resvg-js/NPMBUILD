@@ -6,7 +6,7 @@ revision=4
 dist_tag="latest"
 
 packages=(
-  "resvg-js-${version}"
+  "build/resvg-js-${version}"
 )
 source="https://github.com/thx/resvg-js/archive/refs/tags/v${version}.tar.gz"
 sha256="a21eb27baac8e32b34ce950166382b487aac4877f0979495ac8eca27776a56af"
@@ -23,15 +23,11 @@ build() {
   # in 0002). Skipping the JS toolchain entirely also means we never need
   # `npm install` for this package.
 
-  fetch_source resvg-js.tar.gz
-  tar -zxf resvg-js.tar.gz
-  rm resvg-js.tar.gz
-  # GitHub source archives extract to <repo>-<version>/, which equals
-  # ${source_name}-${version} here, so no rename is needed.
+  extract_source "$NPMBUILD_WORK_DIR/${source_name}-${version}"
 
-  cd "${source_name}-${version}"
-  patch -p1 <../patches/0001-update-package-json.patch
-  patch -p1 <../patches/0002-openharmony-loader.patch
+  cd "$NPMBUILD_WORK_DIR/${source_name}-${version}"
+  patch -p1 <"$NPMBUILD_DIR/patches/0001-update-package-json.patch"
+  patch -p1 <"$NPMBUILD_DIR/patches/0002-openharmony-loader.patch"
 
   # The committed rust-toolchain file pins nightly-2023-12-11 via rustup, which
   # isn't installed in this container (we use harmonybrew's rust directly) and

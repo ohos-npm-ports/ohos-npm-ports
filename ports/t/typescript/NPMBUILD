@@ -13,7 +13,7 @@ slot_name="typescript-openharmony-arm64"
 slot_package_name="@ohos-npm-ports/${slot_name}"
 tsgo_tag="typescript/v${version}"
 work_dir="$NPMBUILD_DIR"
-build_dir="${work_dir}/build"
+build_dir="$NPMBUILD_WORK_DIR"
 source="https://registry.npmjs.org/typescript/-/typescript-${version}.tgz"
 sha256="da2513f4b95176d6dde8b51aab7afe8a927656c9d277369793f77f7e59371c08"
 
@@ -42,9 +42,7 @@ prepare() {
   echo "=== fetch: 官方 typescript@${version}（主包坯子）==="
   rm -rf "${build_dir}"
   mkdir -p "${build_dir}"
-  fetch_source "${build_dir}/typescript-${version}.tgz"
-  tar -zxf "${build_dir}/typescript-${version}.tgz" -C "${build_dir}"
-  mv "${build_dir}/package" "${build_dir}/typescript-${version}"
+  extract_source "${build_dir}/typescript-${version}"
 
   echo "=== fetch: typescript-go 源码（只取当前 tag）==="
   git clone --depth 1 --branch "${tsgo_tag}" \

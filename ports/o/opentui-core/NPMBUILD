@@ -11,10 +11,10 @@ resource "upstream" \
 dist_tag="latest"
 
 packages=(
-  "@ohos-npm-ports/opentui-core-openharmony-arm64:slots/openharmony-arm64/opentui-core-openharmony-arm64-${version}"
-  "opentui-core-${version}"
+  "@ohos-npm-ports/opentui-core-openharmony-arm64:slots/openharmony-arm64/build/opentui-core-openharmony-arm64-${version}"
+  "build/opentui-core-${version}"
 )
-root_dir="$NPMBUILD_DIR"
+root_dir="$NPMBUILD_WORK_DIR"
 port_dir="$NPMBUILD_DIR"
 source_dir="opentui-${version}"
 package_dir="${pkgname}-${version}"
@@ -69,14 +69,8 @@ darwin_sdk_dir=
 cc_dir=${ohos_clang_runtime}
 EOF
 
-  fetch_source "core.tgz"
-  tar -zxf core.tgz
-  rm core.tgz
-  mv package "${package_dir}"
-
-  fetch_resource "upstream" "${source_dir}.tar.gz"
-  tar -zxf "${source_dir}.tar.gz"
-  rm "${source_dir}.tar.gz"
+  extract_source "${root_dir}/${package_dir}"
+  extract_resource "upstream" "${root_dir}/${source_dir}"
 }
 
 build() {
@@ -172,7 +166,7 @@ slot_openharmony_arm64_prepare() {
 
   unset LD_PRELOAD
   pkgname=opentui-core-openharmony-arm64
-  root_dir="$(pwd)"
+  root_dir="$NPMBUILD_WORK_DIR"
   port_dir="$NPMBUILD_SLOT_DIR"
   source_dir="opentui-${version}"
   package_dir="${pkgname}-${version}"
@@ -211,9 +205,7 @@ darwin_sdk_dir=
 cc_dir=${ohos_clang_runtime}
 EOF
 
-  fetch_resource "upstream" "${source_dir}.tar.gz"
-  tar -zxf "${source_dir}.tar.gz"
-  rm "${source_dir}.tar.gz"
+  extract_resource "upstream" "${root_dir}/${source_dir}"
 }
 
 slot_openharmony_arm64_build() {

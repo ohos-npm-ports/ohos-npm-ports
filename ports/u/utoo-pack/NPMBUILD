@@ -16,28 +16,23 @@ resource "next" \
 dist_tag="latest"
 
 packages=(
-  "utoo-pack-${version}"
+  "build/utoo-pack-${version}"
 )
 
 root_dir="$NPMBUILD_DIR"
-build_dir="$root_dir/build"
+build_dir="$NPMBUILD_WORK_DIR"
 source_dir="$build_dir/source"
-package_dir="$root_dir/utoo-pack-${version}"
+package_dir="$build_dir/utoo-pack-${version}"
 
 prepare() {
   brew install -y cmake pkgconf
   [ "$(rustc -vV | sed -n 's/^host: //p')" = aarch64-unknown-linux-ohos ]
 
-  mkdir -p "$build_dir"
-  fetch_resource "utoo" "$build_dir/source.tgz"
-  fetch_resource "next" "$build_dir/next.tgz"
-  fetch_source "$build_dir/package.tgz"
-  rm -rf "$source_dir" "$package_dir" "$build_dir/upstream"
-  mkdir -p "$source_dir" "$package_dir" "$build_dir/upstream"
-  tar xzf "$build_dir/source.tgz" -C "$source_dir" --strip-components=1
-  tar xzf "$build_dir/next.tgz" -C "$source_dir/next.js" --strip-components=1 \
+  extract_resource "utoo" "$source_dir"
+  extract_resource "next" "$source_dir/next.js" -- \
     --exclude='*/test' --exclude='*/examples' --exclude='*/.claude'
-  tar xzf "$build_dir/package.tgz" -C "$build_dir/upstream" --strip-components=1
+  extract_source "$build_dir/upstream"
+  mkdir -p "$package_dir"
   cp -R "$build_dir/upstream/." "$package_dir/"
 }
 

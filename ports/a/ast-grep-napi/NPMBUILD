@@ -6,23 +6,16 @@ revision=1
 dist_tag="latest"
 
 packages=(
-  "ast-grep-napi-${version}"
+  "build/ast-grep-napi-${version}"
 )
 source="https://github.com/ast-grep/ast-grep/archive/refs/tags/${version}.tar.gz"
 sha256="aade9c7059f1588d322dcedc058372325758211bfaa46f7170c097ee9da4b0c7"
 resource "npm" \
   "https://registry.npmjs.org/@ast-grep/napi/-/napi-${version}.tgz" \
   "63d201c32fdd45b12dfbd6df396cef3348eb103ed892247897dbf64a67e03bbd"
-script_dir="$NPMBUILD_DIR"
-
 build() {
-  cd "$script_dir"
-
-  fetch_source "ast-grep-${version}.tar.gz"
-  tar -zxf "ast-grep-${version}.tar.gz"
-  rm "ast-grep-${version}.tar.gz"
-
-  cd "ast-grep-${version}"
+  extract_source "$NPMBUILD_WORK_DIR/ast-grep-${version}"
+  cd "$NPMBUILD_WORK_DIR/ast-grep-${version}"
 
   if ! curl -fsIL --max-time 8 -o /dev/null "https://index.crates.io/config.json" 2>/dev/null; then
     export CARGO_REGISTRIES_CRATES_IO_INDEX="sparse+https://rsproxy.cn/index/"
@@ -35,16 +28,11 @@ build() {
     echo "no napi cdylib in target/release" >&2
     exit 1
   }
-  cp "$node_src" "../ast-grep-napi.node"
-  cd ..
+  cp "$node_src" "$NPMBUILD_WORK_DIR/ast-grep-napi.node"
 
-  fetch_resource "npm" "ast-grep-napi-${version}.tgz"
-  tar -zxf "ast-grep-napi-${version}.tgz"
-  rm "ast-grep-napi-${version}.tgz"
-  mv package "ast-grep-napi-${version}"
-
-  cd "ast-grep-napi-${version}"
-  for patch in ../patches/*.patch; do
+  extract_resource "npm" "$NPMBUILD_WORK_DIR/ast-grep-napi-${version}"
+  cd "$NPMBUILD_WORK_DIR/ast-grep-napi-${version}"
+  for patch in "$NPMBUILD_DIR"/patches/*.patch; do
     patch -p1 <"$patch"
   done
   grep -q "\"version\": \"${version}\"" package.json

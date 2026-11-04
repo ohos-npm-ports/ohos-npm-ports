@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -20,14 +20,14 @@ function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'npm-ports-test-'));
   execFileSync('git', ['init', '-q'], { cwd: root });
   const dir = join(root, 'ports', 'd', 'demo');
-  mkdirSync(join(dir, 'main'), { recursive: true });
-  mkdirSync(join(dir, 'slot'), { recursive: true });
-  writeFileSync(join(dir, 'NPMBUILD'), `pkgname="demo"\nupstream="demo"\nversion="1.2.3"\nrevision=4\ndist_tag="latest"\npackages=("@ohos-npm-ports/demo-openharmony-arm64:slot" "main")\nbuild() { :; }\n`);
-  writeFileSync(join(dir, 'main', 'package.json'), JSON.stringify({
+  mkdirSync(join(dir, 'build', 'main'), { recursive: true });
+  mkdirSync(join(dir, 'slots', 'demo', 'build', 'slot'), { recursive: true });
+  writeFileSync(join(dir, 'NPMBUILD'), `pkgname="demo"\nupstream="demo"\nversion="1.2.3"\nrevision=4\ndist_tag="latest"\npackages=("@ohos-npm-ports/demo-openharmony-arm64:slots/demo/build/slot" "build/main")\nbuild() { :; }\n`);
+  writeFileSync(join(dir, 'build', 'main', 'package.json'), JSON.stringify({
     name: 'demo', version: '1.2.3',
     optionalDependencies: { '@upstream/slot': 'npm:@ohos-npm-ports/demo-openharmony-arm64@1.2.3' },
   }));
-  writeFileSync(join(dir, 'slot', 'package.json'), JSON.stringify({ version: '1.2.3' }));
+  writeFileSync(join(dir, 'slots', 'demo', 'build', 'slot', 'package.json'), JSON.stringify({ version: '1.2.3' }));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   return { root, dir };
 }
@@ -102,22 +102,25 @@ test('create supports no-fetch and opens the generated NPMBUILD', (t) => {
   assert.match(text, /version="1.2.3"/);
   assert.match(text, /sha256=""/);
   assert.match(text, /demo-\$\{version\}\.tgz/);
-  assert.match(text, /fetch_source build\/upstream\.tgz/);
+  assert.match(text, /extract_source "\$NPMBUILD_WORK_DIR\/\$\{pkgname\}-\$\{version\}"/);
   assert.doesNotMatch(text, /curl|sha256sum/);
   assert.match(output, /Fill in version and sha256/);
   assert.equal(readFileSync(log, 'utf8').trim(), file);
 });
 
-test('loadPort reads Bash metadata and rejects latest on a versioned port', (t) => {
+test('loadPort reads Bash metadata and rejects invalid output paths', (t) => {
   const { root, dir } = fixture(t);
   const port = loadPort(root, dir);
   assert.equal(port.portVersion, '1.2.3-4');
-  assert.deepEqual(port.packages, ['slot', 'main']);
+  assert.deepEqual(port.packages, ['slots/demo/build/slot', 'build/main']);
   assert.deepEqual(port.packageNames, ['@ohos-npm-ports/demo-openharmony-arm64', '']);
   const versioned = join(root, 'ports', 'd', 'demo@1.2');
   mkdirSync(versioned);
-  writeFileSync(join(versioned, 'NPMBUILD'), 'pkgname="demo"\nupstream="demo"\nversion="1.2.3"\nrevision=1\ndist_tag="latest"\npackages=("main")\nbuild() { :; }\n');
+  const file = join(versioned, 'NPMBUILD');
+  writeFileSync(file, 'pkgname="demo"\nupstream="demo"\nversion="1.2.3"\nrevision=1\ndist_tag="latest"\npackages=("build/main")\nbuild() { :; }\n');
   assert.throws(() => loadPort(root, versioned), /must not publish to latest/);
+  writeFileSync(file, readFileSync(file, 'utf8').replace('dist_tag="latest"', 'dist_tag="legacy"').replace('packages=("build/main")', 'packages=("main")'));
+  assert.throws(() => loadPort(root, versioned), /package output must be inside build/);
 });
 
 test('published short names reject collisions between different upstream scopes', () => {
@@ -136,8 +139,8 @@ test('normalization injects final manifests and is idempotent', (t) => {
   const port = loadPort(root, dir);
   normalizePackages(port);
   normalizePackages(port);
-  const main = JSON.parse(readFileSync(join(dir, 'main', 'package.json')));
-  const slot = JSON.parse(readFileSync(join(dir, 'slot', 'package.json')));
+  const main = JSON.parse(readFileSync(join(dir, 'build', 'main', 'package.json')));
+  const slot = JSON.parse(readFileSync(join(dir, 'slots', 'demo', 'build', 'slot', 'package.json')));
   assert.equal(main.name, '@ohos-npm-ports/demo');
   assert.equal(slot.name, '@ohos-npm-ports/demo-openharmony-arm64');
   assert.equal(main.version, '1.2.3-4');
@@ -145,7 +148,7 @@ test('normalization injects final manifests and is idempotent', (t) => {
   assert.equal(main.optionalDependencies['@upstream/slot'], 'npm:@ohos-npm-ports/demo-openharmony-arm64@1.2.3-4');
   assert.equal(main.repository.url, 'git+https://github.com/ohos-npm-ports/ohos-npm-ports.git');
   assert.equal(main.repository.directory, 'ports/d/demo');
-  writeFileSync(join(dir, 'main', 'package.json'), JSON.stringify({ ...main, version: '1.2.4' }));
+  writeFileSync(join(dir, 'build', 'main', 'package.json'), JSON.stringify({ ...main, version: '1.2.4' }));
   assert.throws(() => normalizePackages(port), /must start from upstream 1\.2\.3 or normalized 1\.2\.3-4/);
 });
 
@@ -155,22 +158,38 @@ test('lifecycle automatically runs prerequisites and isolates slot hooks', (t) =
   const hooks = (prefix) => ['prepare', 'build', 'package'].map((phase) => {
     const environment = !prefix && phase === 'build' ? 'export NPM_PORTS_TEST_ENV=ready; '
       : phase === 'package' ? (prefix ? 'test -z "${NPM_PORTS_TEST_ENV:-}"; ' : 'test "$NPM_PORTS_TEST_ENV" = ready; ') : '';
-    return `${prefix}${phase}() { ${environment}test "$PWD" = "$NPMBUILD_SLOT_DIR"; printf '%s\\n' '${prefix}${phase}' >> "$NPMBUILD_DIR/lifecycle.log"; }`;
+    return `${prefix}${phase}() { ${environment}test "$PWD" = "$NPMBUILD_SLOT_DIR"; test "$NPMBUILD_WORK_DIR" = "$NPMBUILD_SLOT_DIR/build"; test -d "$NPMBUILD_WORK_DIR"; printf '%s\\n' '${prefix}${phase}' >> "$NPMBUILD_DIR/lifecycle.log"; }`;
   }).join('\n');
-  writeFileSync(file, `${readFileSync(file, 'utf8').replace('@ohos-npm-ports/demo-openharmony-arm64:slot', '@ohos-npm-ports/demo-openharmony-arm64:slots/demo')}\n${hooks('')}\n${hooks('slot_demo_')}\n`);
-  mkdirSync(join(dir, 'slots', 'demo'), { recursive: true });
-  writeFileSync(join(dir, 'slots', 'demo', 'package.json'), JSON.stringify({ version: '1.2.3' }));
+  writeFileSync(file, `${readFileSync(file, 'utf8')}\n${hooks('')}\n${hooks('slot_demo_')}\n`);
   runLifecycle(loadPort(root, dir), 'package');
-  const main = JSON.parse(readFileSync(join(dir, 'main', 'package.json')));
+  const main = JSON.parse(readFileSync(join(dir, 'build', 'main', 'package.json')));
   assert.equal(main.name, '@ohos-npm-ports/demo');
   assert.equal(main.version, '1.2.3-4');
   assert.equal(main.optionalDependencies['@upstream/slot'], 'npm:@ohos-npm-ports/demo-openharmony-arm64@1.2.3-4');
-  assert.equal(JSON.parse(readFileSync(join(dir, 'slots', 'demo', 'package.json'))).name, '@ohos-npm-ports/demo-openharmony-arm64');
-  assert.equal(JSON.parse(readFileSync(join(dir, 'slots', 'demo', 'package.json'))).version, '1.2.3-4');
+  assert.equal(JSON.parse(readFileSync(join(dir, 'slots', 'demo', 'build', 'slot', 'package.json'))).name, '@ohos-npm-ports/demo-openharmony-arm64');
+  assert.equal(JSON.parse(readFileSync(join(dir, 'slots', 'demo', 'build', 'slot', 'package.json'))).version, '1.2.3-4');
   assert.deepEqual(readFileSync(join(dir, 'lifecycle.log'), 'utf8').trim().split('\n'), [
     'prepare', 'build', 'package',
     'slot_demo_prepare', 'slot_demo_build', 'slot_demo_package',
   ]);
+});
+
+test('clean removes main and slot outputs without removing sources or download cache', (t) => {
+  const { root, dir } = fixture(t);
+  const cacheFile = join(root, 'cache', 'downloads', 'source.tgz');
+  const slotSource = join(dir, 'slots', 'demo', 'patches', 'fix.patch');
+  mkdirSync(join(dir, 'artifacts'), { recursive: true });
+  mkdirSync(join(cacheFile, '..'), { recursive: true });
+  mkdirSync(join(slotSource, '..'), { recursive: true });
+  writeFileSync(cacheFile, 'cached');
+  writeFileSync(slotSource, 'patch');
+  execFileSync('cli/npm-ports', ['clean', dir], { env: { ...process.env, NPM_PORTS_ROOT: root } });
+  assert.equal(existsSync(join(dir, 'build')), false);
+  assert.equal(existsSync(join(dir, 'slots', 'demo', 'build')), false);
+  assert.equal(existsSync(join(dir, 'artifacts')), false);
+  assert.equal(readFileSync(cacheFile, 'utf8'), 'cached');
+  assert.equal(readFileSync(slotSource, 'utf8'), 'patch');
+  assert.equal(existsSync(join(dir, 'NPMBUILD')), true);
 });
 
 test('consumer test runner provides package context and writes the returned report', async (t) => {
@@ -385,22 +404,24 @@ test('pack signing selects only regular AArch64 ELF files', (t) => {
     else header.writeUInt16BE(machine, 18);
     return header;
   };
-  const nested = join(dir, 'main', 'nested');
+  const mainDir = join(dir, 'build', 'main');
+  const slotDir = join(dir, 'slots', 'demo', 'build', 'slot');
+  const nested = join(mainDir, 'nested');
   mkdirSync(nested, { recursive: true });
   const arm = join(nested, 'arm.node');
-  const bigEndianArm = join(dir, 'slot', 'arm-be.node');
+  const bigEndianArm = join(slotDir, 'arm-be.node');
   writeFileSync(arm, elf(183));
   writeFileSync(bigEndianArm, elf(183, false));
-  writeFileSync(join(dir, 'main', 'x64.node'), elf(62));
-  writeFileSync(join(dir, 'main', 'notes.txt'), 'not an ELF');
-  symlinkSync(arm, join(dir, 'main', 'arm-link.node'));
-  symlinkSync(nested, join(dir, 'slot', 'linked-directory'));
+  writeFileSync(join(mainDir, 'x64.node'), elf(62));
+  writeFileSync(join(mainDir, 'notes.txt'), 'not an ELF');
+  symlinkSync(arm, join(mainDir, 'arm-link.node'));
+  symlinkSync(nested, join(slotDir, 'linked-directory'));
   const expected = [arm, bigEndianArm].sort();
-  assert.deepEqual(findAarch64ElfFiles([join(dir, 'main'), join(dir, 'slot')]), expected);
+  assert.deepEqual(findAarch64ElfFiles([mainDir, slotDir]), expected);
   const command = join(root, 'selfsign');
   writeFileSync(command, 'fake selfsign');
   const calls = [];
-  const files = signPackages([{ directory: join(dir, 'main') }, { directory: join(dir, 'slot') }], {
+  const files = signPackages([{ directory: mainDir }, { directory: slotDir }], {
     command,
     execute: (actualCommand, args) => { calls.push([actualCommand, args]); },
   });
@@ -442,7 +463,7 @@ test('bump updates only source and resource declarations', async (t) => {
     '',
   ].join('\n');
   writeFileSync(portFile, readFileSync(portFile, 'utf8')
-    .replace('"main"', '"demo-1.2.3"')
+    .replace('"build/main"', '"build/demo-1.2.3"')
     .replace('build() { :; }', `${declarations}\nbuild() { :; }\n# demo 1.2.3\necho 1.2.3`));
   const patches = join(dir, 'patches');
   const patch = join(patches, '0001-test.patch');
@@ -476,7 +497,7 @@ test('bump updates only source and resource declarations', async (t) => {
   assert.match(text, /demo-\$\{version\}\.tgz/);
   assert.match(text, /archive\/v\$\{version\}\.tar\.gz/);
   assert.doesNotMatch(text, /archive\/v1\.3\.0\.tar\.gz/);
-  assert.match(text, /"demo-1\.2\.3"/);
+  assert.match(text, /"build\/demo-1\.2\.3"/);
   assert.match(text, /# demo 1\.2\.3\necho 1\.2\.3/);
   assert.deepEqual(downloads.sort(), [
     'https://github.com/example/demo/archive/v1.3.0.tar.gz',

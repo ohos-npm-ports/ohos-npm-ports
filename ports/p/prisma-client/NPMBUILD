@@ -9,7 +9,7 @@ packages=(
   "build/pkg"
 )
 work_dir="$NPMBUILD_DIR"
-build_dir="${work_dir}/build"
+build_dir="$NPMBUILD_WORK_DIR"
 source="https://registry.npmjs.org/@prisma/client/-/client-${version}.tgz"
 sha256="f61ebcb6989355c08edeb0596753d8afee6429eadab7b50074dedcb220cfc622"
 
@@ -30,13 +30,8 @@ prepare() {
 
   # ===== fetch =====
   echo "=== fetch: 官方 @prisma/client@${version} ==="
-  rm -rf "${build_dir}"
-  mkdir -p "${build_dir}"
   cd "${build_dir}"
-  fetch_source "src.tgz"
-  tar -zxf src.tgz
-  rm src.tgz
-  mv package src
+  extract_source "${build_dir}/src"
   # record pristine hashes before any modification, for the post-assembly diff
   (cd src && find . -type f -exec sha256sum {} + | sort) >pristine.sha256
 }

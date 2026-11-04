@@ -6,8 +6,8 @@ revision=4
 dist_tag="latest"
 
 packages=(
-  "@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64:src/crates/node/npm/openharmony-arm64"
-  "src/crates/node"
+  "@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64:build/src/crates/node/npm/openharmony-arm64"
+  "build/src/crates/node"
 )
 source="https://github.com/tailwindlabs/tailwindcss/archive/refs/tags/v${version}.tar.gz"
 sha256="e702ce2493505287e8f6cab2dd1e0c14f154e57c296854d4ded38bde5da2be6e"
@@ -30,14 +30,11 @@ build() {
   # `npm stage publish` ships that literal string as-is, unlike `pnpm publish`
   # which rewrites it).
 
-  fetch_source tailwindcss.tar.gz
-  tar -zxf tailwindcss.tar.gz
-  rm tailwindcss.tar.gz
-  mv "${source_name}-${version}" src
-  cd src
+  extract_source "$NPMBUILD_WORK_DIR/src"
+  cd "$NPMBUILD_WORK_DIR/src"
 
-  patch -p1 <../patches/0001-package-json.patch
-  patch -p1 <../patches/0002-add-openharmony-subpackage.patch
+  patch -p1 <"$NPMBUILD_DIR/patches/0001-package-json.patch"
+  patch -p1 <"$NPMBUILD_DIR/patches/0002-add-openharmony-subpackage.patch"
 
   cd crates/node
   npm install --ignore-scripts
@@ -54,7 +51,7 @@ build() {
   # (@tailwindcss/oxide), but our openharmony subpackages are published under
   # @ohos-npm-ports/. Patch the generated index.js so the loader finds our
   # binaries instead of the non-existent upstream @tailwindcss/oxide-openharmony-*.
-  patch -p1 <../../../patches/0003-fix-openharmony-loader-require.patch
+  patch -p1 <"$NPMBUILD_DIR/patches/0003-fix-openharmony-loader-require.patch"
 
   # Verify the loader now points at our @ohos-npm-ports/ subpackages.
   grep -q "require('@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64')" index.js || {

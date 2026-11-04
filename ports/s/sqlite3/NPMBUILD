@@ -8,7 +8,7 @@ bump=false
 dist_tag="latest"
 
 packages=(
-  "node-sqlite3-${version}"
+  "build/node-sqlite3-${version}"
 )
 source="https://github.com/TryGhost/node-sqlite3/archive/refs/tags/v${version}.tar.gz"
 sha256="fbfa89d06de316a51cf7d4734a19c61b876bb685d33593992617c12d0a950732"
@@ -39,10 +39,9 @@ resource "win32_x64" \
 
 build() {
   # 准备源码
-  fetch_source node-sqlite3-${version}.tar.gz
-  tar -zxf node-sqlite3-${version}.tar.gz
-  cd node-sqlite3-${version}
-  patch -p1 <../patches/0001-change-prebuild-framework.patch
+  extract_source "$NPMBUILD_WORK_DIR/node-sqlite3-${version}"
+  cd "$NPMBUILD_WORK_DIR/node-sqlite3-${version}"
+  patch -p1 <"$NPMBUILD_DIR/patches/0001-change-prebuild-framework.patch"
 
   # 构建 addon
   npm install
@@ -53,9 +52,7 @@ build() {
   for platform in ${platforms}; do
     asset_name=sqlite3-v${version}-napi-v6-${platform}
     resource_name=${platform//-/_}
-    fetch_resource "$resource_name" ${asset_name}.tar.gz
-    mkdir ${asset_name}
-    tar -zxf ${asset_name}.tar.gz -C ${asset_name}
+    extract_resource "$resource_name" "$asset_name" --strip-components=0
     mkdir ./prebuilds/${platform}
     cp ./${asset_name}/build/Release/node_sqlite3.node ./prebuilds/${platform}/@ohos-npm-ports+sqlite3.node
   done
