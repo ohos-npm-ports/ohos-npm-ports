@@ -2,7 +2,7 @@
 pkgname="resvg-resvg-js"
 upstream="@resvg/resvg-js"
 version="2.6.2"
-revision=4
+revision=5
 dist_tag="latest"
 
 packages=(
@@ -10,6 +10,9 @@ packages=(
 )
 source="https://github.com/thx/resvg-js/archive/refs/tags/v${version}.tar.gz"
 sha256="a21eb27baac8e32b34ce950166382b487aac4877f0979495ac8eca27776a56af"
+resource "npm" \
+  "https://registry.npmjs.org/@resvg/resvg-js/-/resvg-js-${version}.tgz" \
+  "5b4c67c32d593a42bca6d97320b57465cf340bee441f4cb6bf250b1086872a43"
 source_name=resvg-js
 
 build() {
@@ -43,6 +46,15 @@ build() {
   llvm-strip --strip-all resvgjs.linux-arm64-ohos.node
   chmod +x resvgjs.linux-arm64-ohos.node
 
+  extract_resource "npm" "$NPMBUILD_WORK_DIR/npm"
+  node -e '
+  const fs = require("fs");
+  const pkg = JSON.parse(fs.readFileSync("package.json"));
+  const upstream = JSON.parse(fs.readFileSync(process.argv[1]));
+  pkg.optionalDependencies = upstream.optionalDependencies;
+  fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
+  ' "$NPMBUILD_WORK_DIR/npm/package.json"
+
   # --- verify package contents ---
 
   node --check js-binding.js
@@ -60,38 +72,4 @@ build() {
   }
 '
 
-  # Real functional smoke test: this container IS the target platform, so
-  # actually load the addon and render/measure an SVG. Avoids text rendering
-  # (font availability in the CI container is unverified) and sticks to pure
-  # geometry.
-  node -e '
-  const { Resvg } = require("./js-binding.js");
-  const svg = `<svg width="100" height="50" xmlns="http://www.w3.org/2000/svg">
-    <rect x="10" y="10" width="30" height="20" fill="red"/>
-  </svg>`;
-
-  const resvg = new Resvg(svg);
-  const bbox = resvg.innerBBox();
-  // BBox fields are non-enumerable prototype getters (napi-rs class), so
-  // JSON.stringify/Object.keys show `{}` even on a real result — read the
-  // named fields directly instead.
-  console.log("innerBBox():", bbox && { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height });
-  if (!bbox || typeof bbox.width !== "number" || bbox.width <= 0 || bbox.height <= 0) {
-    throw new Error("unexpected bbox result");
-  }
-  if (bbox.x !== 10 || bbox.y !== 10 || bbox.width !== 30 || bbox.height !== 20) {
-    throw new Error(`bbox does not match input rect: ${JSON.stringify({ x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height })}`);
-  }
-
-  const rendered = resvg.render();
-  const png = rendered.asPng();
-  console.log("render() -> PNG bytes:", png.length, "size:", rendered.width, "x", rendered.height);
-  // PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A
-  const magic = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  for (let i = 0; i < magic.length; i++) {
-    if (png[i] !== magic[i]) {
-      throw new Error("output is not a valid PNG");
-    }
-  }
-'
 }

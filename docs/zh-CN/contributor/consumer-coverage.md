@@ -1,6 +1,6 @@
 # 全量 consumer 功能验证
 
-每个需要接入矩阵的 NPMBUILD 配方在根目录包含有效 test.mjs。primary 配方分别运行五 OS consumer；槽位与主包放在同一配方，由该配方的 artifact 和测试共同覆盖，不再作为独立 support port。接入期间缺 test.mjs 仅警告；全部接入后可设置 CONSUMER_REQUIRE_ALL=true 改为强制。
+每个 NPMBUILD 配方都在根目录包含有效 test.mjs。primary 配方分别运行五 OS consumer；槽位与主包放在同一配方，由该配方的 artifact 和测试共同覆盖，不再作为独立 support port。CI 设置 CONSUMER_REQUIRE_ALL=true，缺少功能测试会直接阻断门禁。
 
 默认使用最小 Node 工程，API、CLI、数据库、Bun、终端与浏览器测试由各配方实现。前端模板按需使用，专属 fixture 放在配方内。测试协议见 `.github/fixtures/consumer/README.md`。
 

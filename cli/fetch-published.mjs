@@ -14,24 +14,30 @@ import { packageMetadata } from './registry.mjs';
 const scope = '@ohos-npm-ports/';
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
-// Slot packages are not listed anywhere but in the built output, so read them back from the published main
-// package: build.mjs rewrites every reference to a sibling package to this exact version, either as a plain
-// dependency or as an npm: alias.
-export function slotNames(metadata, main, version) {
+// Discover the port's slot packages from published manifests, including dependencies of other slots. Only names
+// declared by the current NPMBUILD are included, so another port at the same version is never pulled into the closure.
+export function slotNames(metadata, main, version, lookup = () => null, allowed = null) {
   const names = new Set();
-  for (const field of ['dependencies', 'optionalDependencies']) {
-    for (const [name, range] of Object.entries(metadata[field] ?? {})) {
-      let target = name;
-      let resolved = range;
-      if (typeof range === 'string' && range.startsWith('npm:')) {
-        const alias = range.slice(4);
-        const separator = alias.lastIndexOf('@');
-        target = alias.slice(0, separator);
-        resolved = alias.slice(separator + 1);
+  function visit(current) {
+    for (const field of ['dependencies', 'optionalDependencies']) {
+      for (const [name, range] of Object.entries(current[field] ?? {})) {
+        let target = name;
+        let resolved = range;
+        if (typeof range === 'string' && range.startsWith('npm:')) {
+          const alias = range.slice(4);
+          const separator = alias.lastIndexOf('@');
+          target = alias.slice(0, separator);
+          resolved = alias.slice(separator + 1);
+        }
+        if (!target.startsWith(scope) || target === main || resolved !== version || names.has(target)) continue;
+        if (allowed && !allowed.has(target)) continue;
+        names.add(target);
+        const nested = lookup(target);
+        if (nested) visit(nested);
       }
-      if (target.startsWith(scope) && target !== main && resolved === version) names.add(target);
     }
   }
+  visit(metadata);
   return [...names].sort();
 }
 
@@ -65,7 +71,7 @@ export function fetchPort(root, dir, { sourceSha, metadataOf = packageMetadata, 
     return metadata;
   };
   const mainMetadata = lookup(main);
-  const names = [main, ...slotNames(mainMetadata, main, version)];
+  const names = [main, ...slotNames(mainMetadata, main, version, lookup, new Set(port.packageNames.filter(Boolean)))];
   // The published main package must account for every package the port builds, otherwise the consumers would
   // silently test an incomplete set.
   assert.equal(names.length, port.packages.length, `${dir}: found ${names.length} published package(s) [${names.join(', ')}], NPMBUILD builds ${port.packages.length}`);

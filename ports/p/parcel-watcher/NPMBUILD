@@ -90,32 +90,6 @@ build() {
   node --check index.js
   node --check wrapper.js
 
-  # 真函数冒烟：openharmony 上 require 本包根——index.js 拼出的平台包当前
-  # 未安装（optional alias 在本构建目录里拉不到未发布的配套 port），
-  # 走官方兜底路径命中内嵌 binding；真实扫一次目录并落快照文件。
-  # 跨平台模拟：伪造 process.platform=linux 验证拼名缺失时兜底链不崩（真实
-  # linux 用户的平台包由 optionalDependencies 在 require(name) 一步命中）
-  npm install --ignore-scripts --no-audit --no-fund --silent
-  node -e '
-Object.defineProperty(process, "platform", { value: "linux" });
-const b = require("./");
-if (typeof b.writeSnapshot !== "function") throw new Error("writeSnapshot missing");
-console.log("linux platform simulation: fallback chain OK");
-'
-  node -e '
-const b = require("./");
-const fs = require("fs"), path = require("path"), os = require("os");
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pw-"));
-fs.writeFileSync(path.join(dir, "a.txt"), "x");
-const snap = path.join(os.tmpdir(), "pw-snap.txt");
-b.writeSnapshot(dir, snap, {}).then(
-  () => {
-    if (!fs.existsSync(snap)) { console.error("snapshot file missing"); process.exit(1); }
-    console.log("OK: writeSnapshot (fallback build/Release path)");
-  },
-  (e) => { console.error("writeSnapshot failed:", e.message); process.exit(1); }
-);'
-  rm -rf node_modules package-lock.json
 }
 
 slot_openharmony_arm64_build() {
@@ -183,16 +157,4 @@ JSON
 '
   node --check index.js
   grep -q "require('./watcher.node')" index.js
-  node -e '
-const b = require("./");
-const fs = require("fs"), path = require("path"), os = require("os");
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pws-"));
-fs.writeFileSync(path.join(dir, "a.txt"), "x");
-const snap = path.join(os.tmpdir(), "pws-snap.txt");
-b.writeSnapshot(dir, snap, {}).then(
-  () => {
-    if (!fs.existsSync(snap)) { console.error("snapshot file missing"); process.exit(1); }
-  },
-  (e) => { console.error("writeSnapshot failed:", e.message); process.exit(1); }
-);'
 }

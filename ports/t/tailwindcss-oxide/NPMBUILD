@@ -80,17 +80,4 @@ build() {
   }
 '
 
-  # Real functional smoke test: this container IS the target platform, so
-  # actually run a real class scan through the addon.
-  node -e '
-  const { Scanner } = require("./npm/openharmony-arm64/tailwindcss-oxide.openharmony-arm64.node");
-  const scanner = new Scanner({ sources: [] });
-  const candidates = scanner.scanFiles([
-    { content: "<div class=\"text-red-500 flex\"></div>", extension: "html" },
-  ]);
-  console.log("scanFiles() candidates:", candidates);
-  if (!candidates.includes("text-red-500") || !candidates.includes("flex")) {
-    throw new Error("unexpected scan output: " + JSON.stringify(candidates));
-  }
-'
 }

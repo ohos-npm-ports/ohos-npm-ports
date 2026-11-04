@@ -3,15 +3,14 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-const version = '12.16.1';
 const slotName = 'pnpm-exe.openharmony-arm64';
 
-export default async function test({ requirePackage, resolvePackage, importPackage, run, mode, portVersion }) {
+export default async function test({ requirePackage, resolvePackage, importPackage, run, mode, version, revision }) {
   const pkg = requirePackage('pnpm/package.json');
   if (mode === 'overrides') {
     assert.equal(pkg.name, '@ohos-npm-ports/pnpm');
-    assert.equal(pkg.version, portVersion);
-    assert.equal(pkg.optionalDependencies[`@ohos-npm-ports/${slotName}`], portVersion);
+    assert.equal(pkg.version, `${version}-${revision}`);
+    assert.equal(pkg.optionalDependencies[`@ohos-npm-ports/${slotName}`], `${version}-${revision}`);
   } else {
     assert.equal(pkg.name, 'pnpm');
     assert.equal(pkg.version, version);

@@ -2,7 +2,7 @@
 pkgname="sharp"
 upstream="sharp"
 version="0.35.5"
-revision=1
+revision=2
 dist_tag="latest"
 
 packages=(
@@ -96,8 +96,9 @@ build() {
   # binding is now written to a versioned filename. Build it explicitly.
   npm run build
 
-  addon="sharp-openharmony-arm64-${version}.node"
-  test -f "src/build/Release/${addon}"
+  built_addon="sharp-openharmony-arm64-${version}.node"
+  addon="sharp-openharmony-arm64.node"
+  test -f "src/build/Release/${built_addon}"
 
   cd "$NPMBUILD_WORK_DIR"
 
@@ -108,7 +109,10 @@ build() {
   cp -r sharp-src/lib pkg/lib
   cp sharp-src/package.json pkg/package.json
   (cd pkg && patch -p1 <"$NPMBUILD_DIR/patches/0002-package-json.patch")
-  cp "sharp-src/src/build/Release/${addon}" "pkg/src/build/Release/${addon}"
+  (cd pkg && patch -p1 <"$NPMBUILD_DIR/patches/0003-openharmony-unversioned-addon.patch")
+  node --check pkg/dist/sharp.cjs
+  node --check pkg/dist/sharp.mjs
+  cp "sharp-src/src/build/Release/${built_addon}" "pkg/src/build/Release/${addon}"
 
   # Ship the two libs we build under their bare SONAME (not the fully
   # versioned filename + a symlink) -- symlinks are not reliably preserved
@@ -142,45 +146,4 @@ build() {
   console.log("optionalDependencies preserved:", n, "platform packages");
 ' "${version}"
 
-  # Real functional smoke test against the FINAL pkg/ layout (RPATH resolved
-  # via $ORIGIN + the Harmonybrew prefix, no manual LD_LIBRARY_PATH) -- this is
-  # exactly what a consumer gets, not just the build tree. pkg/ itself ships no
-  # node_modules (npm always excludes it from the published tarball regardless
-  # of "files"), so point NODE_PATH at the node_modules our own `npm install`
-  # above already populated with sharp's real dependencies (detect-libc,
-  # semver, @img/colour) -- a real consumer's `npm install` does this
-  # resolution itself; this is purely a stand-in for that step.
-  export NODE_PATH="$(pwd)/sharp-src/node_modules"
-  export OPENSSL_CONF=/dev/null
-  node -e '
-  const path = require("path");
-  const sharp = require(path.join(process.cwd(), "pkg", "dist", "index.cjs"));
-  (async () => {
-    const png = await sharp({
-      create: { width: 40, height: 30, channels: 3, background: { r: 5, g: 200, b: 40 } },
-    }).png().toBuffer();
-
-    const jp2 = await sharp(png).jp2().toBuffer();
-    const back = await sharp(jp2).raw().toBuffer({ resolveWithObject: true });
-    if (back.info.width !== 40 || back.info.height !== 30) {
-      throw new Error("jp2 round-trip size mismatch: " + JSON.stringify(back.info));
-    }
-    if (!sharp.format.jp2 || !sharp.format.jp2.output) {
-      throw new Error("format.jp2 missing or incomplete: " + JSON.stringify(sharp.format.jp2));
-    }
-
-    // avif/heif also depend on libheif, now statically linked into libvips
-    // (heif-module=disabled above) instead of a dynamic module whose path
-    // would only resolve inside this build tree.
-    const avif = await sharp(png).avif().toBuffer();
-    if (avif.length === 0) throw new Error("avif encode produced no bytes");
-
-    console.log(
-      "OK: jp2 round-trip", jp2.length, "bytes,", back.info.width + "x" + back.info.height,
-      "| avif encode", avif.length, "bytes",
-    );
-  })().catch((e) => { console.error("FAIL:", e); process.exit(1); });
-'
-
-  echo "OK: @ohos-npm-ports/sharp built and smoke-tested"
 }

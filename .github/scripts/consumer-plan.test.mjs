@@ -77,11 +77,11 @@ test('port metadata supplies versions and consumer test options', () => {
   assert.equal(loadPort(process.cwd(), 'ports/l/lightningcss@1.32').versionLine, '1.32');
 });
 
-test('debug selection is explicit and rejects non-primary roots', () => {
+test('debug selection is explicit and rejects invalid roots', () => {
   const env = { ...process.env, CONSUMER_SELECTION: JSON.stringify(['ports/l/lightningcss@1.32']) };
   const value = execFileSync(process.execPath, ['.github/scripts/consumer-plan.mjs'], { input: '.github/scripts/consumer-plan.mjs\n', env, encoding: 'utf8' });
   assert.ok(value.includes('consumer-ports=["ports/l/lightningcss@1.32"]'));
-  assert.throws(() => execFileSync(process.execPath, ['.github/scripts/consumer-plan.mjs'], { input: '', env: { ...env, CONSUMER_SELECTION: '["ports/b/bufferutil"]' }, stdio: ['pipe', 'pipe', 'pipe'] }));
+  assert.throws(() => execFileSync(process.execPath, ['.github/scripts/consumer-plan.mjs'], { input: '', env: { ...env, CONSUMER_SELECTION: '["ports/b/bufferutil@4.0"]' }, stdio: ['pipe', 'pipe', 'pipe'] }));
 });
 
 test('every declared test parses as an ES module', () => {

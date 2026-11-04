@@ -285,5 +285,4 @@ EOF
       console.error("os/cpu filter wrong"); process.exit(1);
     }
   '
-  python3 -c "import ctypes; ctypes.CDLL('./libopentui.so'); print('dlopen OK')"
 }

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 
-export default function test({ requirePackage, mode, portVersion }) {
+export default function test({ requirePackage, mode, version, revision }) {
   const { DOMParser, parse } = requirePackage('domparser-rs');
   const pkg = requirePackage('domparser-rs/package.json');
   if (mode !== 'baseline') {
     assert.equal(pkg.name, '@ohos-npm-ports/domparser-rs');
-    assert.equal(pkg.version, portVersion);
+    assert.equal(pkg.version, `${version}-${revision}`);
   }
   const parser = new DOMParser();
   const doc = parser.parseFromString('<html><body><p id="proof" class="a">native &amp; DOM</p></body></html>', 'text/html');

@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { dirname, join } from 'node:path';
 
-export default async function test({ requirePackage, resolvePackage, mode }) {
+export default async function test({ requirePackage, resolvePackage, mode, version }) {
   const playwright = requirePackage('playwright-core');
   const manifest = requirePackage('playwright-core/package.json');
   const root = dirname(resolvePackage('playwright-core/package.json'));
@@ -13,7 +13,7 @@ export default async function test({ requirePackage, resolvePackage, mode }) {
   }
   assert.ok(playwright.devices['Desktop Chrome'].viewport.width > 0);
   const cli = execFileSync(process.execPath, [join(root, 'cli.js'), '--version'], { encoding: 'utf8', timeout: 30000 }).trim();
-  assert.match(cli, /^Version 1\.64\.1(?:-\d+)?$/);
+  assert.match(cli, new RegExp(`^Version ${version.replaceAll('.', '\\.')}(?:-\\d+)?$`));
   const executable = playwright.chromium.executablePath();
   if (process.platform === 'openharmony') assert.ok(executable === 'aa' || executable.endsWith('/aa'));
   else assert.ok(executable && executable !== 'aa' && !executable.endsWith('/aa'));
@@ -61,7 +61,7 @@ export default async function test({ requirePackage, resolvePackage, mode }) {
     assert.ok(storage.cookies.some(cookie => cookie.name === 'consumer' && cookie.value === 'playwright'));
     return {
       result: {
-        browsers: ['chromium', 'firefox', 'webkit'], cliVersion: '1.64.1',
+        browsers: ['chromium', 'firefox', 'webkit'], cliVersion: version,
         apiRequest: { get: true, jsonPost: true, cookies: true, storageState: true },
       },
       assets: [],

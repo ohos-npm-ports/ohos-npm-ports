@@ -1,0 +1,22 @@
+--- a/dist/sharp.cjs
++++ b/dist/sharp.cjs
+@@ -22,7 +22,7 @@
+ let sharp;
+ const errors = [];
+ try {
+-  sharp = require(`../src/build/Release/sharp-${runtimePlatform}-${version}.node`);
++  sharp = require(`../src/build/Release/sharp-${runtimePlatform}${runtimePlatform === "openharmony-arm64" ? "" : `-${version}`}.node`);
+ } catch (err) {
+   errors.push(err);
+ }
+--- a/dist/sharp.mjs
++++ b/dist/sharp.mjs
+@@ -22,7 +22,7 @@
+ let sharp;
+ const errors = [];
+ try {
+-  sharp = require(`../src/build/Release/sharp-${runtimePlatform}-${version}.node`);
++  sharp = require(`../src/build/Release/sharp-${runtimePlatform}${runtimePlatform === "openharmony-arm64" ? "" : `-${version}`}.node`);
+ } catch (err) {
+   errors.push(err);
+ }

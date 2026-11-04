@@ -142,23 +142,6 @@ EOF
             }
         }
     ' "${main_dir}" "${build_dir}/wrapper-pristine.json"
-  "${slot_dir}/pnpm" --version
-
-  # loader 平台分支：openharmony 命中槽位，其他平台仍走上游包
-  (cd "${main_dir}" && node --input-type=module -e '
-        Object.defineProperty(process, "platform", { value: "openharmony" });
-        const m = await import("./native-binary.mjs");
-        const c = m.getBinCandidates();
-        if (c.length !== 1 || c[0] !== "@ohos-npm-ports/pnpm-exe.openharmony-arm64/pnpm") throw new Error("openharmony: " + JSON.stringify(c));
-    ')
-  for plat in linux darwin win32; do
-    (cd "${main_dir}" && node --input-type=module -e '
-            Object.defineProperty(process, "platform", { value: "'"$plat"'" });
-            const m = await import("./native-binary.mjs");
-            const c = m.getBinCandidates();
-            if (c.length === 0 || !c.every((s) => s.startsWith("@pnpm/exe."))) throw new Error("'"$plat"': " + JSON.stringify(c));
-        ')
-  done
   test -d "${work_dir}/build/${slot_name}"
   test -d "${work_dir}/build/pnpm-wrapper-${version}"
 }

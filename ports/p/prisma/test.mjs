@@ -4,7 +4,6 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-const version = '8.0.0-rc.29';
 const ormVersion = '8.0.0-rc.21';
 
 function commandAvailable(command, run) {
@@ -42,10 +41,10 @@ model Widget {
 `);
 }
 
-export default function test({ requirePackage, resolvePackage, run, projectDir, mode, portVersion }) {
+export default function test({ requirePackage, resolvePackage, run, projectDir, mode, version, revision }) {
   const app = join(projectDir, 'app');
   const pkg = requirePackage('prisma/package.json');
-  const expectedVersion = mode === 'overrides' ? portVersion : version;
+  const expectedVersion = mode === 'overrides' ? `${version}-${revision}` : version;
   assert.equal(pkg.version, expectedVersion);
   assert.equal(pkg.name, mode === 'overrides' ? '@ohos-npm-ports/prisma' : 'prisma');
   const cli = join(dirname(resolvePackage('prisma/package.json')), pkg.bin.prisma);
