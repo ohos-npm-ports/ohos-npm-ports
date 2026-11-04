@@ -47,6 +47,7 @@ export function testSpec(portDir, root = defaultRoot) {
   if (platforms.length < 4) assert.ok(field('platform-reason'), `Explain the restricted test platforms: ${file}`);
   return {
     portDir, file, upstream, version: field('upstream-version') ?? recipe(state, repo, portDir).version,
+    revision: recipe(state, repo, portDir).revision,
     portVersion: recipe(state, repo, portDir).portVersion,
     portPackage: field('port-package') ?? `@ohos-npm-ports/${recipe(state, repo, portDir).pkgname}`,
     setup: field('setup') === 'true', role, timeout, browser: field('browser'), project, fixture, prerequisites, platforms, reason: field('platform-reason'),

@@ -49,12 +49,4 @@ build() {
   grep -q "process.platform === 'openharmony'" index.js
   grep -q "./ast-grep-napi.openharmony-arm64.node" index.js
 
-  node -e "
-  const { parse, Lang } = require('./index.js');
-  const root = parse(Lang.JavaScript, 'const a = 1 + 2;').root();
-  const m = root.find('\$A + \$B');
-  if (!m || m.getMatch('A').text() !== '1' || m.getMatch('B').text() !== '2') throw new Error('napi smoke failed');
-  console.log('loader + parse smoke OK');
-"
-  echo "OK: @ohos-npm-ports/ast-grep-napi ${version}"
 }

@@ -160,7 +160,7 @@ async function portTests(project, specs, mode, primary, phase = 'test') {
   for (const [index, spec] of specs.filter((entry) => phase === 'setup' ? entry.setup : entry.portDir === primary || entry.role === 'support').entries()) {
     const report = join(testDir, `${phase}-${index}.json`);
     console.log(`Port ${phase}: ${spec.portDir} (${mode})`);
-    await run([runner, spec.file, phase, mode, String(spec.portDir === primary), report], project, false, { PORT_TEST_PORT_VERSION: spec.portVersion, PORT_TEST_NPM_CLI: npmCli, PORT_TEST_HELPER: pathToFileURL(join(fixture, 'consumer-test-tools.mjs')).href }, spec.timeout * 1000);
+    await run([runner, spec.file, phase, mode, String(spec.portDir === primary), report], project, false, { PORT_TEST_VERSION: spec.version, PORT_TEST_REVISION: spec.revision, PORT_TEST_NPM_CLI: npmCli, PORT_TEST_HELPER: pathToFileURL(join(fixture, 'consumer-test-tools.mjs')).href }, spec.timeout * 1000);
     if (phase === 'setup') continue;
     const result = JSON.parse(readFileSync(report));
     assert.ok(result.result && typeof result.result === 'object', `Invalid report from ${spec.portDir}`);

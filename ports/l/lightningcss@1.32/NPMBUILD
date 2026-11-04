@@ -65,37 +65,5 @@ JS
 '
   node --check node/index.js
   grep -q "process.platform === 'openharmony'" node/index.js
-  node - <<'JS'
-const Module = require('module');
-const load = Module._load;
-const cases = [
-  ['linux', 'lightningcss-linux-arm64-gnu'],
-  ['darwin', 'lightningcss-darwin-arm64'],
-  ['win32', 'lightningcss-win32-arm64-msvc'],
-];
-for (const [platform, expected] of cases) {
-  Object.defineProperty(process, 'platform', { configurable: true, value: platform });
-  let selected;
-  Module._load = function (request, parent, isMain) {
-    if (request === 'detect-libc') return { MUSL: 'musl', familySync: () => 'glibc' };
-    if (request.startsWith('lightningcss-')) {
-      selected = request;
-      return {};
-    }
-    return load.call(this, request, parent, isMain);
-  };
-  delete require.cache[require.resolve('./node/index.js')];
-  require('./node/index.js');
-  if (selected !== expected) throw new Error(`${platform} selected ${selected}, expected ${expected}`);
-}
-Module._load = load;
-Object.defineProperty(process, 'platform', { configurable: true, value: 'openharmony' });
-delete require.cache[require.resolve('./node/index.js')];
-const { transform } = require('./node/index.js');
-const { code } = transform({ filename: 'test.css', code: Buffer.from('.a { color: red }'), minify: true });
-const output = code.toString();
-console.log('transform() output:', output);
-if (!output.includes('.a') || !output.includes('red')) throw new Error('unexpected transform output');
-JS
 
 }

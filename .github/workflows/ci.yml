@@ -135,6 +135,8 @@ jobs:
           cli/npm-ports lint --all
 
       - name: Report consumer coverage
+        env:
+          CONSUMER_REQUIRE_ALL: 'true'
         run: node .github/scripts/consumer-coverage.mjs >> "$GITHUB_STEP_SUMMARY"
 
   external-build-approval:

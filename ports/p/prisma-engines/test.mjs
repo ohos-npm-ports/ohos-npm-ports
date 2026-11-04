@@ -5,10 +5,9 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const version = '5.1.1';
 const commit = '6a3747c37ff169c90047725a05a6ef02e32ac97e';
 
-export default async function test({ requirePackage, run }) {
+export default async function test({ requirePackage, run, version }) {
   const engines = requirePackage('@prisma/engines');
   for (const key of [
     'getEnginesPath', 'ensureBinariesExist', 'getCliQueryEngineBinaryType',

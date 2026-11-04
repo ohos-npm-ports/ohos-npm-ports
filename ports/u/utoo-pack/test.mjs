@@ -12,7 +12,7 @@ const runner = fileURLToPath(new URL('../../../cli/consumer-test-runner.mjs', im
 
 export default async function test(context) {
   const moduleMode = process.env.UTOO_TEST_MODULE;
-  const { mode, primary, projectDir, portVersion, npmCli, helper, requirePackage, importPackage } = context;
+  const { mode, primary, projectDir, version, revision, npmCli, helper, requirePackage, importPackage } = context;
   if (!moduleMode) {
     const reports = fs.mkdtempSync(path.join(os.tmpdir(), 'utoo-pack-test-'));
     try {
@@ -24,7 +24,8 @@ export default async function test(context) {
           env: {
             ...process.env,
             UTOO_TEST_MODULE: name,
-            PORT_TEST_PORT_VERSION: portVersion,
+            PORT_TEST_VERSION: version,
+            PORT_TEST_REVISION: revision,
             PORT_TEST_NPM_CLI: npmCli,
             PORT_TEST_HELPER: helper,
           },
@@ -45,7 +46,7 @@ export default async function test(context) {
   const pkg = requirePackage('@utoo/pack/package.json');
   if (mode !== 'baseline') {
     assert.equal(pkg.name, '@ohos-npm-ports/utoo-pack');
-    assert.equal(pkg.version, portVersion);
+    assert.equal(pkg.version, `${version}-${revision}`);
   }
   const api = moduleMode === 'cjs' ? requirePackage('@utoo/pack') : await importPackage('@utoo/pack');
   assert.equal(typeof api.build, 'function');

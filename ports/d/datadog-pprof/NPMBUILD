@@ -96,38 +96,4 @@ build() {
     ;;
   esac
 
-  # Real functional smoke test: dlopen the addon and drive its actual V8
-  # CPU-profiler API with harmonybrew's core node (llvm-built, ABI compatible
-  # with this addon).
-  node_bin="$(brew --prefix)/opt/node/bin/node"
-  "$node_bin" --version
-
-  "$node_bin" -e '
-  const { time } = require("./out/src/index.js");
-
-  function hotLoop() {
-    const start = Date.now();
-    let acc = 0;
-    while (Date.now() - start < 300) {
-      for (let i = 0; i < 1000; i++) acc += Math.sqrt(i);
-    }
-    return acc;
-  }
-
-  time.start({ intervalMicros: 1000, durationMillis: 60000 });
-  hotLoop();
-  const profile = time.stop();
-
-  const strings = profile.stringTable.strings;
-  const summary = {
-    sampleCount: profile.sample.length,
-    locationCount: profile.location.length,
-    functionCount: profile.function.length,
-    hasHotLoop: strings.includes("hotLoop"),
-  };
-  console.log("TimeProfiler summary:", JSON.stringify(summary));
-  if (summary.sampleCount === 0 || !summary.hasHotLoop) {
-    throw new Error("smoke test failed: no samples or missing hotLoop frame");
-  }
-'
 }

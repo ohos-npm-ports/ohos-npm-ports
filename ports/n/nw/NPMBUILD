@@ -62,6 +62,4 @@ JS
   for test_file in server browser endpoint; do
     NW_TEST_IMPL="$output_dir/src/ohos" node "$work_dir/tests/$test_file.cjs"
   done
-  node -e 'import("./src/index.js").then(api => { for (const name of ["get", "run", "findpath"]) if (typeof api[name] !== "function") throw Error(name); });'
-  node src/cli.js --help
 }

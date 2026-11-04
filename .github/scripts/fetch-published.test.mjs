@@ -57,6 +57,17 @@ test('slot packages are the main package references that carry the port version'
   assert.deepEqual(slotNames({}, main, '1.2.3-4'), []);
 });
 
+test('slot discovery follows nested slot dependencies but excludes other ports', () => {
+  const nested = '@ohos-npm-ports/demo-composer';
+  const manifests = {
+    [main]: { optionalDependencies: { '@upstream/cli': `npm:${slot}@1.2.3-4` } },
+    [slot]: { dependencies: { '@upstream/composer': `npm:${nested}@1.2.3-4`, '@ohos-npm-ports/elsewhere': '1.2.3-4' } },
+    [nested]: { dependencies: {} },
+  };
+  const allowed = new Set([slot, nested]);
+  assert.deepEqual(slotNames(manifests[main], main, '1.2.3-4', (name) => manifests[name], allowed), [nested, slot].sort());
+});
+
 test('published tarballs become an artifact directory with the manifest the consumers read', (t) => {
   const root = fixture(t);
   const fake = registry();

@@ -208,7 +208,7 @@ test('consumer test runner provides package context and writes the returned repo
   const report = join(projectDir, 'report.json');
   writeFileSync(file, `import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
-export function setup({ projectDir }) { writeFileSync(projectDir + '/setup.txt', 'ready'); }
+export function setup({ projectDir, version }) { writeFileSync(projectDir + '/setup.txt', version); }
 export default async function test(context) {
   const { answer } = await context.importPackage('example');
   assert.equal(answer, 42);
@@ -216,13 +216,13 @@ export default async function test(context) {
   assert.ok(context.resolvePackage('example/package.json').endsWith('package.json'));
   assert.equal(context.tools('./package.json').name, 'consumer-deps');
   assert.equal(context.run(process.execPath, ['-e', 'console.log("ok")'], { capture: true }).stdout.trim(), 'ok');
-  return { result: { answer, mode: context.mode, portVersion: context.portVersion }, assets: [] };
+  return { result: { answer, mode: context.mode, version: context.version, revision: context.revision }, assets: [] };
 }
 `);
-  await executeConsumerTest({ file, phase: 'setup', projectDir });
-  assert.equal(readFileSync(join(projectDir, 'setup.txt'), 'utf8'), 'ready');
-  const result = await executeConsumerTest({ file, mode: 'overrides', portVersion: '1.2.3-4', projectDir, report });
-  assert.deepEqual(result.result, { answer: 42, mode: 'overrides', portVersion: '1.2.3-4' });
+  await executeConsumerTest({ file, phase: 'setup', version: '1.2.3', projectDir });
+  assert.equal(readFileSync(join(projectDir, 'setup.txt'), 'utf8'), '1.2.3');
+  const result = await executeConsumerTest({ file, mode: 'overrides', version: '1.2.3', revision: 4, projectDir, report });
+  assert.deepEqual(result.result, { answer: 42, mode: 'overrides', version: '1.2.3', revision: 4 });
   assert.deepEqual(JSON.parse(readFileSync(report, 'utf8')), result);
 });
 

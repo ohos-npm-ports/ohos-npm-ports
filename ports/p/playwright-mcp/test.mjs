@@ -5,8 +5,6 @@ import { spawn } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-const version = '0.0.84';
-
 function verifyStdio(cli) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [cli], { stdio: ['pipe', 'pipe', 'inherit'] });
@@ -74,7 +72,7 @@ export function setup({ projectDir, mode }) {
   writeFileSync(file, JSON.stringify(pkg, null, 2));
 }
 
-export default async function test({ requirePackage, resolvePackage, run, mode }) {
+export default async function test({ requirePackage, resolvePackage, run, mode, version }) {
   const core = requirePackage('playwright-core/package.json');
   if (mode === 'overrides') assert.equal(core.name, '@ohos-npm-ports/playwright-core');
   const manifestPath = resolvePackage('@playwright/mcp/package.json');

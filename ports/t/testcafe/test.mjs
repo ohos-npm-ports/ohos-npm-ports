@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 
-export default function test({ requirePackage, resolvePackage, run, projectDir, mode, portVersion }) {
+export default function test({ requirePackage, resolvePackage, run, projectDir, mode, version, revision }) {
   const testcafe = requirePackage('testcafe');
   const pkg = requirePackage('testcafe/package.json');
   if (mode !== 'baseline') {
     assert.equal(pkg.name, '@ohos-npm-ports/testcafe');
-    assert.equal(pkg.version, portVersion);
+    assert.equal(pkg.version, `${version}-${revision}`);
   }
   const root = dirname(resolvePackage('testcafe/package.json'));
   const selector = testcafe.Selector('#example');

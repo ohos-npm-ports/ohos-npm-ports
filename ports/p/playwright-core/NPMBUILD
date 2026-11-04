@@ -94,20 +94,6 @@ package() {
       exit 1
     }
 
-    node -e '
-      const pw = require("./index.js");
-      for (const name of ["chromium", "firefox", "webkit"]) {
-        if (typeof pw[name]?.launch !== "function") throw new Error(`playwright-core.${name}.launch missing`);
-      }
-    '
-    node -e '
-      const ohos = require("./lib/ohos");
-      for (const name of ["launchViaAa", "takeScreenshot", "resolveLaunchConfig"]) {
-        if (!(name in ohos)) throw new Error(`lib/ohos export missing: ${name}`);
-      }
-      if (typeof ohos.chromium?.launch !== "function") throw new Error("lib/ohos re-export of playwright-core is broken");
-    '
-
     grep -q 'ohosExecutablePath' lib/coreBundle.js
     grep -q 'startBrowserViaAa' lib/coreBundle.js
     grep -q '__ohosDeviceBrowser' lib/coreBundle.js

@@ -30,7 +30,7 @@ npm-ports validate-publish <port>
 
 需要排除旧构建产物影响时，先执行 `npm-ports clean <port>`。该命令保留源码和下载缓存，但会删除 artifacts，因此 clean 后必须重新构建，不能立即使用 `--no-build`。
 
-有 `test.mjs` 时还要执行：
+每个 port 都必须提供 `test.mjs`，并执行：
 
 ```sh
 npm-ports test <port>
@@ -38,7 +38,7 @@ npm-ports test <port>
 
 `npm-ports test` 默认重新构建并打包，再通过临时 registry 安装并在当前平台运行功能测试。已有当前源码生成的 artifacts 时可用 `npm-ports test <port> --no-build` 复用。日常发布检查使用 `npm-ports publish --dry-run` 或临时 Verdaccio，不发布到 npm 中心仓。
 
-`test.mjs` 默认导出测试函数，返回 `{ result, assets? }`。runner 提供 `requirePackage`、`importPackage`、`resolvePackage`、`run`、`mode`、`portVersion` 和 `projectDir` 等上下文。测试通过上下文加载安装后的包，不直接依赖仓库中的 node_modules，也不手工写报告文件。复杂的辅助测试可以放在 port 的其他文件中。
+`test.mjs` 默认导出测试函数，返回 `{ result, assets? }`。runner 提供 `requirePackage`、`importPackage`、`resolvePackage`、`run`、`mode`、`version`、`revision` 和 `projectDir` 等上下文。`version` 和 `revision` 与 NPMBUILD 中的含义相同，需要最终发布版本时使用 `${version}-${revision}`。测试通过上下文加载安装后的包，不直接依赖仓库中的 node_modules，也不手工写报告文件。复杂的辅助测试可以放在 port 的其他文件中。
 
 安装前准备使用命名导出的 `setup(context)`，并在文件头声明 `// @test-setup: true`。setup 在 npm install 和 npm ci 前运行，可以补充依赖或准备 fixture。
 
@@ -65,6 +65,6 @@ npm-ports test <port>
 
 ## 5. 多平台 consumer
 
-全部 port 默认进入五平台通用安装矩阵，不需要 `test.mjs`。runner 根据构建矩阵选择 port，校验 artifact integrity 后通过临时 Verdaccio 安装主包，按 os/cpu 过滤检查槽位、实际安装版本和 bin，再执行 npm ci。全量 dispatch 覆盖全部 port，普通变更覆盖受影响 port。只改 CI 或 consumer 脚本时只测 `sentinel-ports.json` 里的哨兵 port，全量验证用手动 dispatch；改 consumer 脚本时哨兵不重建，测试的是 npm 上已发布的包。没有功能测试文件不会跳过安装验证。
+全部 port 默认进入五平台通用安装矩阵，并必须提供 `test.mjs`。runner 根据构建矩阵选择 port，校验 artifact integrity 后通过临时 Verdaccio 安装主包，按 os/cpu 过滤检查槽位、实际安装版本和 bin，再执行 npm ci。全量 dispatch 覆盖全部 port，普通变更覆盖受影响 port。只改 CI 或 consumer 脚本时只测 `sentinel-ports.json` 里的哨兵 port，全量验证用手动 dispatch；改 consumer 脚本时哨兵不重建，测试的是 npm 上已发布的包。CI 通过 `CONSUMER_REQUIRE_ALL=true` 强制功能测试覆盖，缺失文件直接阻断门禁。
 
-`test.mjs` 用于补充真实 API、CLI、加载和工程行为。已配置的 primary port 继续在 Windows x64、Linux x64/arm64、macOS arm64 和 OpenHarmony arm64 上运行。普通 OS 比较 baseline 与 overrides，OpenHarmony 验证 overrides。槽位使用同配方 artifact，不另开独立 port job。通用安装通过不等于功能正确，原生加载和关键业务行为仍应有相应的构建断言或 `test.mjs` 覆盖。
+`test.mjs` 用于验证真实 API、CLI、加载和工程行为。已配置的 primary port 继续在 Windows x64、Linux x64/arm64、macOS arm64 和 OpenHarmony arm64 上运行。普通 OS 比较 baseline 与 overrides，OpenHarmony 验证 overrides。槽位使用同配方 artifact，不另开独立 port job。通用安装与功能测试互为补充，任一通过都不能替代另一方。

@@ -3,7 +3,7 @@ import { copyFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export default async function test({ helper, importPackage, requirePackage, resolvePackage, run, projectDir, mode, portVersion }) {
+export default async function test({ helper, importPackage, requirePackage, resolvePackage, run, projectDir, mode, version, revision }) {
   const tools = await import(helper);
   if (process.platform === 'win32') {
     const unsupported = tools.cli('tsrs', ['--version'], { codes: [1] });
@@ -38,7 +38,7 @@ export default async function test({ helper, importPackage, requirePackage, reso
   if (mode !== 'baseline') {
     const pkg = requirePackage('tsrs/package.json');
     assert.equal(pkg.name, '@ohos-npm-ports/tsrs');
-    assert.equal(pkg.version, portVersion);
+    assert.equal(pkg.version, `${version}-${revision}`);
     const packageRoot = dirname(resolvePackage('tsrs/package.json'));
     const platform = await import(pathToFileURL(join(packageRoot, 'lib/platform.js')).href);
     assert.equal(platform.getPlatformPackageName('openharmony', 'arm64'), '@tsrs/openharmony-arm64');

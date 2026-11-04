@@ -99,7 +99,7 @@ normalize 统一注入 revision 并同步同 port 槽位引用，`pack` 阶段�
 
 NPMBUILD 中禁止执行 `npm publish`。npm tarball 的生成和发布由 `npm-ports` 处理。
 
-安装后的真实 `require()`、API、CLI 和工程行为统一在独立的 `test.mjs` 中验证。测试文件默认导出接收上下文的函数并返回 `{ result, assets? }`，不手工写报告。runner 提供 `requirePackage`、`importPackage`、`resolvePackage`、`run`、`mode`、`portVersion` 和 `projectDir` 等上下文。安装前准备使用命名导出的 `setup(context)`，并声明 `// @test-setup: true`。复杂验证可以使用 port 内的其他辅助文件，不需要把测试代码塞回 NPMBUILD。
+安装后的真实 `require()`、API、CLI 和工程行为统一在独立的 `test.mjs` 中验证，每个 port 都必须提供该文件。测试文件默认导出接收上下文的函数并返回 `{ result, assets? }`，不手工写报告。runner 提供 `requirePackage`、`importPackage`、`resolvePackage`、`run`、`mode`、`version`、`revision` 和 `projectDir` 等上下文。安装前准备使用命名导出的 `setup(context)`，并声明 `// @test-setup: true`。复杂验证可以使用 port 内的其他辅助文件，不需要把测试代码塞回 NPMBUILD。
 
 ## 5. version 与 revision
 
@@ -107,7 +107,7 @@ NPMBUILD 中禁止执行 `npm publish`。npm tarball 的生成和发布由 `npm-
 
 - `version` 只写上游版本，`revision` 从 1 开始，最终包版本是 `<version>-<revision>`。
 - revision 是发布版本号，不是重新编译的开关。纯格式调整不需要递增。需要重新发布同一上游版本的新产物时必须递增。
-- 全局 `revision` 是当前 port 修订版本号的唯一来源，仅供 `npm-ports` 使用。禁止在 NPMBUILD 的任何位置复制或使用这个变量，也不要自行拼接最终版本。`test.mjs` 需要最终发布版本时从 runner 的 `portVersion` 上下文读取。
+- 全局 `revision` 是当前 port 修订版本号的唯一来源。NPMBUILD 禁止复制或使用这个变量，也不要在配方中自行拼接最终版本。`test.mjs` 通过 runner 的 `version` 和 `revision` 上下文读取相同含义的值，需要最终发布版本时使用 `${version}-${revision}`。
 - 当前 port 的主包、槽位、构建期断言和补丁只使用裸 `${version}`。补丁不得修改自身 package.json 的版本字段，也不得把固定上游版本号保留为 hunk 上下文，避免上游升级时补丁必然失配。
 - 跨 port 依赖是独立锁定的外部坐标，必须保留对方完整的已发布版本，包括对方的 revision。
 - 上游升级后将 revision 重置为 1。只修复移植问题时递增 revision。对应命令见 [npm-ports 命令行工具](cli.md#上游升级与修订)。

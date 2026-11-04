@@ -4,8 +4,6 @@ import assert from 'node:assert/strict';
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-const version = '7.10.1';
-
 function commandAvailable(command, run) {
   try {
     run(command, ['--version'], { capture: true });
@@ -16,7 +14,7 @@ function commandAvailable(command, run) {
   }
 }
 
-export function setup({ projectDir }) {
+export function setup({ projectDir, version }) {
   const projectFile = join(projectDir, 'package.json');
   const project = JSON.parse(readFileSync(projectFile, 'utf8'));
   project.dependencies ??= {};
@@ -29,10 +27,10 @@ export function setup({ projectDir }) {
   }
 }
 
-export default function test({ requirePackage, resolvePackage, run, projectDir, mode, portVersion }) {
+export default function test({ requirePackage, resolvePackage, run, projectDir, mode, version, revision }) {
   const app = join(projectDir, 'app');
   const pkg = requirePackage('@prisma/client/package.json');
-  assert.equal(pkg.version, mode === 'overrides' ? portVersion : version);
+  assert.equal(pkg.version, mode === 'overrides' ? `${version}-${revision}` : version);
   assert.equal(pkg.name, mode === 'overrides' ? '@ohos-npm-ports/prisma-client' : '@prisma/client');
   const cliPkg = requirePackage('prisma/package.json');
   const cli = join(dirname(resolvePackage('prisma/package.json')), cliPkg.bin.prisma);
