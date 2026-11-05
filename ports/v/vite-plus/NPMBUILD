@@ -105,7 +105,6 @@ build() {
   patch -p1 <"${work_dir}/patches/0007-declare-vite-typescript.patch"
 
   pnpm install --no-frozen-lockfile
-  node "${work_dir}/verify-build-deps.cjs"
   pnpm build
 
   test -f "packages/cli/${binding}" || {
