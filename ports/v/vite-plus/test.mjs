@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
 
@@ -31,7 +31,25 @@ function verifyCoreResolution(root, mode = '') {
   }
 }
 
-export default function test({ requirePackage, resolvePackage, mode }) {
+function verifyProjectBuild(root, projectDir) {
+  const fixture = mkdtempSync(resolve(projectDir, '.vite-plus-test-'));
+  try {
+    writeFileSync(resolve(fixture, 'package.json'), '{"private":true,"type":"module"}\n');
+    writeFileSync(resolve(fixture, 'index.html'), '<!doctype html><html><body><div id="app"></div><script type="module" src="/main.ts"></script></body></html>\n');
+    writeFileSync(resolve(fixture, 'main.ts'), 'const message: string = "vite-plus-native-proof"; document.querySelector("#app")!.textContent = message;\n');
+    execFileSync(process.execPath, [resolve(root, 'bin/vp'), 'build'], { cwd: fixture, encoding: 'utf8', timeout: 120000 });
+    const output = resolve(fixture, 'dist');
+    const files = readdirSync(output, { recursive: true }).filter(file => statSync(resolve(output, file)).isFile());
+    const scripts = files.filter(file => file.endsWith('.js')).map(file => readFileSync(resolve(output, file), 'utf8')).join('\n');
+    assert.ok(scripts.includes('vite-plus-native-proof'));
+    assert.ok(!scripts.includes('message: string'));
+    assert.match(readFileSync(resolve(output, 'index.html'), 'utf8'), /<script\b/);
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+}
+
+export default function test({ requirePackage, resolvePackage, projectDir, mode }) {
   const root = dirname(resolvePackage('vite-plus/package.json'));
   const binding = requirePackage(resolve(root, 'binding/index.cjs'));
   assert.equal(typeof binding.run, 'function');
@@ -39,5 +57,6 @@ export default function test({ requirePackage, resolvePackage, mode }) {
   const output = execFileSync(process.execPath, [resolve(root, 'bin/vp'), '--version'], { encoding: 'utf8', timeout: 30000 });
   assert.match(output, /1\.4\.0/);
   verifyCoreResolution(root, mode);
-  return { result: { coreResolution: true }, assets: [] };
+  verifyProjectBuild(root, projectDir);
+  return { result: { coreResolution: true, projectBuild: true }, assets: [] };
 }
