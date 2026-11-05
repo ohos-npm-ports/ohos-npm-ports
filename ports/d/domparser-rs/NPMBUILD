@@ -16,7 +16,6 @@ packages=(
   "build/domparser-rs-${version}"
 )
 
-root_dir="$NPMBUILD_DIR"
 build_dir="$NPMBUILD_WORK_DIR"
 source_dir="$build_dir/source"
 package_dir="$build_dir/domparser-rs-${version}"
@@ -44,5 +43,4 @@ package() {
   cp "$build_dir/target/release/libdomparser_napi.so" domparser.openharmony-arm64.node
   grep -q "process.platform === 'openharmony'" "$package_dir/index.js"
   test -s "$package_dir/domparser.openharmony-arm64.node"
-  node "$root_dir/verify.cjs" "$package_dir" "$build_dir/upstream"
 }

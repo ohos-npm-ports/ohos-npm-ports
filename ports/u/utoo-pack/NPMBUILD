@@ -60,5 +60,4 @@ package() {
   cmp "$source_dir/next.js/license.md" "$package_dir/cjs/LICENSE-turbopack"
   grep -q "process.platform === 'openharmony'" "$package_dir/cjs/binding.js"
   test -s "$package_dir/cjs/pack.openharmony-arm64.node"
-  node "$root_dir/verify.cjs" "$package_dir" "$build_dir/upstream"
 }

@@ -6,14 +6,44 @@ import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 
 const testFile = fileURLToPath(import.meta.url);
 const runner = fileURLToPath(new URL('../../../cli/consumer-test-runner.mjs', import.meta.url));
 
+function verifyPlatformLoaders(root) {
+  for (const dir of ['cjs', 'esm']) {
+    const source = fs.readFileSync(path.join(root, dir, 'binding.js'), 'utf8');
+    for (const [platform, arch, musl, expected] of [
+      ['openharmony', 'arm64', false, dir === 'cjs' ? './pack.openharmony-arm64.node' : '../cjs/pack.openharmony-arm64.node'],
+      ['linux', 'arm64', false, '@utoo/pack-linux-arm64-gnu'],
+      ['linux', 'arm64', true, '@utoo/pack-linux-arm64-musl'],
+      ['darwin', 'arm64', false, '@utoo/pack-darwin-arm64'],
+      ['win32', 'x64', false, '@utoo/pack-win32-x64-msvc'],
+    ]) {
+      let selected;
+      const native = { projectNew() {} };
+      const module = { exports: {} };
+      runInNewContext(source, {
+        process: { platform, arch, env: { NAPI_RS_ENFORCE_VERSION_CHECK: '1' } }, module, exports: module.exports,
+        require(id) {
+          if (id === 'fs') return { readFileSync() { return musl ? 'musl' : 'glibc'; } };
+          if (id === expected) { selected = id; return native; }
+          if (id === `${expected}/package.json`) return { version: '1.5.31' };
+          throw new Error(`not installed: ${id}`);
+        },
+      });
+      assert.equal(selected, expected, `${dir}: ${platform}/${arch}/${musl ? 'musl' : 'glibc'}`);
+      assert.equal(module.exports, native);
+    }
+  }
+}
+
 export default async function test(context) {
   const moduleMode = process.env.UTOO_TEST_MODULE;
-  const { mode, primary, projectDir, version, revision, npmCli, helper, requirePackage, importPackage } = context;
+  const { mode, primary, projectDir, version, revision, npmCli, helper, requirePackage, importPackage, resolvePackage } = context;
   if (!moduleMode) {
+    if (mode !== 'baseline') verifyPlatformLoaders(path.dirname(resolvePackage('@utoo/pack/package.json')));
     const reports = fs.mkdtempSync(path.join(os.tmpdir(), 'utoo-pack-test-'));
     try {
       const result = {};

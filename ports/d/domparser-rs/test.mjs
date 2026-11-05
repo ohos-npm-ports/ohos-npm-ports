@@ -1,6 +1,36 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { runInNewContext } from 'node:vm';
 
-export default function test({ requirePackage, mode, version, revision }) {
+function verifyPlatformLoaders(root) {
+  const source = readFileSync(resolve(root, 'index.js'), 'utf8');
+  for (const [platform, arch, musl, expected] of [
+    ['openharmony', 'arm64', false, './domparser.openharmony-arm64.node'],
+    ['linux', 'arm64', false, 'domparser-linux-arm64-gnu'],
+    ['linux', 'arm64', true, 'domparser-linux-arm64-musl'],
+    ['darwin', 'arm64', false, 'domparser-darwin-arm64'],
+    ['win32', 'x64', false, 'domparser-win32-x64-msvc'],
+  ]) {
+    const native = { NodeRepr: class {}, parse() {} };
+    let selected;
+    const module = { exports: {} };
+    runInNewContext(source, {
+      process: { platform, arch, env: {} }, module, exports: module.exports,
+      require(id) {
+        if (id === 'fs' || id === 'node:fs') return { readFileSync() { return musl ? 'musl' : 'glibc'; } };
+        if (id === expected) { selected = id; return native; }
+        if (id === `${expected}/package.json`) return { version: '0.0.7' };
+        throw new Error(`not installed: ${id}`);
+      },
+    });
+    assert.equal(selected, expected, `${platform}/${arch}/${musl ? 'musl' : 'glibc'}`);
+    assert.equal(module.exports, native);
+  }
+}
+
+export default function test({ requirePackage, resolvePackage, mode, version, revision }) {
+  verifyPlatformLoaders(dirname(resolvePackage('domparser-rs/package.json')));
   const { DOMParser, parse } = requirePackage('domparser-rs');
   const pkg = requirePackage('domparser-rs/package.json');
   if (mode !== 'baseline') {
