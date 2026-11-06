@@ -44,7 +44,7 @@ jobs:
       matrix:
         port: ${{ fromJson(needs.discover.outputs.ports) }}
     steps:
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
