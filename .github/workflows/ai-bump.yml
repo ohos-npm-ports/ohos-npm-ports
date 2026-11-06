@@ -44,7 +44,7 @@ jobs:
         run: node .github/scripts/ai-bump.mjs repair
       - name: Independently verify the repair
         run: node .github/scripts/ai-bump.mjs verify
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ secrets.AUTOMATION_APP_ID }}
