@@ -42,7 +42,16 @@ _npm_ports_download() {
       rm -f "$temporary"
       return 1
     fi
-    mv "$temporary" "$cached"
+    # Do not replace a cached inode that another process may be copying.
+    if ! ln "$temporary" "$cached" 2>/dev/null; then
+      rm -f "$temporary"
+      if [ ! -f "$cached" ]; then
+        echo "Unable to create cached download: $cached" >&2
+        return 1
+      fi
+    else
+      rm -f "$temporary"
+    fi
   fi
   NPM_PORTS_DOWNLOAD="$cached"
 }
@@ -51,10 +60,19 @@ _npm_ports_fetch() {
   local url="$1"
   local sha256="$2"
   local output="$3"
+  local temporary="${output}.tmp.$$"
   _npm_ports_download "$url" "$sha256"
   mkdir -p "$(dirname "$output")"
   if [ "$output" != "$NPM_PORTS_DOWNLOAD" ]; then
-    cp "$NPM_PORTS_DOWNLOAD" "$output"
+    rm -f "$temporary"
+    if ! cp "$NPM_PORTS_DOWNLOAD" "$temporary"; then
+      rm -f "$temporary"
+      return 1
+    fi
+    if ! mv "$temporary" "$output"; then
+      rm -f "$temporary"
+      return 1
+    fi
   fi
 }
 
