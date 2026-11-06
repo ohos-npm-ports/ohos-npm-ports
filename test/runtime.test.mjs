@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { execFile, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { test } from 'node:test';
@@ -36,6 +37,9 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 printf '%s\n' "$url" >>"$CURL_LOG"
+if [ -n "\${CURL_DELAY:-}" ]; then
+  sleep "$CURL_DELAY"
+fi
 cp "$TEST_ARCHIVE" "$output"
 `, { mode: 0o755 });
   const env = {
@@ -90,10 +94,19 @@ source=https://example.invalid/source.tgz
 sha256="$SOURCE_SHA256"
 fetch_source "$ROOT/output.tgz"
 `;
-  await Promise.all(Array.from({ length: 4 }, () => execute('bash', ['-c', `set -euo pipefail\nsource "$RUNTIME"\n${commands}`], { env })));
-  assert.equal(readFileSync(join(cache, 'downloads', sha256), 'utf8'), readFileSync(join(root, 'archive.tgz'), 'utf8'));
+  const pending = Promise.all(Array.from({ length: 4 }, (_, index) => execute('bash', ['-c', `set -euo pipefail\nsource "$RUNTIME"\n${commands}`], {
+    env: { ...env, CURL_DELAY: String((index + 1) / 10) },
+  })));
+  const cacheFile = join(cache, 'downloads', sha256);
+  for (let attempt = 0; attempt < 100 && !existsSync(cacheFile); attempt++) await delay(5);
+  assert.ok(existsSync(cacheFile));
+  const inode = statSync(cacheFile).ino;
+  await pending;
+  assert.equal(readFileSync(cacheFile, 'utf8'), readFileSync(join(root, 'archive.tgz'), 'utf8'));
+  assert.equal(statSync(cacheFile).ino, inode);
   assert.equal(readFileSync(join(root, 'output.tgz'), 'utf8'), readFileSync(join(root, 'archive.tgz'), 'utf8'));
   assert.deepEqual(readdirSync(join(cache, 'downloads')), [sha256]);
+  assert.equal(readdirSync(root).some(name => name.startsWith('output.tgz.tmp.')), false);
 });
 
 test('a digest mismatch does not poison the cache and unsafe destinations are rejected', (t) => {
