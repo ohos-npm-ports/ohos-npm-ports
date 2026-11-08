@@ -1,12 +1,12 @@
 --- a/package.json
 +++ b/package.json
 @@ -119,7 +119,8 @@
-     "@next/swc-linux-x64-gnu": "16.4.3",
-     "@next/swc-linux-x64-musl": "16.4.3",
-     "@next/swc-win32-arm64-msvc": "16.4.3",
--    "@next/swc-win32-x64-msvc": "16.4.3"
-+    "@next/swc-win32-x64-msvc": "16.4.3",
-+    "@ohos-npm-ports/next-swc-openharmony-arm64": "16.4.3"
+     "@next/swc-linux-x64-gnu": "16.4.5",
+     "@next/swc-linux-x64-musl": "16.4.5",
+     "@next/swc-win32-arm64-msvc": "16.4.5",
+-    "@next/swc-win32-x64-msvc": "16.4.5"
++    "@next/swc-win32-x64-msvc": "16.4.5",
++    "@ohos-npm-ports/next-swc-openharmony-arm64": "16.4.5"
    },
    "keywords": [
      "react",

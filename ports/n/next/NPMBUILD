@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 pkgname="next"
 upstream="next"
-version="16.4.3"
+version="16.4.5"
 revision=1
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
-sha256="d37409b7530c4873cd14c0619a7b8734777fd0dc2cae627bb592e5a82f74f8f4"
+sha256="a9b934c4deda237c1a269da4e68be28f39c7c5e07296a891e0a8346ce847ef97"
 resource "upstream" \
   "https://codeload.github.com/vercel/next.js/tar.gz/refs/tags/v${version}" \
-  "403b3475f119fd0894c3ed57c6b434edb00cf4675a5d3aeeb983521e9f948ccd"
+  "15da77d00c2ca86733c783c39a7dd65c77fbd48413ead4560316e8d96d2cd352"
 dist_tag="latest"
 
 packages=(
