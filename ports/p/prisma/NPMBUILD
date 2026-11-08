@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 pkgname="prisma"
 upstream="prisma"
-version="8.0.0-rc.29"
+version="8.0.0-rc.33"
 revision=1
 dist_tag="latest"
-composer_version="0.35.0"
+composer_version="0.38.0"
 
 packages=(
   "@ohos-npm-ports/prisma-composer:build/composer"
@@ -14,13 +14,13 @@ packages=(
 work_dir="$NPMBUILD_DIR"
 build_dir="$NPMBUILD_WORK_DIR"
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
-sha256="82571b05c3a41080e11bf9910d9faedb7eeb0eb14550f3669e9cffdd98f2e1c4"
+sha256="355a35f560c27a9ebfa8fbf9cf66f2382877b5aafa5c014b172f311a9f1983f2"
 resource "composer" \
   "https://registry.npmjs.org/@prisma/composer/-/composer-${composer_version}.tgz" \
-  "dcd6e69c550056f756e9895fc7eb4e749d6d2a69d18eae9f8b661509dcaf8ed1"
+  "6b4a068ba7680515cc08eb977c18cb847198f9cc2021ca56442ff6e3b5df389a"
 resource "composer_cli" \
   "https://registry.npmjs.org/@prisma/composer-cli/-/composer-cli-${composer_version}.tgz" \
-  "c7222b534e91d02af1711f7d5d3715353ce82ad2d1d2cc1ac1f9870f1626d33d"
+  "a47cb2f3ad92d3e52dec00fb515ea839904ff9cf6ca251cfc560d30ea9eeb662"
 
 prepare() {
   # ============================================================
@@ -37,11 +37,10 @@ prepare() {
   # engines from binaries.prisma.sh. The old OpenHarmony local-engines patch
   # is therefore obsolete and is not carried into this recipe.
   #
-  # The Composer packages pin alchemy 2.0.0-beta.83, which pulls
+  # The main package must resolve both Composer packages from @ohos-npm-ports.
+  # Repack them with alchemy 2.0.0-beta.84, which does not pull
   # @libsql/client -> libsql; libsql's npm metadata has no openharmony target,
-  # so a plain consumer install aborts before the CLI is usable. Repack the two
-  # Composer packages against alchemy 2.0.0-beta.84 (same API, no libsql
-  # dependency) and alias them from the main package.
+  # so a plain consumer install would otherwise abort before the CLI is usable.
   # ============================================================
 
   # ===== fetch =====

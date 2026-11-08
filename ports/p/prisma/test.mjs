@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-const ormVersion = '8.0.0-rc.21';
+const ormVersion = '8.0.0-rc.23';
 
 function commandAvailable(command, run) {
   try {
