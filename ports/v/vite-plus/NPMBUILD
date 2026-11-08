@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 pkgname="vite-plus"
 upstream="vite-plus"
-version="1.4.0"
-revision=4
+version="1.5.0"
+revision=1
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
-sha256="52a980dbfc61a5a1b6083688232d6a28b223a6d87c500213f3c6702fe898753d"
+sha256="2148b7f188e265e6cc05e534a0cd9165532bab9aa4ae6cfb480265b308839dc1"
 resource "upstream" \
   "https://github.com/voidzero-dev/${pkgname}/archive/refs/tags/v${version}.tar.gz" \
-  "c1d15c0b059753878b47816329f275274dbf42f958a071e4ada79fa0f54c4152"
+  "1b0de3dc75ceecd073591b65f90479d18372aa8151089868a07baedc2d9c7ca7"
 dist_tag="latest"
 
 packages=(
   "build/vite-plus-${version}"
 )
-vite_task_rev="a3c087a771a116f7c60220fc72738703eb45ac2e"
+vite_task_rev="40cb9cac46bddbf8aa5ce5373df1a6a1980acc38"
 binding="binding/${pkgname}.openharmony-arm64.node"
 rust_channel="nightly-2026-08-02"
 rust_toolchain="${rust_channel}-aarch64-unknown-linux-ohos"
