@@ -1,14 +1,15 @@
 --- a/package.json
 +++ b/package.json
-@@ -82,6 +82,10 @@
-     "@opentui/core-win32-x64": "0.8.1",
-     "@opentui/core-win32-arm64": "0.8.1",
-     "@opentui/core-linux-x64-musl": "0.8.1",
--    "@opentui/core-linux-arm64-musl": "0.8.1"
-+    "@opentui/core-linux-arm64-musl": "0.8.1",
-+    "@opentui/core-openharmony-arm64": "npm:@ohos-npm-ports/opentui-core-openharmony-arm64@0.8.1"
+@@ -85,6 +85,10 @@
+     "@opentui/core-win32-x64": "0.8.3",
+     "@opentui/core-win32-arm64": "0.8.3",
+     "@opentui/core-linux-x64-musl": "0.8.3",
+-    "@opentui/core-linux-arm64-musl": "0.8.3"
++    "@opentui/core-linux-arm64-musl": "0.8.3",
++    "@opentui/core-openharmony-arm64": "npm:@ohos-npm-ports/opentui-core-openharmony-arm64@0.8.3"
 +  },
 +  "imports": {
 +    "#opentui/parser-worker": "./parser.worker.js"
    }
  }
+\ No newline at end of file
