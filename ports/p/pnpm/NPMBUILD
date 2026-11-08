@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 pkgname="pnpm"
 upstream="pnpm"
-version="12.16.1"
+version="12.18.0"
 revision=1
 dist_tag="latest"
 
@@ -13,10 +13,10 @@ slot_name="pnpm-exe.openharmony-arm64"
 work_dir="$NPMBUILD_DIR"
 build_dir="$NPMBUILD_WORK_DIR"
 source="https://github.com/pnpm/pnpm/archive/refs/tags/v${version}.tar.gz"
-sha256="baaffdb2671a414882d13379d978339a58a9e66fe099f1f00f05a47b6232322c"
+sha256="1e5c9587b93e85d18cf405992c0748bab89558ac139f5c87d7d010aa88b85822"
 resource "npm" \
   "https://registry.npmjs.org/pnpm/-/pnpm-${version}.tgz" \
-  "ca362a16f2e1c3cfa81d406f3242446179a0e4aea457ba3e9e6c39e6476aba65"
+  "29d1d7d99bf6ec6d0a3dbb0ec5656f0d16e997e8be676ca45c581d11cb71f753"
 resource "iana_time_zone" \
   "https://static.crates.io/crates/iana-time-zone/iana-time-zone-0.1.65.crate" \
   "e31bc9ad994ba00e440a8aa5c9ef0ec67d5cb5e5cb0cc7f8b744a35b389cc470"
@@ -26,7 +26,7 @@ prepare() {
   # ohos-npm-ports: @ohos-npm-ports/pnpm ${version}
   #
   # 构建方式：
-  #   1. 下载 pnpm v12.16.1 源码 tag + pnpm@12.16.1 npm 包
+  #   1. 下载 pnpm v12.18.0 源码 tag + pnpm@12.18.0 npm 包
   #   2. 源码打补丁：host 平台上报 openharmony、iana-time-zone 改运行时 dlopen
   #   3. cargo 构建 pnpm-cli，strip
   #   4. 槽位包 @ohos-npm-ports/pnpm-exe.openharmony-arm64 携带二进制

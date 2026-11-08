@@ -1,12 +1,12 @@
 --- a/package.json
 +++ b/package.json
 @@ -59,7 +59,8 @@
-     "@pnpm/exe.linux-arm64-musl": "12.16.1",
-     "@pnpm/exe.freebsd-x64": "12.16.1",
-     "@pnpm/exe.android-arm64": "12.16.1",
--    "@pnpm/exe.android-x64": "12.16.1"
-+    "@pnpm/exe.android-x64": "12.16.1",
-+    "@ohos-npm-ports/pnpm-exe.openharmony-arm64": "12.16.1"
+     "@pnpm/exe.linux-arm64-musl": "12.18.0",
+     "@pnpm/exe.freebsd-x64": "12.18.0",
+     "@pnpm/exe.android-arm64": "12.18.0",
+-    "@pnpm/exe.android-x64": "12.18.0"
++    "@pnpm/exe.android-x64": "12.18.0",
++    "@ohos-npm-ports/pnpm-exe.openharmony-arm64": "12.18.0"
    },
    "scripts": {
      "preinstall": "node install.js",
