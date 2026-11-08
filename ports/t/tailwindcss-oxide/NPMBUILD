@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 pkgname="tailwindcss-oxide"
 upstream="@tailwindcss/oxide"
-version="4.3.3"
-revision=4
+version="4.3.5"
+revision=1
 dist_tag="latest"
 
 packages=(
@@ -10,7 +10,7 @@ packages=(
   "build/src/crates/node"
 )
 source="https://github.com/tailwindlabs/tailwindcss/archive/refs/tags/v${version}.tar.gz"
-sha256="e702ce2493505287e8f6cab2dd1e0c14f154e57c296854d4ded38bde5da2be6e"
+sha256="8bc2c1b297de1feb8910709f1a95369440d6689c26ad2cca8083e2acfbf69d36"
 source_name=tailwindcss
 
 build() {

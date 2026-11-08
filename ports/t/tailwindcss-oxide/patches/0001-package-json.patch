@@ -32,18 +32,18 @@
 -    "@tailwindcss/oxide-wasm32-wasi": "workspace:*",
 -    "@tailwindcss/oxide-win32-arm64-msvc": "workspace:*",
 -    "@tailwindcss/oxide-win32-x64-msvc": "workspace:*"
-+    "@tailwindcss/oxide-android-arm64": "4.3.3",
-+    "@tailwindcss/oxide-darwin-arm64": "4.3.3",
-+    "@tailwindcss/oxide-darwin-x64": "4.3.3",
-+    "@tailwindcss/oxide-freebsd-x64": "4.3.3",
-+    "@tailwindcss/oxide-linux-arm-gnueabihf": "4.3.3",
-+    "@tailwindcss/oxide-linux-arm64-gnu": "4.3.3",
-+    "@tailwindcss/oxide-linux-arm64-musl": "4.3.3",
-+    "@tailwindcss/oxide-linux-x64-gnu": "4.3.3",
-+    "@tailwindcss/oxide-linux-x64-musl": "4.3.3",
-+    "@tailwindcss/oxide-wasm32-wasi": "4.3.3",
-+    "@tailwindcss/oxide-win32-arm64-msvc": "4.3.3",
-+    "@tailwindcss/oxide-win32-x64-msvc": "4.3.3",
-+    "@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64": "4.3.3"
++    "@tailwindcss/oxide-android-arm64": "4.3.5",
++    "@tailwindcss/oxide-darwin-arm64": "4.3.5",
++    "@tailwindcss/oxide-darwin-x64": "4.3.5",
++    "@tailwindcss/oxide-freebsd-x64": "4.3.5",
++    "@tailwindcss/oxide-linux-arm-gnueabihf": "4.3.5",
++    "@tailwindcss/oxide-linux-arm64-gnu": "4.3.5",
++    "@tailwindcss/oxide-linux-arm64-musl": "4.3.5",
++    "@tailwindcss/oxide-linux-x64-gnu": "4.3.5",
++    "@tailwindcss/oxide-linux-x64-musl": "4.3.5",
++    "@tailwindcss/oxide-wasm32-wasi": "4.3.5",
++    "@tailwindcss/oxide-win32-arm64-msvc": "4.3.5",
++    "@tailwindcss/oxide-win32-x64-msvc": "4.3.5",
++    "@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64": "4.3.5"
    }
  }
