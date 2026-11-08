@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 pkgname="opentui-core"
 upstream="@opentui/core"
-version="0.8.1"
+version="0.8.3"
 revision=1
 source="https://registry.npmjs.org/@opentui/core/-/core-${version}.tgz"
-sha256="91f980e93c67ce71d0fac3f5ca773decee2c008174f04bd357b024246dad953a"
+sha256="9caaf909bcbb3f6795905d72444d6739c16dd51609bdff34e1b8497157ef0c0e"
 resource "upstream" \
   "https://codeload.github.com/anomalyco/opentui/tar.gz/refs/tags/v${version}" \
-  "3418421c786f56c30a438c00b268d1b653d3efa826ff40fcffb72df7ae8bb765"
+  "faca18675c949e9cc6cdc3ffe611e2dcf42317622b6b27d93a6179fd0a25ffaa"
 dist_tag="latest"
 
 packages=(

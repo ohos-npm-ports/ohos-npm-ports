@@ -34,12 +34,7 @@
        return ((await import("@opentui/core-darwin-x64" as string)) as NativePackageModule).default
 --- a/packages/core/src/platform/runtime-assets.node.ts	2026-08-24 21:03:23.000000000 +0800
 +++ b/packages/core/src/platform/runtime-assets.node.ts	2026-09-12 17:30:49.486875001 +0800
-@@ -1,3 +1,4 @@
-+import { fileURLToPath } from "node:url"
- import { getCurrentNodeAssetTarget, getNativeAssetDescriptor } from "../node-asset-target.js"
- import { resolveAssetPath, resolveAssetRootPath } from "./assets.js"
- 
-@@ -30,6 +31,10 @@
+@@ -30,6 +30,10 @@
      return configuredPath
    }
  
