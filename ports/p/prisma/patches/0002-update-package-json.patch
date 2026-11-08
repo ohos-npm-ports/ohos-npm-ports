@@ -4,11 +4,11 @@
    "dependencies": {
      "@manypkg/tools": "^2.1.2",
      "@prisma/cli-engine": "0.9.0",
--    "@prisma/composer-cli": "0.35.0",
-+    "@prisma/composer-cli": "npm:@ohos-npm-ports/prisma-composer-cli@8.0.0-rc.29",
+-    "@prisma/composer-cli": "0.38.0",
++    "@prisma/composer-cli": "npm:@ohos-npm-ports/prisma-composer-cli@8.0.0-rc.33",
      "@prisma/compute-sdk": "0.43.0",
      "@prisma/management-api-sdk": "1.80.0",
-     "@prisma/orm-toolchain": "8.0.0-rc.21",
+     "@prisma/orm-toolchain": "8.0.0-rc.23",
 @@ -71,4 +71,4 @@
      "typecheck": "tsc --noEmit",
      "test": "vitest run"
