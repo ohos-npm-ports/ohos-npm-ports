@@ -775,16 +775,25 @@
      const proxy = options.proxyOverride || options.proxy;
      let proxyBypassList = undefined;
      if (proxy) {
-@@ -172,8 +205,11 @@
+@@ -205,13 +238,15 @@
      if (targetInfo.type === 'browser')
        return;
      const session = this._session.createChildSession(sessionId);
--    assert(targetInfo.browserContextId, 'targetInfo: ' + JSON.stringify(targetInfo, null, 2));
+-    if (!targetInfo.browserContextId) {
+-      // A terminated shared worker that another client is still attached to is reported
+-      // without a browser context, see https://issues.chromium.org/issues/578393908.
+-      session.detach().catch(() => {});
+-      return;
+-    }
 -    let context = this._contexts.get(targetInfo.browserContextId) || null;
 +    // ArkWeb reports page targets with type "other" and may omit
 +    // browserContextId for them, so both are tolerated on ArkWeb.
-+    if (!this._isArkWeb)
-+      assert(targetInfo.browserContextId, 'targetInfo: ' + JSON.stringify(targetInfo, null, 2));
++    if (!targetInfo.browserContextId && !this._isArkWeb) {
++      // A terminated shared worker that another client is still attached to is reported
++      // without a browser context, see https://issues.chromium.org/issues/578393908.
++      session.detach().catch(() => {});
++      return;
++    }
 +    let context = this._contexts.get(targetInfo.browserContextId ?? '') || null;
      if (!context) {
        // TODO: auto attach only to pages from our contexts.

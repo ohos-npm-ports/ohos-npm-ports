@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 pkgname="playwright-core"
 upstream="playwright-core"
-version="1.64.1"
-revision=3
+version="1.65.0"
+revision=1
 source="https://codeload.github.com/microsoft/playwright/tar.gz/refs/tags/v${version}"
-sha256="4cf21457cd00395c83b29e7f787b72e8b3bb00cee14728c69ac80a12ae42f089"
+sha256="5bc839468e569143e1790f85c9474d2a8612962faf9efa177e4dd019e0711523"
 dist_tag="latest"
 
 packages=(
