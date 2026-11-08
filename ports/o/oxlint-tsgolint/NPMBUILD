@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 pkgname="oxlint-tsgolint"
 upstream="oxlint-tsgolint"
-version="7.0.2005"
+version="7.0.2006"
 revision=1
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
-sha256="b21f089ca487fcfeb0d7200ac2db85d76674e5d66eff97e469ff82b4c33a6990"
+sha256="957ba5e0f4f3ea865ff87fde420cc5d58b47f7b56cdc45b03c227169c483027a"
 dist_tag="latest"
 
 packages=(
