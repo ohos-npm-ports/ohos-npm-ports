@@ -18,14 +18,27 @@ body:
     validations:
       required: true
   - type: dropdown
-    id: environment
+    id: os
     attributes:
-      label: 运行环境
+      label: 操作系统
       options:
-        - OpenHarmony 真机或模拟器
-        - HarmonyOS 商用设备
-        - ci-runner 容器
-        - Windows / Linux / macOS
+        - OpenHarmony 社区版
+        - HarmonyOS 商用发行版
+        - Windows
+        - Linux
+        - macOS
+        - 其他
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime-environment
+    attributes:
+      label: 运行环境类型
+      description: 请选择直接运行 Node.js 进程的环境，存在嵌套环境时以最内层为准
+      options:
+        - 物理机
+        - 云服务器或虚拟机
+        - 容器（包括 ci-runner）
         - 其他
     validations:
       required: true
@@ -33,7 +46,7 @@ body:
     id: versions
     attributes:
       label: 系统与运行时版本
-      description: 请填写系统版本、Node.js 和 npm 版本，以及 CPU 架构
+      description: 请填写操作系统版本、Node.js 和 npm 版本，以及 CPU 架构
       placeholder: "例如 OpenHarmony 6.0，Node.js 24.11.0，npm 11.6.2，arm64"
     validations:
       required: true
