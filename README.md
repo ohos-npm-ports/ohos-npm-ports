@@ -39,10 +39,6 @@ ports 既表示“移植软件”，也表示以 ports 模式维护：只保存�
 
 > 提示：如果需要指定版本号，可以写成这种形式：npm:@ohos-npm-ports/sqlite3@5.1.7-7
 
-## 兼容性
-
-本项目主要针对 OpenHarmony 构建 npm 包，未对所有商用系统版本逐包验证。请在目标设备上验证具体包的加载和运行。
-
 ## 贡献指南
 
 请参阅[贡献指南](docs/zh-CN/contributor/contributing.md)。

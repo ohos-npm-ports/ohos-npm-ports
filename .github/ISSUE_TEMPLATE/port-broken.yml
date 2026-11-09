@@ -1,0 +1,63 @@
+name: 已收录的包出问题了
+description: 报告已发布的 @ohos-npm-ports/* 包在安装或运行中的问题
+title: "[问题] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        此模板用于已收录的 npm 包。CLI、流水线、文档和一般建议可以使用空白 issue。
+
+        提交前请先确认使用的是本仓库发布的包，并尽量保留版本号和关键错误文本。
+  - type: input
+    id: package
+    attributes:
+      label: 包名与完整版本
+      description: 请包含 revision，便于定位实际安装的产物
+      placeholder: "例如 @ohos-npm-ports/sqlite3@5.1.7-7"
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: 运行环境
+      options:
+        - OpenHarmony 真机或模拟器
+        - HarmonyOS 商用设备
+        - ci-runner 容器
+        - Windows / Linux / macOS
+        - 其他
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: 系统与运行时版本
+      description: 请填写系统版本、Node.js 和 npm 版本，以及 CPU 架构
+      placeholder: "例如 OpenHarmony 6.0，Node.js 24.11.0，npm 11.6.2，arm64"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤
+      description: 请提供最小复现步骤、相关命令或复现仓库链接
+      placeholder: |
+        1. 安装依赖：npm install ...
+        2. 执行：node ...
+        3. 观察到：...
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: 实际行为与预期行为
+      description: 说明实际发生了什么，以及你原本期望什么结果
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志
+      description: 请贴出关键错误文本或日志，不要只提供截图
+      render: shell

@@ -1,0 +1,47 @@
+name: 新包适配请求
+description: 请求将某个 npm 包移植或收录到本仓库
+title: "[适配] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        本仓库优先推动上游原生支持，其次考虑官方社区适配，最后才是临时收录。提交前请先阅读[移植流程的第一步](https://github.com/ohos-npm-ports/ohos-npm-ports/blob/main/docs/zh-CN/contributor/porting-guide.md#1-上游支持情况)。
+  - type: input
+    id: package
+    attributes:
+      label: 上游包名与链接
+      description: 请提供 npm 包名和项目页面，scoped 包请保留完整名称
+      placeholder: "例如 sharp，https://www.npmjs.com/package/sharp"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 目标版本（可选）
+      description: 不填写时默认关注最新稳定版
+      placeholder: "例如 0.34.5"
+  - type: textarea
+    id: usecase
+    attributes:
+      label: 使用场景与适配原因
+      description: 说明你的项目为什么需要这个包，以及当前缺少哪种 OpenHarmony 支持（原生 addon、平台二进制、补丁或其他）
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已查看上游最新版本及 issue/PR，未发现可用的原生 OpenHarmony 支持或正在进行的适配
+          required: true
+        - label: 我已确认现有社区产物不能满足需求，并了解本仓库是临时移植方案
+          required: true
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: 你可以如何参与
+      options:
+        - 我愿意提交移植 PR
+        - 我可以提供测试或真机验证
+        - 我暂时只能提出需求
