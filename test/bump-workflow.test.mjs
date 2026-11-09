@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const bump = readFileSync('.github/workflows/bump.yml', 'utf8');
+const aiBump = readFileSync('.github/workflows/ai-bump.yml', 'utf8');
 const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
 const lint = readFileSync('.github/workflows/port-lint.yml', 'utf8');
 const runtime = readFileSync('cli/runtime.sh', 'utf8');
@@ -30,13 +31,15 @@ test('ready-for-review triggers both CI and port lint without a PAT', () => {
 });
 
 test('GitHub App creates ordinary bump PRs that trigger CI automatically', () => {
-  assert.match(bump, /actions\/create-github-app-token@v2/);
-  assert.match(bump, /app-id: \$\{\{ secrets\.AUTOMATION_APP_ID \}\}/);
-  assert.match(bump, /private-key: \$\{\{ secrets\.AUTOMATION_APP_PRIVATE_KEY \}\}/);
+  for (const workflow of [bump, aiBump]) {
+    assert.match(workflow, /uses: actions\/create-github-app-token@(?:v\d+|[0-9a-f]{40})\b/);
+    assert.match(workflow, /app-id: \$\{\{ secrets\.AUTOMATION_APP_ID \}\}/);
+    assert.match(workflow, /private-key: \$\{\{ secrets\.AUTOMATION_APP_PRIVATE_KEY \}\}/);
+    assert.match(workflow, /GH_TOKEN: \$\{\{ steps\.app-token\.outputs\.token \}\}/);
+    assert.doesNotMatch(workflow, /AI_BUMP_PUSH_TOKEN/);
+  }
   assert.match(bump, /token: \$\{\{ steps\.app-token\.outputs\.token \}\}/);
-  assert.match(bump, /GH_TOKEN: \$\{\{ steps\.app-token\.outputs\.token \}\}/);
   assert.match(bump, /--no-draft/);
-  assert.doesNotMatch(bump, /AI_BUMP_PUSH_TOKEN/);
 });
 
 test('first-time external contributors need approval before full builds', () => {
