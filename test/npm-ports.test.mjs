@@ -524,7 +524,7 @@ test('port assignment updates preserve unrelated fields', () => {
   assert.equal(updatePortText('version="1.0.0"\nrevision=4\ndist_tag="latest"\n', { version: '2.0.0', revision: '1' }), 'version="2.0.0"\nrevision=1\ndist_tag="latest"\n');
 });
 
-test('bump-pr creates a versioned branch without force-pushing', async () => {
+test('bump-pr creates draft and ordinary PRs with accurate descriptions', async () => {
   const root = '/repo';
   const port = { name: 'demo', version: '1.2.3', relative: 'ports/d/demo' };
   const branch = 'automation/bump-demo-1.3.0';
@@ -545,16 +545,23 @@ test('bump-pr creates a versioned branch without force-pushing', async () => {
     if (key.startsWith('gh pr view')) return 'https://github.com/hqzing/ohos-npm-ports/pull/1';
     return '';
   };
-  const result = await bumpPr(root, port, { execute, bump: async (_, ports) => {
+  const bump = async (_, ports) => {
     assert.equal(ports.length, 1);
     return [{ version: '1.3.0' }];
-  } });
+  };
+  const result = await bumpPr(root, port, { execute, bump });
   assert.equal(result.number, '1');
   assert.ok(commands.includes(`git switch -c ${branch}`));
   assert.ok(commands.includes(`git push -u origin HEAD:refs/heads/${branch}`));
   const create = commands.find((command) => command.startsWith('gh pr create'));
   assert.ok(create.endsWith('--draft'));
+  assert.match(create, /This is a draft PR\. CI starts when it is marked ready for review\./);
   assert.match(create, /- demo: 1\.2\.3 → 1\.3\.0\n/);
+  await bumpPr(root, port, { draft: false, execute, bump });
+  const ordinaryCreate = commands.filter((command) => command.startsWith('gh pr create'))[1];
+  assert.ok(!ordinaryCreate.endsWith('--draft'));
+  assert.match(ordinaryCreate, /This ordinary PR was created by the GitHub App and CI runs automatically\./);
+  assert.doesNotMatch(ordinaryCreate, /Draft PR/);
   assert.equal(commands.some((command) => /force|pr edit|ls-remote/.test(command)), false);
 });
 
