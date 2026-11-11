@@ -27,7 +27,6 @@ function openPortPrs(gh, repository, base, port) {
 }
 
 export async function bumpPr(root, port, {
-  draft = true,
   base = 'main',
   execute = run,
   bump = bumpPorts,
@@ -63,23 +62,19 @@ export async function bumpPr(root, port, {
   git('switch', '-c', branch);
   git('add', '--', port.relative);
   if (!git('diff', '--cached', '--name-only')) throw new Error('bump produced no tracked changes');
-  const name = process.env.NPM_PORTS_GIT_NAME || gitConfig(root, 'user.name', 'github-actions[bot]', execute);
-  const email = process.env.NPM_PORTS_GIT_EMAIL || gitConfig(root, 'user.email', '41898282+github-actions[bot]@users.noreply.github.com', execute);
+  const name = process.env.NPM_PORTS_GIT_NAME || gitConfig(root, 'user.name', 'ohos-npm-ports-automation[bot]', execute);
+  const email = process.env.NPM_PORTS_GIT_EMAIL || gitConfig(root, 'user.email', '351004333+ohos-npm-ports-automation[bot]@users.noreply.github.com', execute);
   const title = `${port.name}: bump to ${version}`;
   git('-c', `user.name=${name}`, '-c', `user.email=${email}`, 'commit', '-m', title);
   if (openPortPrs(gh, repository, base, port).length > 0) {
     throw new Error(`${port.name}: an open PR appeared during bump; refusing to push a competing branch`);
   }
   git('push', '-u', 'origin', `HEAD:refs/heads/${branch}`);
-  const ciBehavior = draft
-    ? 'This is a draft PR. CI starts when it is marked ready for review.'
-    : 'This ordinary PR was created by the GitHub App and CI runs automatically.';
-  const body = `Automated NPMBUILD upstream bump.\n\n- ${port.name}: ${port.version} → ${version}\n\n${ciBehavior} Patch context and upstream build changes still require maintainer review.`;
+  const body = `- ${port.name}: ${port.version} → ${version}\n\nThis PR was created by ohos-npm-ports-automation[bot].`;
   const args = ['pr', 'create', '--repo', repository, '--base', base, '--head', branch, '--title', title, '--body', body];
-  if (draft) args.push('--draft');
   gh(...args);
   const number = gh('pr', 'list', '--repo', repository, '--head', branch, '--state', 'open', '--json', 'number', '--jq', '.[0].number');
   const url = gh('pr', 'view', number, '--repo', repository, '--json', 'url', '--jq', '.url');
-  console.log(`${draft ? 'Draft PR' : 'PR'} created: ${url}`);
+  console.log(`PR created: ${url}`);
   return { skipped: false, url, number, branch, version };
 }

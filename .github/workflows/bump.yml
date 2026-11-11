@@ -60,7 +60,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-      - name: Bump one port and create an ordinary PR unless one is already open
+      - name: Bump one port and create a PR unless one is already open
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: cli/npm-ports bump-pr "${{ matrix.port }}" --no-draft
+        run: cli/npm-ports bump-pr "${{ matrix.port }}"
