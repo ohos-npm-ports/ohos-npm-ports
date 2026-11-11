@@ -38,10 +38,10 @@ bump 和 AI 修复工作流使用 GitHub App 创建、更新 PR。GitHub 为防�
 
 ## 4. 工作流如何使用 App
 
-`bump.yml` 的每个矩阵任务通过 `actions/create-github-app-token` 生成短期 App Token，用它 checkout、推送和创建普通 PR。命令为：
+`bump.yml` 的每个矩阵任务通过 `actions/create-github-app-token` 生成短期 App Token，用它 checkout、推送和创建 PR。命令为：
 
 ```sh
-cli/npm-ports bump-pr "${{ matrix.port }}" --no-draft
+cli/npm-ports bump-pr "${{ matrix.port }}"
 ```
 
 `ai-bump.yml` 只在维护者添加 `request-ai-bump` 标签后运行。AI 容器只获得 `DEEPSEEK_API_KEY`，不会获得 App 私钥、App Token 或仓库凭据。独立构建验证通过后，宿主环境才生成 App Token，在全新克隆中应用修复补丁、amend 原提交并使用 force-with-lease 推送。
@@ -52,7 +52,7 @@ cli/npm-ports bump-pr "${{ matrix.port }}" --no-draft
 
 先手动 dispatch 一个有上游更新的 port，确认：
 
-1. PR 不是草稿，创建后自动开始检查。
+1. PR 创建后自动开始检查。
 2. PR 只包含该 port 的一个提交。
 3. 构建失败后添加 `request-ai-bump`，AI 修复 check 开始运行。
 4. AI 修复通过独立构建后才推送，PR 仍只有一个提交，新 CI 自动开始。

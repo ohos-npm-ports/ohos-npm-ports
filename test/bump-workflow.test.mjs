@@ -30,7 +30,7 @@ test('ready-for-review triggers both CI and port lint without a PAT', () => {
   for (const workflow of [ci, lint]) assert.match(workflow, /types: \[opened, synchronize, reopened, ready_for_review\]/);
 });
 
-test('GitHub App creates ordinary bump PRs that trigger CI automatically', () => {
+test('GitHub App creates bump PRs that trigger CI automatically', () => {
   for (const workflow of [bump, aiBump]) {
     assert.match(workflow, /uses: actions\/create-github-app-token@(?:v\d+|[0-9a-f]{40})\b/);
     assert.match(workflow, /app-id: \$\{\{ secrets\.AUTOMATION_APP_ID \}\}/);
@@ -39,7 +39,7 @@ test('GitHub App creates ordinary bump PRs that trigger CI automatically', () =>
     assert.doesNotMatch(workflow, /AI_BUMP_PUSH_TOKEN/);
   }
   assert.match(bump, /token: \$\{\{ steps\.app-token\.outputs\.token \}\}/);
-  assert.match(bump, /--no-draft/);
+  assert.match(bump, /run: cli\/npm-ports bump-pr "\$\{\{ matrix\.port \}\}"\s*$/m);
 });
 
 test('first-time external contributors need approval before full builds', () => {
@@ -52,7 +52,7 @@ test('first-time external contributors need approval before full builds', () => 
   assert.match(ci, /needs: \[detect-changes, external-build-approval\]/);
 });
 
-test('ordinary PRs build before review and only main can publish', () => {
+test('PRs build before review and only main can publish', () => {
   assert.doesNotMatch(ci, /environment: full-ci/);
   assert.match(ci, /github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/);
   assert.match(ci, /github\.repository == 'ohos-npm-ports\/ohos-npm-ports'/);

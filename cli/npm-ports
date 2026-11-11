@@ -107,7 +107,7 @@ try {
     const inputs = args.filter((arg, index) => !arg.startsWith('--') && args[index - 1] !== '--base');
     if (args.includes('--all') || inputs.length !== 1) throw new Error('bump-pr accepts exactly one port');
     const [port] = selected(root, args);
-    await bumpPr(root, port, { draft: !flags.has('--no-draft'), base: value('--base', 'main') });
+    await bumpPr(root, port, { base: value('--base', 'main') });
   } else if (command === 'create') {
     const inputs = args.filter((arg, index) => !arg.startsWith('--') && !['--set-name', '--set-version'].includes(args[index - 1]));
     if (inputs.length !== 1) throw new Error('create accepts exactly one upstream npm package');
