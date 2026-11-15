@@ -1,11 +1,11 @@
 --- a/package.json
 +++ b/package.json
-@@ -37,8 +38,7 @@
+@@ -37,8 +37,7 @@
      }
    },
    "dependencies": {
--    "playwright": "1.65.0-alpha-2026-10-30",
--    "playwright-core": "1.65.0-alpha-2026-10-30"
+-    "playwright": "1.66.0-alpha-2026-11-09",
+-    "playwright-core": "1.66.0-alpha-2026-11-09"
 +    "playwright-core": "npm:@ohos-npm-ports/playwright-core@1.64.1-1"
    },
    "devDependencies": {

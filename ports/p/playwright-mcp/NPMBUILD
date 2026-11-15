@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 pkgname="playwright-mcp"
 upstream="@playwright/mcp"
-version="0.0.84"
+version="0.0.85"
 revision=1
 source="https://registry.npmjs.org/@playwright/mcp/-/mcp-${version}.tgz"
-sha256="4e749bdc5a19138fed51cf0f51e43dca265c1bfc0fc388220fc70756aac60c26"
+sha256="fd79194bb184b92d4f580e0c291b21573d7bbb368402bdb505c101ecc10a4094"
 dist_tag="latest"
 
 packages=(
