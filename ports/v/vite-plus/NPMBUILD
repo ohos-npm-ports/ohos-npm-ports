@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 pkgname="vite-plus"
 upstream="vite-plus"
-version="1.5.0"
+version="1.6.0"
 revision=1
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
-sha256="2148b7f188e265e6cc05e534a0cd9165532bab9aa4ae6cfb480265b308839dc1"
+sha256="10c1a4fe42b04678b37ceddf651a59395de390ebdeda897fc9e6eb065baa7ec6"
 resource "upstream" \
   "https://github.com/voidzero-dev/${pkgname}/archive/refs/tags/v${version}.tar.gz" \
-  "1b0de3dc75ceecd073591b65f90479d18372aa8151089868a07baedc2d9c7ca7"
+  "8bb73c2ff33523675c66e9d87d8694754e4def7d7bbaff2ee95f274fb48de946"
 dist_tag="latest"
 
 packages=(
