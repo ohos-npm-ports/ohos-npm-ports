@@ -1,6 +1,6 @@
 --- a/native-binary.mjs
 +++ b/native-binary.mjs
-@@ -52,6 +52,9 @@ const PLATFORMS = {
+@@ -55,6 +55,9 @@
    },
    // Android is bionic, which is neither of the two libcs the linux entries
    // above are keyed on, so it takes a bare specifier of its own.
@@ -10,7 +10,7 @@
  }
  
  /**
-@@ -151,8 +154,10 @@
+@@ -154,8 +157,10 @@
  function installedModulesDirs () {
 -  const { name } = readWrapperManifest()
 -  const segments = typeof name === 'string' ? name.split('/').length : 1
