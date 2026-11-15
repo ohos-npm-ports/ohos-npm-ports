@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 pkgname="turbo"
 upstream="turbo"
-version="2.11.10"
+version="2.11.11"
 revision=1
 dist_tag="latest"
 
@@ -11,7 +11,7 @@ packages=(
 ghostty_commit=5147c0a503cdeed7615cce245cdd815ed7a6b692
 rust_nightly=2026-07-03
 source="https://codeload.github.com/vercel/turborepo/tar.gz/refs/tags/v${version}"
-sha256="a9786d3236e75aa32aac690018e6282952f9ef252f541274798c181dc1550b64"
+sha256="9bab1fc00d789a78d70f94516f3e63b8b292da5dd3b523cdabf2fa0367ed727b"
 resource "zig" \
   "https://ziglang.org/download/0.17.0/zig-aarch64-linux-0.17.0.tar.xz" \
   "9e8d11661d4ae3bd57702a3832781e23ad151dde5798e16a5ccd503f65234ff8"
