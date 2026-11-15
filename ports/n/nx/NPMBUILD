@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 pkgname="nx"
 upstream="nx"
-version="24.0.5"
+version="24.0.6"
 revision=1
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
-sha256="f20d66b0eb82c15fac089b60f700c93253ac856a2e98fb0a7d9f60837b6c9b6e"
+sha256="2889e2c94ceb71aec7e39a0a2657a54feae55c1572867c200a8ba8540314023a"
 dist_tag="latest"
 
 packages=(
