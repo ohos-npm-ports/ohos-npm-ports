@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 pkgname="datadog-pprof"
 upstream="@datadog/pprof"
-version="5.20.0"
+version="5.20.1"
 revision=1
 dist_tag="latest"
 
@@ -9,10 +9,10 @@ packages=(
   "build/datadog-pprof-${version}"
 )
 source="https://github.com/DataDog/pprof-nodejs/archive/refs/tags/v${version}.tar.gz"
-sha256="a9795e81d5b8db306cfb4b5564ff98942f427495098a190ebb89097a0551657d"
+sha256="bf02f823f81e957370c23986b29a640e1bfbe2b9c81e561fb08d875a445fe9a2"
 resource "npm" \
   "https://registry.npmjs.org/@datadog/pprof/-/pprof-${version}.tgz" \
-  "62509b7b9e529961322d32be9525a4c41345b34f4119c7720a5680c3e2737632"
+  "0571aa22b7fea9f715a88ae9cf4b9aecdc4a7b1be66fd30bdab63d23841416c9"
 
 build() {
   # node-gyp (nan) build: this container's node-gyp already recognizes
