@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 pkgname="nw"
 upstream="nw"
-version="0.119.2"
-revision=3
+version="0.120.0"
+revision=1
 source="https://registry.npmjs.org/nw/-/nw-${version}.tgz"
-sha256="702f94647266ac353e487c0420c01436e3eb23640e425e42ef00417d6de21495"
+sha256="ff80a012f86a37bff4e7384598197594423e11addb4c4bb503b0cd4b690fdc06"
 dist_tag="latest"
 
 packages=(

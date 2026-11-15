@@ -9,14 +9,14 @@ export function setup() {
   fs.writeFileSync('.npmrc', 'ignore-scripts=true\n');
 }
 
-export default async function test({ importPackage, requirePackage, resolvePackage, run, mode }) {
+export default async function test({ importPackage, requirePackage, resolvePackage, run, mode, version }) {
   const api = await importPackage('nw');
   for (const name of ['get', 'run', 'findpath']) assert.equal(typeof api[name], 'function');
   const root = path.dirname(resolvePackage('nw/package.json'));
   const help = execFileSync(process.execPath, [path.join(root, 'src/cli.js'), '--help'], { encoding: 'utf8', timeout: 30000 });
   assert.match(help, /nw/i);
   if (process.platform === 'openharmony') await assert.rejects(api.findpath(), /No standalone/);
-  else assert.match(await api.findpath(), /nwjs-v0\.119\.2/);
+  else assert.ok((await api.findpath()).includes(`nwjs-v${version}`));
   if (mode === 'overrides') {
     assert.equal(requirePackage('nw/package.json').name, '@ohos-npm-ports/nw');
     const tests = path.join(import.meta.dirname, 'tests');

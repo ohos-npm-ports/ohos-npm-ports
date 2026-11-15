@@ -16,7 +16,7 @@ async function load(platform) {
 }
 for (const platform of ['linux', 'darwin', 'win32']) test(`${platform} delegates all upstream APIs without option changes`, async () => {
   const api = await load(platform);
-  const options = { version: '0.119.2', flavor: 'sdk', platform: 'linux' };
+  const options = { version: '0.120.0', flavor: 'sdk', platform: 'linux' };
   assert.equal((await api.get(options)).options, options);
   assert.equal((await api.run(options)).options, options);
   assert.deepEqual(await api.findpath('chromedriver', options), { route: 'path', executable: 'chromedriver', options });
@@ -27,5 +27,5 @@ test('OpenHarmony uses the bridge and rejects unsupported native-runtime APIs', 
   assert.equal((await api.run({ srcDir: '/app' })).route, 'bridge');
   await assert.rejects(api.findpath(), /No standalone/);
   await assert.rejects(api.get({ flavor: 'sdk' }), /SDK/);
-  await assert.rejects(api.run({ version: '0.119.2' }), /cannot be selected/);
+  await assert.rejects(api.run({ version: '0.120.0' }), /cannot be selected/);
 });
