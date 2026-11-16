@@ -136,7 +136,7 @@ slot_openharmony_arm64_build() {
 
 - patch 使用 `NNNN-描述.patch`，并由 NPMBUILD 的钩子实际应用。构建环境使用 GNU patch，不需要为防止 toybox no-op 额外验证补丁标记。
 - 修改 patch 应重新生成 diff 并保留正常上下文。已有文件的零上下文纯插入会被 lint 拒绝，新增文件不受此限制。
-- 仅需向现有 `files` 数组追加发布文件时使用 `manifest_add_files package.json <路径...>`，仅需删除安装脚本时使用 `manifest_remove_script package.json <脚本名...>`。两者都是幂等操作，复杂 manifest 修改仍使用补丁。
+- 简单的 manifest 修改使用幂等辅助函数，避免维护随上游版本漂移的整段补丁。`manifest_add_files package.json <路径...>` 追加发布文件，`manifest_remove_script package.json <脚本名...>` 删除安装脚本。`manifest_set_dependency <字段> package.json <名称> <值>` 设置依赖，`manifest_remove_dependency <字段> package.json <名称...>` 删除依赖，支持 `dependencies`、`devDependencies`、`optionalDependencies` 和 `peerDependencies`。`manifest_pin_dependencies <字段> package.json <版本>` 统一已有依赖的版本，`manifest_set_import package.json <#名称> <目标>` 设置 imports 映射。槽位及其 alias 的版本统一引用 `${version}`，最终 revision 由 normalize 注入。复杂结构修改仍使用补丁。
 - loader 接线、平台行为和其他移植约束仍需保留对应断言，不能因补丁成功就省略。
 - 配方必须通过 `npm-ports lint` 的静态检查。具体检查范围见 [npm-ports 命令行工具](cli.md#查询与静态检查)。
 - lint 不能证明上游 patch 仍兼容。新增、升级或修订后必须按 [验证标准](verification.md) 完成真实构建和验证。

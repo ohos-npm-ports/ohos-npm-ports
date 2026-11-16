@@ -35,6 +35,8 @@ build() {
 
   patch -p1 <"$NPMBUILD_DIR/patches/0001-package-json.patch"
   patch -p1 <"$NPMBUILD_DIR/patches/0002-add-openharmony-subpackage.patch"
+  manifest_pin_dependencies optionalDependencies crates/node/package.json "${version}"
+  manifest_set_dependency optionalDependencies crates/node/package.json '@ohos-npm-ports/tailwindcss-oxide-openharmony-arm64' "${version}"
 
   cd crates/node
   npm install --ignore-scripts
