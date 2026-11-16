@@ -2,7 +2,7 @@
 pkgname="next"
 upstream="next"
 version="16.4.6"
-revision=1
+revision=2
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
 sha256="954cc114e2e4f57464f6d2f6640ec9b7a8e493ad4373c692b2d37d135da2806a"
 resource "upstream" \
@@ -37,7 +37,20 @@ build() {
 
   cd "$root_dir/src"
   git init
-  git -c user.name=npm-ports -c user.email=npm-ports@localhost commit --allow-empty -m "Next.js $version source"
+  upstream_commit=$(git ls-remote https://github.com/vercel/next.js.git "refs/tags/v${version}" | cut -c1-7)
+  [ "${#upstream_commit}" -eq 7 ]
+  export VERGEN_GIT_SHA="$upstream_commit"
+  export VERGEN_GIT_DIRTY=false
+  source_date_epoch="$(stat -c %Y Cargo.toml)"
+  build_date="$(date -u -d "@${source_date_epoch}" '+%b %e %Y')"
+  build_time="$(date -u -d "@${source_date_epoch}" '+%H:%M:%S')"
+  cflags_reproducible='-Wno-builtin-macro-redefined'
+  cflags_reproducible+=" -D__DATE__='\"${build_date}\"'"
+  cflags_reproducible+=" -D__TIME__='\"${build_time}\"'"
+  export CC_SHELL_ESCAPED_FLAGS=1
+  export CFLAGS="${CFLAGS:-} ${cflags_reproducible}"
+  GIT_AUTHOR_DATE="@${source_date_epoch}" GIT_COMMITTER_DATE="@${source_date_epoch}" \
+    git -c user.name=npm-ports -c user.email=npm-ports@localhost commit --allow-empty -m "Next.js $version source"
   patch -p1 <"$port_dir/patches/0003-turbo-tasks-fs-ohos.patch"
   grep -q "into_os_string" turbopack/crates/turbo-tasks-fs/src/disk.rs
   patch -p1 <"$port_dir/patches/0004-openharmony-project-path.patch"
