@@ -296,8 +296,8 @@ function publish(env = process.env) {
   run('git', ['-C', clone, 'apply', '--index', '--whitespace=error-all', state.patch]);
   run('git', [
     '-C', clone,
-    '-c', 'user.name=github-actions[bot]',
-    '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
+    '-c', 'user.name=ohos-npm-ports-automation[bot]',
+    '-c', 'user.email=351004333+ohos-npm-ports-automation[bot]@users.noreply.github.com',
     'commit', '--amend', '--no-edit',
   ]);
   run('git', [

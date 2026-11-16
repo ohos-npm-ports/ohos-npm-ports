@@ -117,7 +117,9 @@ test('publishing applies the verified patch in a fresh clone', () => {
   assert.match(script, /'apply', '--index', '--whitespace=error-all', state\.patch/);
   assert.match(script, /force-with-lease=refs\/heads\/\$\{state\.headRef\}:\$\{state\.headSha\}/);
   const publish = script.slice(script.indexOf('function publish'), script.indexOf('function finalize'));
-  assert.doesNotMatch(publish, /AI_BUMP_PUSH_TOKEN|DEEPSEEK_API_KEY/);
+  assert.match(publish, /user\.name=ohos-npm-ports-automation\[bot\]/);
+  assert.match(publish, /user\.email=351004333\+ohos-npm-ports-automation\[bot\]@users\.noreply\.github\.com/);
+  assert.doesNotMatch(publish, /AI_BUMP_PUSH_TOKEN|DEEPSEEK_API_KEY|user\.name=github-actions\[bot\]/);
 });
 
 test('AI containers configure PATH and use the documented npm-ports command', () => {
