@@ -118,7 +118,7 @@ EOF
 
   main_dir="${build_dir}/pnpm-wrapper-${version}"
   mv "${build_dir}/wrapper" "${main_dir}"
-  (cd "${main_dir}" && patch -p1 <"${work_dir}/patches/0005-update-package-json.patch")
+  (cd "${main_dir}" && manifest_set_dependency optionalDependencies package.json '@ohos-npm-ports/pnpm-exe.openharmony-arm64' "${version}")
   (cd "${main_dir}" && patch -p1 <"${work_dir}/patches/0006-native-binary-openharmony.patch")
   grep -qF '@ohos-npm-ports/pnpm-exe.openharmony-arm64/pnpm' "${main_dir}/native-binary.mjs"
 

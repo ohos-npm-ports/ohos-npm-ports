@@ -57,13 +57,11 @@ package() {
   cp "$build_dir/tsrs-0.18.0/crates/tsrs_vfs/libs/"*.d.ts "$build_dir/native/"
   cp "$build_dir/tsrs-0.18.0/LICENSE" "$build_dir/tsrs-0.18.0/NOTICE" "$build_dir/native/"
   chmod +x "$build_dir/native/tsrs"
+  manifest_set_dependency optionalDependencies "$build_dir/main/package.json" '@tsrs/openharmony-arm64' "npm:@ohos-npm-ports/tsrs-openharmony-arm64@${version}"
   build_dir="$build_dir" version="$version" node --input-type=module <<'JS'
 import fs from 'node:fs';
 const {build_dir: root, version} = process.env;
-const file = `${root}/main/package.json`;
-const pkg = JSON.parse(fs.readFileSync(file));
-pkg.optionalDependencies['@tsrs/openharmony-arm64'] = `npm:@ohos-npm-ports/tsrs-openharmony-arm64@${version}`;
-fs.writeFileSync(file, JSON.stringify(pkg, null, 2)+'\n');
+const pkg = JSON.parse(fs.readFileSync(`${root}/main/package.json`));
 fs.writeFileSync(`${root}/native/package.json`, JSON.stringify({
  version,
  license:pkg.license, os:['openharmony'], cpu:['arm64'],

@@ -22,7 +22,8 @@ prepare() {
 
 build() {
   cd "$root_dir/${pkgname}-${version}"
-  patch -p1 <"$script_dir"/patches/0001-update-package-json.patch
+  manifest_set_dependency dependencies package.json 'playwright-core' 'npm:@ohos-npm-ports/playwright-core@1.64.1-1'
+  manifest_remove_dependency dependencies package.json playwright
 }
 
 package() {

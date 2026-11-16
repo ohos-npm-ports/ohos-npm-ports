@@ -179,3 +179,38 @@ manifest_remove_script() {
   shift
   "$NPM_PORTS_NODE" "$NPM_PORTS_MANIFEST" remove-scripts "$file" "$@"
 }
+
+manifest_set_dependency() {
+  if [ "$#" -ne 4 ]; then
+    echo 'manifest_set_dependency requires a field, package.json, name and value' >&2
+    return 64
+  fi
+  "$NPM_PORTS_NODE" "$NPM_PORTS_MANIFEST" set-dependency "$2" "$1" "$3" "$4"
+}
+
+manifest_remove_dependency() {
+  if [ "$#" -lt 3 ]; then
+    echo 'manifest_remove_dependency requires a field, package.json and at least one name' >&2
+    return 64
+  fi
+  local file="$2"
+  local field="$1"
+  shift 2
+  "$NPM_PORTS_NODE" "$NPM_PORTS_MANIFEST" remove-dependencies "$file" "$field" "$@"
+}
+
+manifest_pin_dependencies() {
+  if [ "$#" -ne 3 ]; then
+    echo 'manifest_pin_dependencies requires a field, package.json and version' >&2
+    return 64
+  fi
+  "$NPM_PORTS_NODE" "$NPM_PORTS_MANIFEST" pin-dependencies "$2" "$1" "$3"
+}
+
+manifest_set_import() {
+  if [ "$#" -ne 3 ]; then
+    echo 'manifest_set_import requires a package.json, specifier and target' >&2
+    return 64
+  fi
+  "$NPM_PORTS_NODE" "$NPM_PORTS_MANIFEST" set-import "$1" "$2" "$3"
+}

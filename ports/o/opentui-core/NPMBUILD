@@ -103,7 +103,8 @@ build() {
 
 package() {
   cd "${root_dir}/${package_dir}"
-  patch -p1 <"${port_dir}/patches/0001-update-package-json.patch"
+  manifest_set_dependency optionalDependencies package.json '@opentui/core-openharmony-arm64' "npm:@ohos-npm-ports/opentui-core-openharmony-arm64@${version}"
+  manifest_set_import package.json '#opentui/parser-worker' './parser.worker.js'
   cd "${root_dir}"
   # 父包不携带 native，槽位包负责
   if find "${package_dir}" -name '*.so' | grep -q .; then

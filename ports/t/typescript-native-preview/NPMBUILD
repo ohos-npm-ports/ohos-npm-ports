@@ -63,7 +63,7 @@ build() {
   cp "${source_dir}/internal/bundled/libs/"*.d.ts "${slot_dir}/lib/"
 
   cd "${package_dir}"
-  patch -p1 <"${root_dir}/patches/0001-update-package-json.patch"
+  manifest_set_dependency optionalDependencies package.json '@ohos-npm-ports/typescript-native-preview-openharmony-arm64' "${version}"
   patch -p1 <"${root_dir}/patches/0002-add-openharmony-support.patch"
   grep -qF "${slot_package_name}" lib/getExePath.js
 }

@@ -74,7 +74,7 @@ build() {
 package() {
   echo "=== package: 主包打 patch（槽位接线）==="
   cd "${build_dir}/typescript-${version}"
-  patch -p1 <"${work_dir}/patches/0001-update-package-json.patch"
+  manifest_set_dependency optionalDependencies package.json '@ohos-npm-ports/typescript-openharmony-arm64' "${version}"
   patch -p1 <"${work_dir}/patches/0002-add-openharmony-support.patch"
 
   echo "=== package: 组装槽位包 ==="

@@ -58,7 +58,7 @@ build() {
   cd "${pkgname}-${version}"
   manifest_add_files package.json 'build/Release/watcher.node'
   manifest_remove_script package.json install
-  patch -p1 <"${port_dir}/patches/0002-package-json.patch"
+  manifest_set_dependency optionalDependencies package.json '@parcel/watcher-openharmony-arm64' "npm:@ohos-npm-ports/parcel-watcher-openharmony-arm64@${version}"
   patch -p1 <"${port_dir}/patches/0003-wrapper-static-slot-ref.patch"
   # 0003 的静态引用必须进入最终 wrapper。
   grep -q "require('@parcel/watcher-openharmony-arm64')" wrapper.js
