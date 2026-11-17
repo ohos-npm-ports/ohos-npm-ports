@@ -18,14 +18,7 @@ on:
       - "ports/**"
       - ".github/workflows/ci.yml"
       - ".github/workflows/bump.yml"
-      - ".github/scripts/fetch-published.test.mjs"
-      - ".github/scripts/ci-workflow.test.mjs"
-      - ".github/scripts/run-install-matrix.mjs"
-      - ".github/scripts/consumer-plan.mjs"
-      - ".github/scripts/consumer-plan.test.mjs"
-      - ".github/scripts/install-matrix.test.mjs"
-      - ".github/scripts/consumer-coverage.mjs"
-      - ".github/scripts/consumer-browser.mjs"
+      - ".github/scripts/**"
       - ".github/actions/consumer-job/action.yml"
       - ".github/actions/install-matrix/action.yml"
       - ".github/fixtures/consumer/**"
@@ -37,14 +30,7 @@ on:
       - "ports/**"
       - ".github/workflows/ci.yml"
       - ".github/workflows/bump.yml"
-      - ".github/scripts/fetch-published.test.mjs"
-      - ".github/scripts/ci-workflow.test.mjs"
-      - ".github/scripts/run-install-matrix.mjs"
-      - ".github/scripts/consumer-plan.mjs"
-      - ".github/scripts/consumer-plan.test.mjs"
-      - ".github/scripts/install-matrix.test.mjs"
-      - ".github/scripts/consumer-coverage.mjs"
-      - ".github/scripts/consumer-browser.mjs"
+      - ".github/scripts/**"
       - ".github/actions/consumer-job/action.yml"
       - ".github/actions/install-matrix/action.yml"
       - ".github/fixtures/consumer/**"
@@ -120,19 +106,22 @@ jobs:
           echo "publish=${{ steps.set-matrix.outputs.publish }}"
           echo "publish-order=${{ steps.set-matrix.outputs.publish-order }}"
 
-      - name: Test workflow constraints
-        run: node --test .github/scripts/ci-workflow.test.mjs
-
-      - name: Test consumer planning
-        run: node --test .github/scripts/consumer-plan.test.mjs
-
-      - name: Test published tarball fetching
-        run: node --test .github/scripts/fetch-published.test.mjs
-
-      - name: Test NPMBUILD manager and all port metadata
+      - name: Prepare consumer registry integration tools
+        env:
+          TOOLS: ${{ runner.temp }}/consumer-registry-tools
         run: |
-          node --test test/*.test.mjs
-          cli/npm-ports lint --all
+          npm install --prefix "$TOOLS" --ignore-scripts --no-audit --no-fund \
+            --fetch-retries=5 --fetch-retry-mintimeout=2000 \
+            "npm@$(jq -r .npm cli/tool-versions.json)" \
+            "verdaccio@$(jq -r .verdaccio cli/tool-versions.json)"
+          echo "CONSUMER_REGISTRY_TOOLS=$TOOLS" >> "$GITHUB_ENV"
+          echo "CONSUMER_REGISTRY_NPM_CLI=$TOOLS/node_modules/npm/bin/npm-cli.js" >> "$GITHUB_ENV"
+
+      - name: Test framework and infrastructure
+        run: node --test test/*.test.mjs .github/scripts/*.test.mjs
+
+      - name: Lint all port metadata
+        run: cli/npm-ports lint --all
 
       - name: Report consumer coverage
         env:
