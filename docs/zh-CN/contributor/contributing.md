@@ -35,7 +35,7 @@ export PATH="$PWD/cli:$PATH"
 
 根据贡献类型选择操作：
 
-- **新增 port**：执行 `npm-ports create <upstream>` 生成骨架，再参照同类包完善 NPMBUILD 和 patches。
+- **新增 port**：执行 `npm-ports create <upstream>` 生成 NPMBUILD 和最小 `test.mjs`，再参照同类包完善构建、补丁和真实功能测试。
 - **修改现有配方**：执行 `npm-ports edit <port>` 打开目标 NPMBUILD。
 - **升级上游版本**：执行 `npm-ports bump <port> --write`，升级后按需重新生成补丁。
 - **只修复移植问题**：执行 `npm-ports revision <port>` 增加修订号。

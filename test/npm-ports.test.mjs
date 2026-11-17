@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
+import { pathToFileURL } from 'node:url';
 import { chooseTag, packPort, publishPort, runLifecycle, normalizePackages } from '../cli/build.mjs';
 import { bumpPorts, updatePortText } from '../cli/bump.mjs';
 import { bumpPr } from '../cli/bump-pr.mjs';
@@ -85,6 +86,16 @@ test('create derives scoped names and fetches version and source checksum', asyn
   assert.match(text, /version="1.2.3"/);
   assert.match(text, new RegExp(`sha256="${'a'.repeat(64)}"`));
   assert.doesNotThrow(() => loadPort(root, port.dir));
+  const { default: consumerTest } = await import(pathToFileURL(port.testFile).href);
+  const projectDir = join(root, 'project');
+  const manifest = join(projectDir, 'node_modules', '@scope', 'demo', 'package.json');
+  mkdirSync(dirname(manifest), { recursive: true });
+  writeFileSync(manifest, JSON.stringify({ name: '@scope/demo', version: '1.2.3' }));
+  const baseline = await consumerTest({ projectDir, mode: 'baseline', version: '1.2.3', revision: 1 });
+  assert.deepEqual(baseline.result, { name: '@scope/demo', version: '1.2.3' });
+  writeFileSync(manifest, JSON.stringify({ name: '@ohos-npm-ports/scope-demo', version: '1.2.3-1' }));
+  const overrides = await consumerTest({ projectDir, mode: 'overrides', version: '1.2.3', revision: 1 });
+  assert.deepEqual(overrides.result, { name: '@ohos-npm-ports/scope-demo', version: '1.2.3-1' });
   await assert.rejects(createPort(root, '@scope/demo', { execute, download: async () => 'a'.repeat(64) }), /port already exists/);
 });
 
@@ -104,6 +115,8 @@ test('create supports no-fetch and opens the generated NPMBUILD', (t) => {
   assert.match(text, /demo-\$\{version\}\.tgz/);
   assert.match(text, /extract_source "\$NPMBUILD_WORK_DIR\/\$\{pkgname\}-\$\{version\}"/);
   assert.doesNotMatch(text, /curl|sha256sum/);
+  assert.ok(existsSync(join(root, 'ports/c/custom-demo/test.mjs')));
+  assert.match(output, /npm-ports test custom-demo/);
   assert.match(output, /Fill in version and sha256/);
   assert.equal(readFileSync(log, 'utf8').trim(), file);
 });

@@ -31,6 +31,26 @@ function render({ pkgname, upstream, version, source, sha256 }) {
   ].join('\n')}`;
 }
 
+function renderTest({ pkgname, upstream }) {
+  return `${[
+    "import assert from 'node:assert/strict';",
+    "import { readFileSync } from 'node:fs';",
+    "import { join } from 'node:path';",
+    '',
+    `const upstream = ${JSON.stringify(upstream)};`,
+    `const portPackage = ${JSON.stringify(`@ohos-npm-ports/${pkgname}`)};`,
+    '',
+    'export default function test({ projectDir, mode, version, revision }) {',
+    "  const pkg = JSON.parse(readFileSync(join(projectDir, 'node_modules', ...upstream.split('/'), 'package.json'), 'utf8'));",
+    "  assert.equal(pkg.name, mode === 'overrides' ? portPackage : upstream);",
+    "  assert.equal(pkg.version, mode === 'overrides' ? `${version}-${revision}` : version);",
+    '  // Add real API, CLI, or native-loading checks for this port.',
+    '  return { result: { name: pkg.name, version: pkg.version }, assets: [] };',
+    '}',
+    '',
+  ].join('\n')}`;
+}
+
 export async function createPort(root, upstream, {
   name = '',
   version = '',
@@ -68,11 +88,14 @@ export async function createPort(root, upstream, {
   if (selectedVersion) parseSemver(selectedVersion);
 
   const file = join(directory, 'NPMBUILD');
+  const testFile = join(directory, 'test.mjs');
   mkdirSync(directory, { recursive: true });
   writeFileSync(file, render({ pkgname, upstream, version: selectedVersion, source, sha256 }), { flag: 'wx', mode: 0o755 });
+  writeFileSync(testFile, renderTest({ pkgname, upstream }), { flag: 'wx' });
   return {
     dir: directory,
     file,
+    testFile,
     relative: relative(root, file).split(sep).join('/'),
     pkgname,
     upstream,
