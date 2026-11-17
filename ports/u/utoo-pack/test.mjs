@@ -11,7 +11,7 @@ import { runInNewContext } from 'node:vm';
 const testFile = fileURLToPath(import.meta.url);
 const runner = fileURLToPath(new URL('../../../cli/consumer-test-runner.mjs', import.meta.url));
 
-function verifyPlatformLoaders(root) {
+function verifyPlatformLoaders(root, version) {
   for (const dir of ['cjs', 'esm']) {
     const source = fs.readFileSync(path.join(root, dir, 'binding.js'), 'utf8');
     for (const [platform, arch, musl, expected] of [
@@ -29,7 +29,7 @@ function verifyPlatformLoaders(root) {
         require(id) {
           if (id === 'fs') return { readFileSync() { return musl ? 'musl' : 'glibc'; } };
           if (id === expected) { selected = id; return native; }
-          if (id === `${expected}/package.json`) return { version: '1.5.31' };
+          if (id === `${expected}/package.json`) return { version };
           throw new Error(`not installed: ${id}`);
         },
       });
@@ -43,7 +43,7 @@ export default async function test(context) {
   const moduleMode = process.env.UTOO_TEST_MODULE;
   const { mode, primary, projectDir, version, revision, npmCli, helper, requirePackage, importPackage, resolvePackage } = context;
   if (!moduleMode) {
-    if (mode !== 'baseline') verifyPlatformLoaders(path.dirname(resolvePackage('@utoo/pack/package.json')));
+    if (mode !== 'baseline') verifyPlatformLoaders(path.dirname(resolvePackage('@utoo/pack/package.json')), version);
     const reports = fs.mkdtempSync(path.join(os.tmpdir(), 'utoo-pack-test-'));
     try {
       const result = {};

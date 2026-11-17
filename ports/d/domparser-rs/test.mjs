@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
 
-function verifyPlatformLoaders(root) {
+function verifyPlatformLoaders(root, version) {
   const source = readFileSync(resolve(root, 'index.js'), 'utf8');
   for (const [platform, arch, musl, expected] of [
     ['openharmony', 'arm64', false, './domparser.openharmony-arm64.node'],
@@ -20,7 +20,7 @@ function verifyPlatformLoaders(root) {
       require(id) {
         if (id === 'fs' || id === 'node:fs') return { readFileSync() { return musl ? 'musl' : 'glibc'; } };
         if (id === expected) { selected = id; return native; }
-        if (id === `${expected}/package.json`) return { version: '0.0.7' };
+        if (id === `${expected}/package.json`) return { version };
         throw new Error(`not installed: ${id}`);
       },
     });
@@ -30,7 +30,7 @@ function verifyPlatformLoaders(root) {
 }
 
 export default function test({ requirePackage, resolvePackage, mode, version, revision }) {
-  verifyPlatformLoaders(dirname(resolvePackage('domparser-rs/package.json')));
+  verifyPlatformLoaders(dirname(resolvePackage('domparser-rs/package.json')), version);
   const { DOMParser, parse } = requirePackage('domparser-rs');
   const pkg = requirePackage('domparser-rs/package.json');
   if (mode !== 'baseline') {
