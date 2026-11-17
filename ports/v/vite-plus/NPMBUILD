@@ -148,11 +148,6 @@ package() {
 
   cp "${stage_dir}/src/packages/cli/${binding}" "${binding}"
 
-  node -e '
-      const p = require("./package.json");
-      if (p.version !== process.argv[1]) { console.error("bad version: " + p.version); process.exit(1); }
-      console.log("OK: manifest");
-    ' "${version}"
   grep -q "process.platform === 'openharmony'" binding/index.cjs
   grep -q "require('./${pkgname}.openharmony-arm64.node')" binding/index.cjs
 

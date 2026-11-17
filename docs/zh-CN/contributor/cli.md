@@ -83,6 +83,7 @@ npm-ports revision <port> [--set N]
 
 - `npm-ports bump` 根据 `upstream` 查询 npm registry 的 dist-tags 和版本列表。主 port 跟随指定 dist-tag，`@` port 只选择版本线内最高 semver。预览线可通过 `upstream_tag` 指定上游标签。
 - `npm-ports bump --write` 精确修改 `version`、主 `source` / `sha256` 及所有引用 `${version}` 的 `resource` 声明，重新计算下载摘要并将 revision 重置为 1。含独立版本变量、固定工具链版本或 commit 的资源保持锁定。注释、普通构建参数和补丁不做全局替换。
+- 当源码 tag 只需省略 npm 预发布后缀时，可在源码目录或 resource URL 中使用 Bash 表达式 `${version%%-*}`。bump 会按基础 semver 计算对应资源的下载地址和摘要，不需要额外的版本变量。
 - 当 npm 预览版本与源码 tag 或 commit 没有可靠映射时，配方必须设置 `bump=false`，防止自动升级生成错配 PR。
 - `npm-ports bump-pr` 一次只处理一个 port，完成更新、按目标版本命名分支、提交并推送分支，然后创建 PR。自动化流程由已配置的 GitHub App 提供凭据。只要已有开放 PR 修改同一 port，无论是同版本还是旧版本、机器人还是人工提交，都会跳过，绝不强推或覆盖原 PR。
 - `npm-ports revision` 在上游版本不变时递增移植修订号，最终版本为 `<上游版本>-<revision>`。

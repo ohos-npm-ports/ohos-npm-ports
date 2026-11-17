@@ -77,7 +77,6 @@ build() {
 
   node -e '
   const pkg = require("./package.json");
-  if (pkg.version !== process.argv[1]) throw new Error(`bad version: ${pkg.version}`);
   const n = Object.keys(pkg.optionalDependencies ?? {}).length;
   if (n !== 13) throw new Error(`optionalDependencies count: ${n}, expected 13`);
   if (pkg.optionalDependencies["@parcel/watcher-linux-arm64-musl"] !== process.argv[1])

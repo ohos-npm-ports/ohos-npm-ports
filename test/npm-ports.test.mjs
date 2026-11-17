@@ -533,6 +533,45 @@ test('bump updates only source and resource declarations', async (t) => {
   assert.equal(readFileSync(patch, 'utf8'), patchText);
 });
 
+test('bump maps npm prerelease versions to source tag versions', async (t) => {
+  const { root, dir } = fixture(t);
+  const portFile = join(dir, 'NPMBUILD');
+  const declarations = [
+    'source="https://registry.npmjs.org/tsrs/-/tsrs-${version}.tgz"',
+    `sha256="${'a'.repeat(64)}"`,
+    'resource "source_tag" \\',
+    '  "https://codeload.github.com/oxc-project/tsrs/tar.gz/refs/tags/v${version%%-*}" \\',
+    `  "${'b'.repeat(64)}"`,
+    '',
+  ].join('\n');
+  writeFileSync(portFile, readFileSync(portFile, 'utf8')
+    .replace('version="1.2.3"', 'version="0.18.0-ts7.1.0-dev.20260929"')
+    .replace('build() { :; }', `${declarations}\nbuild() { :; }`));
+  const port = loadPort(root, dir);
+  const downloads = [];
+  const changed = await bumpPorts(root, [port], {
+    write: true,
+    metadata: async () => ({ 'dist-tags': { latest: '0.25.0-ts7.1.0-beta' } }),
+    download: async (url) => {
+      downloads.push(url);
+      if (url === 'https://registry.npmjs.org/tsrs/-/tsrs-0.25.0-ts7.1.0-beta.tgz') return 'd'.repeat(64);
+      if (url === 'https://codeload.github.com/oxc-project/tsrs/tar.gz/refs/tags/v0.25.0') return 'e'.repeat(64);
+      throw new Error(`Unexpected download: ${url}`);
+    },
+  });
+  assert.equal(changed.length, 1);
+  const text = readFileSync(portFile, 'utf8');
+  assert.match(text, /version="0.25.0-ts7.1.0-beta"/);
+  assert.doesNotMatch(text, /source_version/);
+  assert.match(text, new RegExp(`sha256="${'d'.repeat(64)}"`));
+  assert.match(text, new RegExp(`"${'e'.repeat(64)}"`));
+  assert.match(text, /refs\/tags\/v\$\{version%%-\*\}/);
+  assert.deepEqual(downloads.sort(), [
+    'https://codeload.github.com/oxc-project/tsrs/tar.gz/refs/tags/v0.25.0',
+    'https://registry.npmjs.org/tsrs/-/tsrs-0.25.0-ts7.1.0-beta.tgz',
+  ]);
+});
+
 test('port assignment updates preserve unrelated fields', () => {
   assert.equal(updatePortText('version="1.0.0"\nrevision=4\ndist_tag="latest"\n', { version: '2.0.0', revision: '1' }), 'version="2.0.0"\nrevision=1\ndist_tag="latest"\n');
 });

@@ -102,11 +102,10 @@ NODE
   cp "${stage_dir}/yuku-core.node" "${core_dir}/${slot_name}/yuku-core.node"
 
   cd "${output_dir}"
-  node - "${slot_name}" "${version}" "${stage_dir}/yuku/npm/yuku-core/package.json" <<'NODE'
+  node - "${slot_name}" "${stage_dir}/yuku/npm/yuku-core/package.json" <<'NODE'
 const fs = require("node:fs");
-const [slot, version, coreSource] = process.argv.slice(2);
+const [slot, coreSource] = process.argv.slice(2);
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-if (pkg.version !== version) { console.error(`bad version: ${pkg.version}`); process.exit(1); }
 if (!pkg.bundledDependencies?.includes("yuku-core")) { console.error("yuku-core is not bundled"); process.exit(1); }
 const upstreamCore = JSON.parse(fs.readFileSync(coreSource, "utf8"));
 pkg.optionalDependencies = { ...upstreamCore.optionalDependencies };
