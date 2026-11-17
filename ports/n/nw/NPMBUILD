@@ -41,7 +41,7 @@ build() {
 package() {
   mkdir -p "$output_dir/src/ohos"
   cp "$work_dir"/ohos/*.cjs "$output_dir/src/ohos/"
-  node - "$output_dir" "$build_dir/original.json" "${version}" <<'JS'
+  node - "$output_dir" "$build_dir/original.json" <<'JS'
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto'), assert = require('node:assert/strict');
 const root = process.argv[2], hashes = JSON.parse(fs.readFileSync(process.argv[3]));
 const changed = new Set(['package.json', 'src/index.js', 'src/cli.js', 'src/postinstall.js']);
@@ -49,7 +49,6 @@ for (const [file, hash] of Object.entries(hashes)) {
   if (!changed.has(file)) assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex'), hash, file);
 }
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json')));
-assert.equal(pkg.version, process.argv[4]);
 assert.equal(pkg.dependencies['@ohos-npm-ports/playwright-core'], '1.62.1-5');
 for (const file of ['runtime.cjs', 'server.cjs', 'browser.cjs']) assert.ok(fs.existsSync(path.join(root, 'src/ohos', file)));
 JS

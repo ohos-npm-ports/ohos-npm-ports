@@ -25,11 +25,8 @@ build() {
   manifest_remove_script package.json postinstall
   patch -p1 <"$NPMBUILD_DIR/patches/0001-update-package-json.patch"
 
-  # node-gyp isn't a devDependency of this package (upstream relies on it being
-  # available globally / bundled with npm), so install it explicitly to get it
-  # onto node_modules/.bin. --ignore-scripts also skips the "prepare" script
-  # (compile + rebuild) so we can run each step ourselves and check its output.
-  npm install --ignore-scripts
+  # node-gyp isn't a devDependency of this package, so install it together with
+  # the upstream dependencies. --ignore-scripts skips the compile/rebuild hooks.
   npm install --ignore-scripts --no-save node-gyp
   export PATH="$(pwd)/node_modules/.bin:$PATH"
 

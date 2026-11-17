@@ -5,21 +5,13 @@ import { pathToFileURL } from 'node:url';
 
 export default async function test({ helper, importPackage, requirePackage, resolvePackage, run, projectDir, mode, version, revision }) {
   const tools = await import(helper);
-  if (process.platform === 'win32') {
-    const unsupported = tools.cli('tsrs', ['--version'], { codes: [1] });
-    assert.match(unsupported.output, /Cannot find the optional dependency @tsrs\/win32-x64/);
-    assert.match(unsupported.output, /This platform is not supported/);
-    const metadata = await importPackage('tsrs');
-    assert.match(metadata.version, /^0\.18\.0-/);
-    return { result: { nativeSupport: false, unsupportedPlatformDiagnostic: true, metadata: true }, assets: [] };
-  }
   tools.write('tsconfig.json', JSON.stringify({ compilerOptions: { strict: true, noEmit: true, types: [] }, files: ['probe.ts'] }));
   tools.write('probe.ts', 'const answer: number = 42;');
   tools.cli('tsrs', ['--project', 'tsconfig.json']);
   tools.write('probe.ts', 'const answer: number = "wrong";');
   const invalid = tools.cli('tsrs', ['--project', 'tsconfig.json'], { codes: [2] });
   assert.match(invalid.output, /TS2322/);
-  const { API } = await importPackage('tsrs/unstable/sync');
+  const { API } = await importPackage('tsrs/sync');
   const api = new API({ cwd: process.cwd() });
   try {
     const config = api.parseConfigFile(`${process.cwd()}/tsconfig.json`);
@@ -27,7 +19,7 @@ export default async function test({ helper, importPackage, requirePackage, reso
   } finally {
     api.close();
   }
-  const { API: AsyncAPI } = await importPackage('tsrs/unstable/async');
+  const { API: AsyncAPI } = await importPackage('tsrs/async');
   const asyncAPI = new AsyncAPI({ cwd: process.cwd() });
   try {
     const config = await asyncAPI.parseConfigFile(`${process.cwd()}/tsconfig.json`);

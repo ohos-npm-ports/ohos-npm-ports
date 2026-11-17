@@ -52,7 +52,17 @@ function tokenValue(token) {
 }
 
 function hasVersionReference(value) {
-  return value.includes('${version}') || /\$version(?![A-Za-z0-9_])/.test(value);
+  return value.includes('${version}') || value.includes('${version%%-*}') || /\$version(?![A-Za-z0-9_])/.test(value);
+}
+
+function baseVersion(version) {
+  const { major, minor, patch } = parseSemver(version);
+  return `${major}.${minor}.${patch}`;
+}
+
+function replaceVersionReference(source, version) {
+  return source.replaceAll('${version%%-*}', baseVersion(version))
+    .replace(/\$\{version\}|\$version(?![A-Za-z0-9_])/g, version);
 }
 
 export function resourceDeclarations(source) {
@@ -106,7 +116,7 @@ async function changeFor(port, registry, metadataFor, download) {
     if (!hasVersionReference(declaration.url)) continue;
     const current = port.resources.find(({ name }) => name === declaration.name);
     if (!current) throw new Error(`resource metadata is missing ${declaration.name}`);
-    const url = current.url.split(port.version).join(version);
+    const url = replaceVersionReference(declaration.url, version);
     resources.push({ name: declaration.name, url, sha256: await shaFor(url) });
   }
   return { version, revision: '1', source, sha256, resources };

@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
 pkgname="tsrs"
 upstream="tsrs"
-version="0.18.0-ts7.1.0-dev.20260929"
-revision=4
-# npm prerelease 与源码 tag 无可靠映射，禁用自动 bump。
-bump=false
+version="0.25.0-ts7.1.0-beta"
+revision=1
 source="https://registry.npmjs.org/tsrs/-/tsrs-${version}.tgz"
-sha256="8a07eaa884fc4841b856dbad44eee825c0b9ed7c607c35ef74c7a0223d98ba18"
+sha256="c70acf9b4470ab4221fc070c544a7f83b64f1c6af7901fbdb65e45ac2a51cfe7"
 resource "rust" \
   "https://static.rust-lang.org/dist/rust-1.99.1-aarch64-unknown-linux-ohos.tar.xz" \
   "4b078f77667e497d93f850c0f91ffbb39b764c3e51a2229db9de3f5b595385a3"
 resource "source_tag" \
-  "https://codeload.github.com/oxc-project/tsrs/tar.gz/refs/tags/v0.18.0" \
-  "d9a08890fb9b60442e4ae1a9a90b987daef7f3429afb2153cf8ebff635f7fcd6"
+  "https://codeload.github.com/oxc-project/tsrs/tar.gz/refs/tags/v${version%%-*}" \
+  "d139a9610e96f7ff33a9b74f5440f6eab9b8c4dd0ef9a7652734be74042309f7"
 dist_tag="latest"
 
 packages=(
@@ -22,6 +20,7 @@ packages=(
 
 work_dir="$NPMBUILD_DIR"
 build_dir="$NPMBUILD_WORK_DIR"
+source_dir="$build_dir/tsrs-${version%%-*}"
 
 prepare() {
   brew install -y cmake openssl@3 zlib-ng-compat libxml2
@@ -38,24 +37,24 @@ prepare() {
   rustc --version
 
   fetch_source "$build_dir/npm.tgz"
-  if [ ! -d "$build_dir/tsrs-0.18.0" ]; then
-    extract_resource "source_tag" "$build_dir/tsrs-0.18.0"
+  if [ ! -d "${source_dir}" ]; then
+    extract_resource "source_tag" "${source_dir}"
   fi
 }
 
 build() {
-  (cd "$build_dir/tsrs-0.18.0" && cargo test --locked -p tsrs_core --features plain-ptrs --lib)
+  (cd "${source_dir}" && cargo test --locked -p tsrs_core --features plain-ptrs --lib)
   # HarmonyOS cannot reserve the default compressed-pointer arena address.
-  (cd "$build_dir/tsrs-0.18.0" && cargo build --release --locked -p tsrs_cli --features noembed,tsrs_core/plain-ptrs)
+  (cd "${source_dir}" && cargo build --release --locked -p tsrs_cli --features noembed,tsrs_core/plain-ptrs)
 }
 
 package() {
   rm -rf "$build_dir/main" "$build_dir/native"
   mkdir -p "$build_dir/main" "$build_dir/native"
   tar -xzf "$build_dir/npm.tgz" -C "$build_dir/main" --strip-components=1
-  cp "$build_dir/tsrs-0.18.0/target/release/tsrs" "$build_dir/native/tsrs"
-  cp "$build_dir/tsrs-0.18.0/crates/tsrs_vfs/libs/"*.d.ts "$build_dir/native/"
-  cp "$build_dir/tsrs-0.18.0/LICENSE" "$build_dir/tsrs-0.18.0/NOTICE" "$build_dir/native/"
+  cp "${source_dir}/target/release/tsrs" "$build_dir/native/tsrs"
+  cp "${source_dir}/crates/tsrs_vfs/libs/"*.d.ts "$build_dir/native/"
+  cp "${source_dir}/LICENSE" "${source_dir}/NOTICE" "$build_dir/native/"
   chmod +x "$build_dir/native/tsrs"
   manifest_set_dependency optionalDependencies "$build_dir/main/package.json" '@tsrs/openharmony-arm64' "npm:@ohos-npm-ports/tsrs-openharmony-arm64@${version}"
   build_dir="$build_dir" version="$version" node --input-type=module <<'JS'

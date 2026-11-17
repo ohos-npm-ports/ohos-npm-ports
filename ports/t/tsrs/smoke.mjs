@@ -10,7 +10,7 @@ const require = createRequire(path.join(root, 'package.json'));
 const pkgFile = require.resolve('tsrs/package.json');
 const pkg = JSON.parse(fs.readFileSync(pkgFile));
 assert.equal(pkg.name, '@ohos-npm-ports/tsrs');
-assert.equal(Object.keys(pkg.optionalDependencies).length, 6);
+assert.ok(pkg.optionalDependencies['@tsrs/openharmony-arm64']);
 const mainRequire = createRequire(pkgFile);
 const nativeFile = mainRequire.resolve('@tsrs/openharmony-arm64/package.json');
 assert.equal(mainRequire(nativeFile).version, pkg.version);

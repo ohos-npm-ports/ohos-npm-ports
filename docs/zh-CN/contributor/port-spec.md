@@ -80,7 +80,7 @@ prepare() {
 
 下载以 SHA-256 为键缓存在 `${NPM_PORTS_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/npm-ports}/downloads`。缓存命中仍重新校验，主包、槽位和重复构建在同一文件系统内共享，CI 不配置跨任务缓存保存。`npm-ports clean <port>` 删除主包和独立槽位的 `build/` 以及 `artifacts/`，保留配方、补丁、测试和下载缓存。
 
-预览线可设置 `upstream_tag`。当 npm 预览版本与源码 tag 或 commit 没有可靠映射时，必须设置 `bump=false` 并说明耦合原因，避免自动升级生成错配 PR。独立版本变量、固定工具链版本或 commit 锁定的资源由维护者配套升级，不能随主版本误更新。
+预览线可设置 `upstream_tag`。当源码 tag 只需省略 npm 预发布后缀时，可在源码目录或 resource URL 中使用 Bash 表达式 `${version%%-*}`，bump 会按基础 semver 计算对应资源的下载地址和摘要，不需要额外的版本变量。当 npm 预览版本与源码 tag 或 commit 没有可靠映射时，必须设置 `bump=false` 并说明耦合原因，避免自动升级生成错配 PR。独立版本变量、固定工具链版本或 commit 锁定的资源由维护者配套升级，不能随主版本误更新。
 
 ## 4. 生命周期与执行规则
 
