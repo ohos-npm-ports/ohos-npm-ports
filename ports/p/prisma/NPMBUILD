@@ -27,8 +27,8 @@ prepare() {
   # ohos-npm-ports: @ohos-npm-ports/prisma ${version}
   #
   # 构建方式：
-  #   1. 下载官方 prisma@${version} tarball，打 patch 改写 manifest
-  #   2. 零编译重打包：上游全部内容（patch 过的 manifest 在内）进发布目录
+  #   1. 下载官方 prisma@${version} tarball，改写依赖 manifest
+  #   2. 零编译重打包：上游全部内容（改写后的 manifest 在内）进发布目录
   #   3. npm pack 成 tarball 后做 drop-in 冒烟（node + bun 双运行时）
   #
   # Prisma 8 no longer ships the Rust engine resolver that prisma 5 bundled:
@@ -56,7 +56,7 @@ prepare() {
 build() {
   echo "=== build: 校验 manifest 与入口 ==="
   cd "${build_dir}/src"
-  patch -p1 <"${work_dir}/patches/0002-update-package-json.patch"
+  manifest_set_dependency dependencies package.json '@prisma/composer-cli' "npm:@ohos-npm-ports/prisma-composer-cli@${version}"
   grep -qF "\"@prisma/composer-cli\": \"npm:@ohos-npm-ports/prisma-composer-cli@${version}\"," package.json
 
   # Prisma 8 removed the bundled engine resolver; guard the premise of this
