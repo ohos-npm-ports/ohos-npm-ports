@@ -1,6 +1,8 @@
 [
   ".github/workflows/ci.yml",
   "cli/build.mjs",
+  "cli/manifest.mjs",
+  "cli/normalize.mjs",
   "cli/port.mjs",
   "cli/runtime.sh",
   "cli/semver.mjs",

@@ -140,15 +140,17 @@ test('tool versions are exact', () => {
   for (const [name, version] of Object.entries(versions)) assert.match(version, /^\d+\.\d+\.\d+$/, name);
 });
 
-test('workflow files that change the build are in both push and pull_request paths', () => {
+test('all framework and infrastructure tests run in the detect job', () => {
+  assert.match(step('Test framework and infrastructure', job('detect-changes')), /node --test test\/\*\.test\.mjs \.github\/scripts\/\*\.test\.mjs/);
+});
+
+test('workflow and infrastructure files are in both push and pull_request paths', () => {
   const blocks = [
     workflow.slice(workflow.indexOf('  push:'), workflow.indexOf('  pull_request:')),
     workflow.slice(workflow.indexOf('  pull_request:'), workflow.indexOf('\npermissions:')),
   ];
   for (const block of blocks) {
-    for (const file of ['.github/workflows/ci.yml', '.github/scripts/ci-workflow.test.mjs']) {
-      assert.ok(block.includes(`"${file}"`), file);
-    }
-    for (const directory of ['cli', 'test']) assert.ok(block.includes(`"${directory}/**"`), directory);
+    assert.ok(block.includes('".github/workflows/ci.yml"'));
+    for (const directory of ['.github/scripts', 'cli', 'test']) assert.ok(block.includes(`"${directory}/**"`), directory);
   }
 });
