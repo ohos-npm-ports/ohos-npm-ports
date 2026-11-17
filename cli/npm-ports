@@ -116,7 +116,7 @@ try {
     });
     console.log(`Created ${port.relative}`);
     if (!port.version || !port.sha256) console.log('Fill in version and sha256 before linting.');
-    console.log(`Next: npm-ports lint ${port.pkgname} && npm-ports package ${port.pkgname}`);
+    console.log(`Next: npm-ports lint ${port.pkgname} && npm-ports test ${port.pkgname}`);
     openEditor(port);
   } else if (command === 'edit') {
     if (args.length !== 1 || args[0].startsWith('--')) throw new Error('edit accepts exactly one port');

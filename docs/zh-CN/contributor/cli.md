@@ -31,8 +31,8 @@ npm-ports edit <port>
 - `--set-name` 覆盖默认发布短名。scoped 上游默认按 `scope/name` → `scope-name` 扁平化。
 - `--set-version` 指定上游版本，而不是默认的最新版本。
 - `--no-fetch` 不访问 registry，未确定的版本和 SHA-256 留待手工填写。
-- 生成 `ports/<首字母>/<port>/NPMBUILD`，已有 port 不会被覆盖。
-- 骨架包含下载校验、解包和基础发布短名改写。移植补丁和实际构建逻辑需要继续完善。
+- 生成 `ports/<首字母>/<port>/NPMBUILD` 和最小 `test.mjs`，已有 port 不会被覆盖。
+- 骨架包含下载校验、解包、基础发布短名改写以及安装后的包名和版本检查。移植补丁、实际构建逻辑和真实功能测试需要继续完善。
 
 `npm-ports create` 和 `npm-ports edit` 都会打开 NPMBUILD。编辑器依次取 `VISUAL`、`EDITOR`，未设置时使用 vim。`npm-ports edit` 一次只接受一个 port，可直接使用版本线短名定位目标配方。
 
