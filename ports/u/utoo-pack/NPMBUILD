@@ -2,13 +2,14 @@
 pkgname="utoo-pack"
 upstream="@utoo/pack"
 version="1.5.31"
-revision=3
+revision=4
 # npm 包与 utoo/next.js 固定 commit 需人工配套升级。
 bump=false
 source="https://registry.npmjs.org/@utoo/pack/-/pack-${version}.tgz"
 sha256="d7f1a2442bc65259f791dbb625c4a4a63a20bba39e2969ea9fa05a6b95559dcb"
+utoo_commit="0e838fbfa1105d68dfdd2c1fc4f79fb1c1feebbd"
 resource "utoo" \
-  "https://codeload.github.com/utooland/utoo/tar.gz/0e838fbfa1105d68dfdd2c1fc4f79fb1c1feebbd" \
+  "https://codeload.github.com/utooland/utoo/tar.gz/${utoo_commit}" \
   "28f208e1280fc01aa05d8ec5663b7ced5a6907da44c7361cb5be6a818a7d9c64"
 resource "next" \
   "https://codeload.github.com/utooland/next.js/tar.gz/815238d6a4a18958c43a6875a86026d20a424dac" \
@@ -41,9 +42,17 @@ build() {
   export RUSTC_BOOTSTRAP=1
   export CARGO_TARGET_DIR="$build_dir/target"
   export CARGO_PROFILE_RELEASE_LTO=false
-  export VERGEN_GIT_SHA=0e838fbfa1105d68dfdd2c1fc4f79fb1c1feebbd
+  export VERGEN_GIT_SHA="$utoo_commit"
   export VERGEN_GIT_DIRTY=false
   export CC=cc CXX=c++
+  source_date_epoch="$(stat -c %Y Cargo.toml)"
+  build_date="$(date -u -d "@${source_date_epoch}" '+%b %e %Y')"
+  build_time="$(date -u -d "@${source_date_epoch}" '+%H:%M:%S')"
+  cflags_reproducible='-Wno-builtin-macro-redefined'
+  cflags_reproducible+=" -D__DATE__='\"${build_date}\"'"
+  cflags_reproducible+=" -D__TIME__='\"${build_time}\"'"
+  export CC_SHELL_ESCAPED_FLAGS=1
+  export CFLAGS="${CFLAGS:-} ${cflags_reproducible}"
   cargo build --locked --release -p pack-napi --features plugin -j "${CARGO_BUILD_JOBS:-2}"
 }
 
