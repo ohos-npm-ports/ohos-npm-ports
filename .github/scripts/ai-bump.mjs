@@ -22,10 +22,15 @@ function run(command, args) {
 }
 
 function output(command, args) {
-  return execFileSync(command, args, {
-    encoding: 'utf8',
-    maxBuffer: 50 * 1024 * 1024,
-  }).trim();
+  try {
+    return execFileSync(command, args, {
+      encoding: 'utf8',
+      maxBuffer: 50 * 1024 * 1024,
+    }).trim();
+  } catch (error) {
+    const detail = error.stderr?.toString().trim() || error.stdout?.toString().trim() || error.message;
+    throw new Error(`${command} ${args.join(' ')} failed: ${detail}`);
+  }
 }
 
 function writeFile(path, text) {
@@ -55,6 +60,32 @@ function runUrl(env = process.env) {
 function clip(text, limit = 50000) {
   if (text.length <= limit) return text;
   return `${text.slice(0, limit)}\n\n内容过长，完整信息见流水线日志。`;
+}
+
+function logTail(text, limit = 12000) {
+  const normalized = text.replace(/\u001b\[[0-9;]*[A-Za-z]/g, '').replace(/\r/g, '');
+  if (normalized.length <= limit) return normalized;
+  return `较早的日志已省略。\n${normalized.slice(-limit)}`;
+}
+
+export function collectFailureContext(state, execute = output) {
+  const runs = JSON.parse(execute('gh', [
+    'api', `repos/${state.repository}/actions/runs?head_sha=${state.headSha}&event=pull_request&per_page=100`,
+  ])).workflow_runs ?? [];
+  const latest = runs.find((run) => run.name === 'CI' && run.status === 'completed');
+  if (latest?.conclusion !== 'failure') return '';
+  const pages = JSON.parse(execute('gh', [
+    'api', '--paginate', '--slurp', `repos/${state.repository}/actions/runs/${latest.id}/jobs?per_page=100&filter=latest`,
+  ]));
+  const jobs = pages.flatMap((page) => page.jobs ?? []);
+  const failures = jobs.filter((job) => job.conclusion === 'failure' && job.name !== 'conclusion');
+  const sections = [`最近完成的 CI：${latest.html_url}`];
+  for (const job of failures) {
+    const log = execute('gh', ['api', '--allow-escape-sequences', `repos/${state.repository}/actions/jobs/${job.id}/logs`]);
+    sections.push(`失败任务：${job.name}\n${job.html_url}\n${logTail(log)}`);
+  }
+  if (failures.length === 0) sections.push('没有可读取的具体失败任务日志。');
+  return clip(sections.join('\n\n'));
 }
 
 function readIfPresent(path) {
@@ -136,6 +167,7 @@ function dockerArguments(state, env = process.env, withKey = false) {
     '-v', `${env.GITHUB_WORKSPACE}:/workspace`,
     '-v', `${reportDirectory(env)}:/report`,
     '-w', '/workspace',
+    '-e', `GITHUB_SHA=${state.headSha}`,
   ];
   if (withKey) args.push('-e', 'DEEPSEEK_API_KEY');
   return args;
@@ -184,6 +216,7 @@ function prepare(env = process.env) {
     portDirectory,
     port,
     runUrl: runUrl(env),
+    failureContext: collectFailureContext({ repository: env.GITHUB_REPOSITORY, headSha: pr.head.sha }),
   };
   writeFile(statePath(env), `${JSON.stringify(state, null, 2)}\n`);
   appendFileSync(env.GITHUB_OUTPUT, `port=${portDirectory}\n`);
@@ -196,14 +229,16 @@ function promptFor(state) {
 
 仓库位于 /workspace，PR 标题：${state.title}
 只允许修改 ${state.portDirectory}/ 内已有 Git 跟踪的源文件。若需要新增源文件，修复完成后必须按仓库相对路径把最终内容复制到 /report/new-files/，例如 /report/new-files/${state.portDirectory}/test.mjs 或 /report/new-files/${state.portDirectory}/ohos/helper.cjs。未按此声明的工作区新文件会作为构建产物清理。目标上游版本必须保持为 ${state.port.version}，不得通过降级、删除测试、跳过检查或屏蔽错误来制造成功。
-
-先执行 npm-ports package ${state.portDirectory} 复现失败。查看 git diff HEAD^ HEAD 了解本次升级，检查现有补丁和构建参数，必要时对照上游同版本源码与变更。保留已有的 OpenHarmony 适配，不要修改其他 port、CLI、文档或工作流，不要执行 git commit 或 git push，不要读取或输出 DEEPSEEK_API_KEY。
+${state.failureContext ? `\n以下是当前提交最近完成的失败 CI 信息：\n${state.failureContext}\n` : ''}
+先根据失败信息定位问题，再执行 npm-ports package ${state.portDirectory} 复现构建失败。consumer 失败要重点检查对应平台和 test.mjs 的日志。查看 git diff HEAD^ HEAD 了解本次升级，检查现有补丁和构建参数，必要时对照上游同版本源码与变更。保留已有的 OpenHarmony 适配，不要修改其他 port、CLI、文档或工作流，不要执行 git commit 或 git push，不要读取或输出 DEEPSEEK_API_KEY。
 
 修复后必须实际执行并通过：
 npm-ports lint ${state.portDirectory}
 npm-ports package ${state.portDirectory}
+npm-ports pack ${state.portDirectory} --no-build
+npm-ports test ${state.portDirectory} --no-build
 
-最后把简洁的中文报告写入 /report/report.md，从二级标题开始，按“现象”“根因”“修复”“验证”组织。只有真实命令通过后才能写验证成功。`;
+最后把简洁的中文报告写入 /report/report.md，从二级标题开始，按“现象”“根因”“修复”“验证”组织。只有真实命令通过后才能写验证成功。如果失败只发生在其他桌面平台，不要声称已在当前容器验证该平台，最终仍由完整 CI 验证。`;
 }
 
 function repair(env = process.env) {
@@ -256,14 +291,14 @@ function verify(env = process.env) {
   try {
     run('docker', [
       ...dockerArguments(state, env),
-      image, 'sh', '-lc', 'export PATH="/workspace/cli:$PATH"\nnpm-ports lint "$1" && npm-ports package "$1"', 'sh', state.portDirectory,
+      image, 'sh', '-lc', 'export PATH="/workspace/cli:$PATH"\nnpm-ports lint "$1" && npm-ports package "$1" && npm-ports pack "$1" --no-build && npm-ports test "$1" --no-build', 'sh', state.portDirectory,
     ]);
   } finally {
     restoreOwnership(env);
     run('git', ['clean', '-fdx', '--', state.portDirectory]);
   }
   if (output('git', ['diff', '--name-only'])) {
-    throw new Error('The independent build modified tracked files after the repair was staged');
+    throw new Error('Independent verification modified tracked files after the repair was staged');
   }
   const patch = `${reportDirectory(env)}/repair.patch`;
   rmSync(patch, { force: true });
