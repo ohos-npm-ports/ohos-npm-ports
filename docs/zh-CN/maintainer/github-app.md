@@ -44,7 +44,7 @@ bump 和 AI 修复工作流使用 GitHub App 创建、更新 PR。GitHub 为防�
 cli/npm-ports bump-pr "${{ matrix.port }}"
 ```
 
-`ai-bump.yml` 只在维护者添加 `request-ai-bump` 标签后运行。AI 容器只获得 `DEEPSEEK_API_KEY`，不会获得 App 私钥、App Token 或仓库凭据。独立构建验证通过后，宿主环境才生成 App Token，在全新克隆中应用修复补丁、amend 原提交并使用 force-with-lease 推送。
+`ai-bump.yml` 只在维护者添加 `request-ai-bump` 标签后运行。工作流读取失败 CI 日志，为 AI 提供错误上下文。AI 容器只获得 `DEEPSEEK_API_KEY`，不会获得 App 私钥、App Token 或仓库凭据。独立构建和功能测试通过后，宿主环境才生成 App Token，在全新克隆中应用修复补丁、amend 原提交并使用 force-with-lease 推送。
 
 不要把 App Token 写入 job output，也不要传给执行 NPMBUILD 或 AI 命令的容器。
 

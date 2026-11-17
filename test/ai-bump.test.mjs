@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import {
   assertPortPaths,
   assertTargetVersion,
+  collectFailureContext,
   singlePortDirectory,
   stageRepair,
 } from '../.github/scripts/ai-bump.mjs';
@@ -93,6 +94,36 @@ test('AI repair cannot fix a bump by restoring the old version', () => {
   assert.throws(() => assertTargetVersion({ version: '4.1.0' }, { version: '4.0.9' }), /target version/);
 });
 
+test('AI repair collects logs from the latest completed failure', () => {
+  const state = { repository: 'example/ports', headSha: 'abc123' };
+  const execute = (command, args) => {
+    assert.equal(command, 'gh');
+    const endpoint = args.at(-1);
+    if (endpoint.includes('/actions/runs?')) return JSON.stringify({ workflow_runs: [
+      { id: 12, name: 'CI', status: 'in_progress', conclusion: null },
+      { id: 10, name: 'CI', status: 'completed', conclusion: 'failure', html_url: 'run-url' },
+      { id: 9, name: 'CI', status: 'completed', conclusion: 'failure', html_url: 'older-run-url' },
+    ] });
+    if (endpoint.includes('/actions/runs/10/jobs')) return JSON.stringify([{ jobs: [
+      { id: 42, name: 'consumer (ports/d/demo, openharmony-arm64)', conclusion: 'failure', html_url: 'job-url' },
+      { id: 43, name: 'conclusion', conclusion: 'failure', html_url: 'summary-url' },
+    ] }]);
+    if (endpoint.endsWith('/actions/jobs/42/logs')) {
+      assert.ok(args.includes('--allow-escape-sequences'));
+      return '\u001b[31mAssertionError\u001b[0m: consumer failed';
+    }
+    throw new Error(`Unexpected request: ${endpoint}`);
+  };
+  const context = collectFailureContext(state, execute);
+  assert.match(context, /run-url/);
+  assert.match(context, /consumer \(ports\/d\/demo, openharmony-arm64\)/);
+  assert.match(context, /AssertionError: consumer failed/);
+  assert.doesNotMatch(context, /older-run-url|summary-url|\u001b/);
+  assert.equal(collectFailureContext(state, () => JSON.stringify({ workflow_runs: [
+    { id: 11, name: 'CI', status: 'completed', conclusion: 'success' },
+  ] })), '');
+});
+
 test('AI bump is a label-triggered same-repository workflow without status labels', () => {
   assert.match(workflow, /types: \[labeled\]/);
   assert.match(workflow, /github\.event\.label\.name == 'request-ai-bump'/);
@@ -109,6 +140,7 @@ test('AI credentials are scoped to their respective steps', () => {
   assert.doesNotMatch(repair, /GH_TOKEN|app-token/);
   assert.match(publish, /GH_TOKEN: \$\{\{ steps\.app-token\.outputs\.token \}\}/);
   assert.doesNotMatch(publish, /DEEPSEEK_API_KEY/);
+  assert.match(workflow, /actions: read/);
   assert.match(workflow, /persist-credentials: false/);
 });
 
@@ -126,12 +158,16 @@ test('AI containers configure PATH and use the documented npm-ports command', ()
   const prompt = script.slice(script.indexOf('function promptFor'), script.indexOf('function repair'));
   const repair = script.slice(script.indexOf('function repair'), script.indexOf('function stageRepair'));
   const verify = script.slice(script.indexOf('function verify'), script.indexOf('function comment'));
+  const docker = script.slice(script.indexOf('function dockerArguments'), script.indexOf('function prepare'));
+  assert.match(docker, /GITHUB_SHA=\$\{state\.headSha\}/);
   assert.match(prompt, /npm-ports lint \$\{state\.portDirectory\}/);
   assert.match(prompt, /npm-ports package \$\{state\.portDirectory\}/);
+  assert.match(prompt, /npm-ports pack \$\{state\.portDirectory\} --no-build/);
+  assert.match(prompt, /npm-ports test \$\{state\.portDirectory\} --no-build/);
   assert.doesNotMatch(prompt, /cli\/npm-ports/);
   assert.match(repair, /export PATH="\/workspace\/cli:\$PATH"/);
   assert.match(verify, /export PATH="\/workspace\/cli:\$PATH"/);
-  assert.match(verify, /npm-ports lint "\$1" && npm-ports package "\$1"/);
+  assert.match(verify, /npm-ports lint "\$1" && npm-ports package "\$1" && npm-ports pack "\$1" --no-build && npm-ports test "\$1" --no-build/);
 });
 
 test('AI restores report ownership before the host reads it', () => {
