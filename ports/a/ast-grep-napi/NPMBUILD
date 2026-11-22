@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 pkgname="ast-grep-napi"
 upstream="@ast-grep/napi"
-version="0.51.2"
+version="0.51.3"
 revision=1
 dist_tag="latest"
 
@@ -9,10 +9,10 @@ packages=(
   "build/ast-grep-napi-${version}"
 )
 source="https://github.com/ast-grep/ast-grep/archive/refs/tags/${version}.tar.gz"
-sha256="757f89f99b2559af7314b460c8397fda0221ad6b958cf6439358b83ef0364ada"
+sha256="2a40a15fe439f24e24a88d2dd0bd3433a47bbd5032d43f6a4aa2522e397e8def"
 resource "npm" \
   "https://registry.npmjs.org/@ast-grep/napi/-/napi-${version}.tgz" \
-  "36f9a05bfd9f45220ebefbe6fd5ea38d6cac58d241a97848c200636e0dce054a"
+  "91d549063c79f299a0497778cb037bc165d0b385aba597b4da32c70d46c05ad7"
 build() {
   extract_source "$NPMBUILD_WORK_DIR/ast-grep-${version}"
   cd "$NPMBUILD_WORK_DIR/ast-grep-${version}"
