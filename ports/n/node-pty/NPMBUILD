@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+pkgname="node-pty"
+upstream="node-pty"
+version="1.1.0"
+revision=1
+dist_tag="latest"
+
+packages=("build/${pkgname}-${version}")
+
+source="https://registry.npmjs.org/node-pty/-/node-pty-${version}.tgz"
+sha256="c7517f19083ddcb05f276904680eb2b11a6b5ecab778b8e4e5685a6d645b3f60"
+
+build() {
+  # node-pty 的 loader（lib/utils.js loadNativeModule）依次查
+  # build/Release、build/Debug、prebuilds/<platform>-<arch>。
+  # OpenHarmony 上 process.platform=openharmony、arch=arm64，随包发布
+  # prebuilds/openharmony-arm64/pty.node 即可命中，无需 patch loader，
+  # 也无需平台子包。install 脚本（node scripts/prebuild.js）发现该目录
+  # 存在即跳过 node-gyp rebuild；其他平台保持上游行为（darwin/win32 用
+  # 包内上游预编译产物，linux 等仍回退安装期 node-gyp 源码构建）。
+
+  extract_source "$NPMBUILD_WORK_DIR/${pkgname}-${version}"
+  cd "$NPMBUILD_WORK_DIR/${pkgname}-${version}"
+
+  # 安装构建依赖（node-gyp 不在 devDependencies；node-addon-api 是正式
+  # 依赖），跳过 install 脚本避免触发上游 install 钩子
+  npm install --ignore-scripts --no-save node-gyp
+  export PATH="$(pwd)/node_modules/.bin:$PATH"
+
+  # 容器 clang 即 OHOS SDK clang（aarch64-linux-ohos host），node-gyp
+  # 已识别 openharmony/arm64 并自行解析 node 头文件，直编即可
+  node-gyp rebuild --jobs=max
+
+  mkdir -p prebuilds/openharmony-arm64
+  cp build/Release/pty.node prebuilds/openharmony-arm64/pty.node
+  # loader 优先 build/Release，删掉本地构建目录，让包内检查反映真实
+  # 发布布局（build/ 不在上游 files 列表，消费者本来也看不到它）
+  rm -rf build
+
+  # 真实加载验证：容器内 OHOS node 可 dlopen 未签名产物
+  node -e "
+    const m = require('./prebuilds/openharmony-arm64/pty.node');
+    for (const k of ['fork', 'open', 'resize', 'process']) {
+      if (typeof m[k] !== 'function') throw new Error('missing export: ' + k);
+    }
+    console.log('native module loads, exports ok');
+  "
+}
+
+package() {
+  cd "$NPMBUILD_WORK_DIR/${pkgname}-${version}"
+
+  # OpenHarmony 产物必须存在且为上架布局
+  [ -f prebuilds/openharmony-arm64/pty.node ]
+  # 其他平台预编译原样保留（上游 npm 包自带 darwin/win32）
+  [ -f prebuilds/darwin-arm64/pty.node ]
+  [ -f prebuilds/darwin-x64/pty.node ]
+  [ -f prebuilds/win32-x64/pty.node ]
+  [ -f prebuilds/win32-arm64/pty.node ]
+
+  # loader 规则必须命中 OpenHarmony 槽位（lib/utils.js 的目录命名）
+  node -e "
+    const path = require('path');
+    const dirs = ['build/Release', 'build/Debug', process.platform + '-' + process.arch];
+    if (dirs[2] !== 'openharmony-arm64') throw new Error('unexpected loader key: ' + dirs[2]);
+  "
+}
