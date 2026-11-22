@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 pkgname="prisma"
 upstream="prisma"
-version="8.0.0-rc.33"
+version="8.0.0-rc.34"
 revision=1
 dist_tag="latest"
 composer_version="0.38.0"
@@ -14,7 +14,7 @@ packages=(
 work_dir="$NPMBUILD_DIR"
 build_dir="$NPMBUILD_WORK_DIR"
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
-sha256="355a35f560c27a9ebfa8fbf9cf66f2382877b5aafa5c014b172f311a9f1983f2"
+sha256="c3bbc539613e7be8e73c6c8c6a2884751c7ab221dd7aeceb8489177d399029cd"
 resource "composer" \
   "https://registry.npmjs.org/@prisma/composer/-/composer-${composer_version}.tgz" \
   "6b4a068ba7680515cc08eb977c18cb847198f9cc2021ca56442ff6e3b5df389a"
